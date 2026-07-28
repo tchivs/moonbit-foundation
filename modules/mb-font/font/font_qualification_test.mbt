@@ -330,3 +330,13 @@ test "font-complete-public freezes DejaVu Sans 2.37 public facts" {
   let v = font.glyph_id(57UL).unwrap()
   inspect(font.kerning(a, v).unwrap(), content="-131")
 }
+
+///|
+test "font-complete-public qualifies generated collection workflows" {
+  fail("Phase 103 generated collection workflow is not implemented")
+}
+
+///|
+test "font-complete-public qualifies licensed DejaVu collection faces" {
+  fail("Phase 103 licensed collection workflow is not implemented")
+}
