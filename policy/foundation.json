@@ -2290,6 +2290,7 @@
             "pub fn FontCollection::face_count(Self) -> Result[UInt64, @error.CoreError]",
             "pub fn FontCollection::face_profile(Self, UInt64) -> Result[FontFaceProfile, @error.CoreError]",
             "pub fn FontCollection::open(@bytes.ByteView, FontCollectionLimits, @budget.Budget) -> Result[Self, @error.CoreError]",
+            "pub fn FontCollection::open_face(Self, UInt64, FontLimits, @budget.Budget) -> Result[Font, @error.CoreError]",
             "pub(all) enum FontCollectionDsigStatus {",
             "  Absent",
             "  PresentUnverified",
