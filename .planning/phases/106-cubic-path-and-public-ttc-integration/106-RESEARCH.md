@@ -2,7 +2,7 @@
 
 **Researched:** 2026-07-29
 **Domain:** Static OpenType CFF1 publication through format-neutral MoonBit font and cubic-path APIs
-**Confidence:** HIGH for repository seams and locked behavior; MEDIUM for the final capacity-byte constant and rational-to-`Double` policy
+**Confidence:** HIGH — repository seams, the 64-byte logical path-command authority unit, the capacity seam, the common-facts extraction boundary, and the rational-to-`Double` policy are resolved for planning
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
@@ -333,7 +333,7 @@ fn type2_rational_to_double(value : Type2Rational) -> Result[Double, CoreError] 
 }
 ```
 
-This quotient-plus-remainder rule avoids first rounding a potentially large unreduced numerator; MoonBit documents `Double` as IEEE-754 binary64 and explicit `to_double()` conversions, but the exact project rule still needs golden tests. [CITED: https://docs.moonbitlang.com/ja/latest/language/fundamentals.html] [ASSUMED]
+**RESOLVED — quotient-plus-remainder rational-to-`Double`:** this is the Phase 106 publication rule. It avoids first rounding a potentially large unreduced numerator, validates the positive-denominator invariant, and converts only the integral quotient, remainder, and denominator at the final `Point2` boundary. Exact positive, negative, integral, fractional, and large-cancellation goldens must freeze the rule. MoonBit documents `Double` as IEEE-754 binary64 and explicit `to_double()` conversions. [CITED: https://docs.moonbitlang.com/ja/latest/language/fundamentals.html] [VERIFIED: CONTEXT.md D-06 + Phase 106 research resolution]
 
 ### Closed outline dispatch
 
@@ -399,24 +399,27 @@ The dispatch location is recommended from the existing `Font::outline_after_deco
 
 ## Assumptions Log
 
-| # | Claim | Section | Risk if Wrong |
-|---|-------|---------|---------------|
-| A1 | Quotient-plus-remainder rational-to-`Double` is the chosen deterministic publication rule. | Code Examples | Coordinate goldens differ; planner should lock the rule in the first path-sink task. |
-| A2 | A conservative fixed per-`PathCommand` capacity byte unit can represent real backing-store authority across all targets. | Open Questions | Exact budget goldens or D-10 fail; planner must verify/freeze the unit before coding query charges. |
+All previously open planning decisions are resolved below; no `[ASSUMED]` claims remain in this research. [VERIFIED: Phase 106 research resolution]
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact path-command capacity byte unit**
-   - What we know: current glyf lowering charges `command_bound * 32`, but CFF `CubicTo` has the largest payload and MoonBit does not document a stable public enum layout. [VERIFIED: `outline.mbt:415-433`; official MoonBit FFI docs describe payload layout as unstable]
-   - Recommendation: define one conservative format-neutral authority unit in `mb-core` (recommended starting value: 64 bytes per command) and freeze exact/one-short budgets; do not change the existing glyf `32`-byte formula in this phase. [ASSUMED]
+1. **RESOLVED — logical path-command authority is 64 bytes per command**
+   - `CubicTo` is the largest public command payload: three `Point2` values contain six `Double` values, totaling 48 logical payload bytes. The remaining 16 bytes provide conservative portable headroom for the enum discriminator, alignment, and representation overhead. [VERIFIED: `path.mbt:13-23`, `affine.mbt:21-29` + Phase 106 research resolution]
+   - The 64-byte value is the project's conservative, target-independent **logical budget authority unit** for CFF path backing capacity. It is not a claim that any host heap, compiler backend, or MoonBit runtime uses exactly 64 physical bytes for each command. [VERIFIED: CONTEXT.md D-10 + Phase 106 research resolution]
+   - Query authority computes `path_capacity * 64` with checked arithmetic, includes it in the largest-single-allocation comparison, preflights it before construction, and freezes exact and one-short byte/allocation-size budget tests. Existing glyf's `command_bound * 32` formula remains unchanged. [VERIFIED: `outline.mbt:415-433`, CONTEXT.md D-10/D-17 + Phase 106 research resolution]
 
-2. **Exact public capacity seam name**
-   - What we know: `Path2` owns the private array and D-10 explicitly permits a minimal capacity-aware seam. [VERIFIED: `path.mbt` + CONTEXT.md]
-   - Recommendation: use `Path2::with_capacity(Int)`; do not expose the array, a capacity getter, or CFF-specific constructor. [VERIFIED: design recommendation under CONTEXT.md discretion]
+2. **RESOLVED — the public capacity seam is `Path2::with_capacity(Int)`**
+   - Implement `Path2::with_capacity(capacity : Int) -> Path2` with `Array::new(capacity~)` inside `mb-core`; `Path2::new`, `push`, `get`, `each`, and all existing behavior remain unchanged. [VERIFIED: `path.mbt:32-69`, MoonBit `Array::new(capacity=...)` documentation + Phase 106 research resolution]
+   - Do not expose the command array, a capacity getter, a CFF-specific constructor, or a caller-provided mutable command array. The seam stays format-neutral and preserves `Path2` ownership. [VERIFIED: CONTEXT.md D-01/D-10 + Phase 106 research resolution]
 
-3. **CFF common-facts extraction boundary**
-   - What we know: the current common helper is glyf-specific and CFF validation omits retained kern. [VERIFIED: codebase inspection]
-   - Recommendation: extract an outline-neutral common decoder/admitter parameterized by already-decoded `MaxpFacts`; keep both existing glyf wrappers and formulas stable. [VERIFIED: design recommendation from code seam]
+3. **RESOLVED — CFF common facts are extracted inside the existing atomic CFF admission**
+   - The extraction occurs after selected directory/profile/checksum validation and before `cff_combine_staged_charge`, combined caller/ancestor preflight, final revision guard, and `commit_atomic`. No common table is reparsed after commit. [VERIFIED: `cff_admission.mbt:1144-1227,1612-1748`, CONTEXT.md D-09/D-11/D-12 + Phase 106 research resolution]
+   - `AdmittedCff1` retains the selected `DirectoryFacts` and CFF-compatible `RequiredTableFacts`, including `head`, CFF `maxp` 0.5 facts, `hhea`, `OS/2`, selected `cmap`, and bounded `KernState`; its existing `CffMetricFacts` retains face-local `hmtx` and metric cardinality, while per-GID retained execution facts own bounds/path capacity. [VERIFIED: `cff_admission.mbt:3-28,294-405`, `tables.mbt:73-80`, CONTEXT.md D-15 + Phase 106 research resolution]
+   - Extract an outline-neutral common decoder/admitter that accepts already-decoded outline-specific `MaxpFacts` and incorporates bounded kern discovery/work into the CFF combined charge. The existing glyf wrappers, admission ordering, formulas, charges, and public behavior remain byte-for-byte on their current branch. [VERIFIED: `tables.mbt:255-601,2092-2190`, `kern.mbt:291-302`, CONTEXT.md D-17 + Phase 106 research resolution]
+
+4. **RESOLVED — rational publication uses quotient plus remainder**
+   - Use the `type2_rational_to_double` rule shown in Code Examples after the exact effective matrix has produced a positive-denominator rational. Convert to `Point2` only at command emission; do not use `Double` in VM, current-point, matrix, or sink arithmetic. [VERIFIED: `cff_type2_fixed.mbt:625-681`, CONTEXT.md D-06 + Phase 106 research resolution]
+   - Freeze exact positive/negative integral, fractional, large-cancellation, and transformed cubic-control goldens. [VERIFIED: Phase 106 research resolution]
 
 ## Environment Availability
 
@@ -473,7 +476,7 @@ OWASP ASVS 5.0 is primarily a web-application standard; its safe untrusted-input
 
 ### Tertiary (LOW confidence)
 
-- Exact 64-byte conservative capacity unit and quotient-plus-remainder conversion choice; both are explicitly logged as assumptions and must be frozen by direct tests.
+- None. The earlier discretionary capacity, constructor, common-facts, and conversion questions are resolved above; implementation tests verify the decisions rather than choose among alternatives. [VERIFIED: Phase 106 research resolution]
 
 ## Metadata
 
@@ -481,8 +484,10 @@ OWASP ASVS 5.0 is primarily a web-application standard; its safe untrusted-input
 - Standard stack: HIGH — no new dependency; local versions match the project pin.
 - Architecture: HIGH — derived from locked decisions and direct source inspection.
 - Public/common-facts integration: HIGH — current missing retained facts and kern are directly visible.
-- Capacity byte constant: LOW until the first implementation task freezes it.
-- Rational-to-`Double` rule: MEDIUM as a deterministic recommendation, pending golden tests.
+- Capacity byte constant: HIGH — resolved as a 64-byte conservative logical authority unit, explicitly not a host-heap-size claim.
+- Capacity API seam: HIGH — resolved as `Path2::with_capacity(Int)` over `Array::new(capacity~)`.
+- Common-facts extraction: HIGH — resolved inside the existing atomic CFF admission before combined preflight/commit, with glyf formulas unchanged.
+- Rational-to-`Double` rule: HIGH — resolved as quotient plus remainder at the final `Point2` boundary, with exact goldens required.
 - Pitfalls: HIGH — each maps to a current concrete seam or locked invariant.
 
 **Research date:** 2026-07-29
