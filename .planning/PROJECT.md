@@ -18,6 +18,16 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Next:** Choose and plan the next code-first milestone from the validated backlog.
 
+## Current Milestone: v0.34 CFF Outline Foundation
+
+**Goal:** Let MoonBit library authors open bounded static OpenType CFF1 fonts and query reusable cubic `Path2` outlines through the existing opaque `Font` contract without a foreign font stack.
+
+**Target features:**
+
+- Parse and validate the CFF1 table, Top/Private DICT data, charsets, encodings, CharStrings, global/local subroutines, and name-keyed or CID-keyed selection under explicit limits and budgets.
+- Execute bounded Type 2 charstrings into the shared cubic `Path2` model while treating hints as validated non-rendering data and preserving atomic publication under malformed input, mutation, recursion, stack, subroutine, path, and work limits.
+- Integrate static CFF1 outline selection with existing `Font` metrics, Unicode mapping, glyph identity, kerning boundaries, TTC/OTC selection, and four-target generated/licensed qualification without changing existing static `glyf` behavior.
+
 ## Latest Milestone: v0.33 TrueType Collection Adapters
 
 **Goal:** Let MoonBit library authors select and admit one supported TrueType face from bounded TTC/OTC bytes, then use the existing metrics, mapping, kerning, and outline contracts unchanged.
@@ -39,17 +49,20 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - Expose checked font metrics, Unicode `cmap` resolution, simple/composite `glyf` outlines, and basic legacy `kern` pair adjustments through a portable MoonBit API.
 - Qualify malformed-input rejection, deterministic public behavior, representative real-font interoperability, and identical execution on `js`, `wasm`, `wasm-gc`, and `native`.
 
-## Next Milestone Goals
+## v0.34 Scope Boundaries
 
-- Select one reusable code-first capability with a concrete downstream consumer rather than widening release automation by default.
-- Preserve exact four-target, pure-MoonBit, bounded-resource, dependency, and evidence contracts established through v0.33.
-- Treat WOFF admission, CFF/CFF2 execution, variable-font instantiation, shaping, hinting, rasterization, and publication as separate decisions requiring explicit scope and acceptance criteria.
+- Static CFF1 outline admission is the vertical slice; CFF2 `blend`/variation-store execution remains deferred with variable-font instantiation.
+- WOFF1/WOFF2 admission remains deferred because it requires a reusable zlib/DEFLATE extraction or Brotli/transformed-table boundary independent from CFF semantics.
+- Shaping, bidi, hint execution, rasterization, color/bitmap glyphs, subsetting, authoring, discovery, host-font lookup, publication, and stability promotion remain out of scope.
+- Exact four-target, pure-MoonBit, bounded-resource, dependency, API, fixture, and evidence contracts from v0.33 remain mandatory compatibility baselines.
 
 ## Requirements
 
 ### Active
 
-- None for v0.33; all milestone requirements are validated.
+- [ ] Library authors can open bounded static OpenType CFF1 fonts and receive the existing opaque `Font` with reusable cubic `Path2` outlines.
+- [ ] Malformed or resource-exhausting CFF/Type 2 programs fail deterministically before publishing partial font state or geometry or charging an uncommitted transaction.
+- [ ] Maintainers can reproduce generated, licensed, hostile, existing-`glyf`, collection, and four-target CFF qualification evidence.
 
 ### Validated
 
@@ -264,4 +277,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after shipping the v0.33 milestone*
+*Last updated: 2026-07-28 after starting the v0.34 CFF Outline Foundation milestone*
