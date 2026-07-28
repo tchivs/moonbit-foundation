@@ -99,6 +99,22 @@ fn font_collection_wb_font_limits(source_length : UInt64) -> FontLimits {
 }
 
 ///|
+fn font_collection_wb_assert_budget_unchanged(
+  before : @budget.ResourceLimits,
+  budget : @budget.Budget,
+) -> Unit raise {
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.allocation_size() == before.allocation_size(), content="true")
+  inspect(after.width() == before.width(), content="true")
+  inspect(after.height() == before.height(), content="true")
+  inspect(after.pixels() == before.pixels(), content="true")
+  inspect(after.depth() == before.depth(), content="true")
+  inspect(after.work() == before.work(), content="true")
+}
+
+///|
 fn font_collection_wb_checksum(
   source : Array[Byte],
   start : Int,
@@ -1036,5 +1052,90 @@ test "collection final revision guard rejects mutate-restoration atomically" {
 
 ///|
 test "collection qualification preserves mid-operation mutation atomicity" {
-  fail("Phase 103 private collection mutation gate is not implemented")
+  let open_owner = font_collection_wb_owner(font_collection_wb_two_face_v2())
+  let open_budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=248UL,
+      allocations=2UL,
+      allocation_size=80UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=86UL,
+    ),
+  )
+  let open_before = open_budget.remaining()
+  let mut open_callbacks = 0
+  let open_error = FontCollection::open_after_normalize(
+    open_owner.view(),
+    font_collection_wb_limits(),
+    open_budget,
+    fn() {
+      open_callbacks = open_callbacks + 1
+      font_collection_wb_mutate_restore(open_owner, 132UL)
+    },
+  ).unwrap_err()
+  inspect(open_callbacks, content="1")
+  inspect(open_error.category() == @error.ErrorCategory::State, content="true")
+  inspect(open_error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    open_error.operation() == Some("font-collection-open"),
+    content="true",
+  )
+  inspect(
+    open_error.context() == Some("font-collection-source-revision-drift"),
+    content="true",
+  )
+  inspect(open_error.source_offset() is None, content="true")
+  inspect(open_error.requested() is None, content="true")
+  inspect(open_error.limit() is None, content="true")
+  font_collection_wb_assert_budget_unchanged(open_before, open_budget)
+
+  let select_source = font_collection_wb_selected_ttc()
+  let select_owner = font_collection_wb_owner(select_source)
+  let collection = FontCollection::open(
+    select_owner.view(),
+    font_collection_wb_selected_collection_limits(
+      select_source.length().to_uint64(),
+    ),
+    font_collection_wb_selected_budget(),
+  ).unwrap()
+  let select_budget = font_collection_wb_selected_budget()
+  let select_before = select_budget.remaining()
+  let mut select_callbacks = 0
+  let select_error = collection
+    .open_face_after_admit(
+      0UL,
+      font_collection_wb_selected_font_limits(
+        select_source.length().to_uint64(),
+      ),
+      select_budget,
+      fn() {
+        select_callbacks = select_callbacks + 1
+        font_collection_wb_mutate_restore(select_owner, 20UL)
+      },
+    )
+    .unwrap_err()
+  inspect(select_callbacks, content="1")
+  inspect(
+    select_error.category() == @error.ErrorCategory::State,
+    content="true",
+  )
+  inspect(
+    select_error.code() == @error.ErrorCode::InvalidRange,
+    content="true",
+  )
+  inspect(
+    select_error.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(
+    select_error.context() == Some("font-collection-source-revision-drift"),
+    content="true",
+  )
+  inspect(select_error.source_offset() is None, content="true")
+  inspect(select_error.requested() is None, content="true")
+  inspect(select_error.limit() is None, content="true")
+  font_collection_wb_assert_budget_unchanged(select_before, select_budget)
 }
