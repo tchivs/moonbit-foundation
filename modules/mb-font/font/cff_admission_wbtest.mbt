@@ -46,12 +46,27 @@ fn cff_wb_table(charstring_type? : UInt64 = 2UL, omit_type? : Bool = true) -> By
 }
 
 ///|
+fn cff_wb_otf_tables(tables : Array[GeneratedFontTable]) -> Bytes {
+  let sfnt = font_wb_build_sfnt(tables)
+  let patched = font_wb_put_u32_at_copy(sfnt, 0, 0x4F54544FUL)
+  let output = font_wb_bytes_array(patched)
+  let head_offset = font_wb_table_offset(patched, b"head")
+  generated_put_u32_at(output, head_offset + 8, 0UL)
+  let adjustment = (
+      0xB1B0AFBAUL - generated_checksum(Bytes::from_array(output.copy()))
+    ) &
+    0xFFFFFFFFUL
+  generated_put_u32_at(output, head_offset + 8, adjustment)
+  Bytes::from_array(output)
+}
+
+///|
 fn cff_wb_otf(cff : Bytes, num_glyphs? : UInt64 = 1UL) -> Bytes {
-  let sfnt = font_wb_build_sfnt([
+  cff_wb_otf_tables([
     font_wb_table(b"CFF ", cff),
+    font_wb_table(b"head", generated_head_table()),
     font_wb_table(b"maxp", cff_wb_maxp_table(num_glyphs)),
   ])
-  font_wb_put_u32_at_copy(sfnt, 0, 0x4F54544FUL)
 }
 
 ///|
@@ -88,7 +103,7 @@ test "CFF1 tracer admits default and explicit Type 2 then resolves GID zero" {
     inspect(admitted.charstrings.count, content="1")
     inspect(admitted.glyph.gid, content="0")
     inspect(admitted.glyph.charstring.view.length(), content="1")
-    inspect(admitted.glyph.charstring.view.get(0UL).unwrap(), content="b'\\x0e'")
+    inspect(admitted.glyph.charstring.view.get(0UL).unwrap(), content="b'\\x0E'")
     inspect(admitted.glyph.environment.private_dict is Some(_), content="true")
     inspect(admitted.glyph.environment.local_subrs.count, content="0")
     inspect(admitted.glyph.environment.font_matrix.length(), content="6")
@@ -114,4 +129,84 @@ test "CFF1 tracer rejects non-Type-2 before publication or budget charge" {
   inspect(budget.remaining().bytes() == before.bytes(), content="true")
   inspect(budget.remaining().allocations() == before.allocations(), content="true")
   inspect(budget.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "CFF1 tracer freezes profile capability precedence before CFF traversal" {
+  let malformed_cff = b"\x01"
+  let cases = [
+    cff_wb_otf_tables([
+      font_wb_table(b"CFF ", malformed_cff),
+      font_wb_table(b"glyf", b""),
+      font_wb_table(b"head", generated_head_table()),
+      font_wb_table(b"loca", b""),
+      font_wb_table(b"maxp", cff_wb_maxp_table(1UL)),
+    ]),
+    cff_wb_otf_tables([
+      font_wb_table(b"CFF ", malformed_cff),
+      font_wb_table(b"CFF2", b""),
+      font_wb_table(b"head", generated_head_table()),
+      font_wb_table(b"maxp", cff_wb_maxp_table(1UL)),
+    ]),
+    cff_wb_otf_tables([
+      font_wb_table(b"CFF ", malformed_cff),
+      font_wb_table(b"CFF ", malformed_cff),
+      font_wb_table(b"head", generated_head_table()),
+      font_wb_table(b"maxp", cff_wb_maxp_table(1UL)),
+    ]),
+    cff_wb_otf_tables([
+      font_wb_table(b"CFF ", malformed_cff),
+      font_wb_table(b"fvar", b""),
+      font_wb_table(b"head", generated_head_table()),
+      font_wb_table(b"maxp", cff_wb_maxp_table(1UL)),
+    ]),
+  ]
+  for source in cases {
+    let error = admit_cff1_structure(
+      font_wb_view(source),
+      font_wb_limits(),
+      cff_wb_budget(),
+      0UL,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+    inspect(error.context() == Some("font-cff-profile"), content="true")
+  }
+  let wrong_maxp = cff_wb_otf_tables([
+    font_wb_table(b"CFF ", malformed_cff),
+    font_wb_table(b"head", generated_head_table()),
+    font_wb_table(b"maxp", generated_maxp_table()),
+  ])
+  let error = admit_cff1_structure(
+    font_wb_view(wrong_maxp),
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(error.context() == Some("font-cff-maxp-profile"), content="true")
+}
+
+///|
+test "CFF1 tracer reports exact stage on one-short structure and charges nothing" {
+  let exact = cff_wb_table()
+  for item in [
+    (3, "font-cff-header"),
+    (12, "font-cff-name-index-terminal-extent"),
+    (22, "font-cff-top-index-terminal-extent"),
+    (32, "font-cff-charstrings-index-terminal-extent"),
+  ] {
+    let truncated = Bytes::from_array(font_wb_bytes_array(exact)[0:item.0])
+    let budget = cff_wb_budget()
+    let before = budget.remaining()
+    let error = admit_cff1_structure(
+      font_wb_view(cff_wb_otf(truncated)),
+      font_wb_limits(),
+      budget,
+      0UL,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.context() == Some(item.1), content="true")
+    inspect(budget.remaining().bytes() == before.bytes(), content="true")
+    inspect(budget.remaining().work() == before.work(), content="true")
+  }
 }

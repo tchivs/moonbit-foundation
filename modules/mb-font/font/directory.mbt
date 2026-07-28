@@ -448,6 +448,7 @@ fn parse_font_directory_at(
   expected_table_count : UInt64?,
   limits : FontLimits,
   checksum_mode : FontChecksumMode,
+  allow_static_cff1? : Bool = false,
 ) -> Result[FontDirectory, @error.CoreError] {
   if source.length() > limits.max_source_bytes() {
     return Err(
@@ -484,7 +485,8 @@ fn parse_font_directory_at(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  if signature != 0x00010000UL {
+  if signature != 0x00010000UL &&
+    !(allow_static_cff1 && signature == 0x4F54544FUL) {
     if font_unsupported_signature(signature) {
       return Err(font_capability_error("font-outline-profile"))
     }
@@ -622,7 +624,8 @@ fn parse_font_directory_at(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    if font_unsupported_table_tag(tag) {
+    if font_unsupported_table_tag(tag) &&
+      !(allow_static_cff1 && tag == 0x43464620UL) {
       return Err(font_capability_error("font-unsupported-profile"))
     }
     match previous_tag {
@@ -776,6 +779,36 @@ fn font_parse_directory_at(
       expected_table_count,
       limits,
       checksum_mode,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let tables : Array[TableWindow] = []
+  for record in legacy.records {
+    tables.push({
+      tag: record.tag,
+      checksum: record.checksum,
+      offset: record.offset,
+      length_value: record.length,
+      view: record.view,
+    })
+  }
+  Ok({ source: legacy.source, tables, work: legacy.work })
+}
+
+///|
+fn font_parse_cff1_directory(
+  source : @bytes.ByteView,
+  limits : FontLimits,
+) -> Result[DirectoryFacts, @error.CoreError] {
+  let legacy = match
+    parse_font_directory_at(
+      source,
+      0UL,
+      None,
+      limits,
+      FontChecksumMode::Standalone,
+      allow_static_cff1=true,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
