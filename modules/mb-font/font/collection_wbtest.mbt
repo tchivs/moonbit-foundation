@@ -320,6 +320,7 @@ test "selected final revision hook is atomic and successful Font retains root id
     .unwrap_err()
   inspect(callback_count, content="1")
   inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
   inspect(
     error.operation() == Some("font-collection-open-face"),
     content="true",
@@ -328,9 +329,20 @@ test "selected final revision hook is atomic and successful Font retains root id
     error.context() == Some("font-collection-source-revision-drift"),
     content="true",
   )
+  inspect(error.source_offset() is None, content="true")
+  inspect(error.requested() is None, content="true")
+  inspect(error.limit() is None, content="true")
   let after = budget.remaining()
   inspect(after.bytes() == before.bytes(), content="true")
   inspect(after.allocations() == before.allocations(), content="true")
+  inspect(
+    after.allocation_size() == before.allocation_size(),
+    content="true",
+  )
+  inspect(after.width() == before.width(), content="true")
+  inspect(after.height() == before.height(), content="true")
+  inspect(after.pixels() == before.pixels(), content="true")
+  inspect(after.depth() == before.depth(), content="true")
   inspect(after.work() == before.work(), content="true")
 
   let stable_source = font_collection_wb_selected_ttc()
@@ -351,13 +363,32 @@ test "selected final revision hook is atomic and successful Font retains root id
       font_collection_wb_selected_budget(),
     )
     .unwrap()
+  let second_font = stable_collection
+    .open_face(
+      0UL,
+      font_collection_wb_selected_font_limits(
+        stable_source.length().to_uint64(),
+      ),
+      font_collection_wb_selected_budget(),
+    )
+    .unwrap()
   inspect(font.source.length() == stable_collection.source.length(), content="true")
   inspect(font.opening_revision == stable_collection.opening_revision, content="true")
+  inspect(
+    second_font.opening_revision == stable_collection.opening_revision,
+    content="true",
+  )
   inspect(
     font.source.mutation_revision() ==
     stable_collection.source.mutation_revision(),
     content="true",
   )
+  inspect(
+    second_font.source.mutation_revision() ==
+    stable_collection.source.mutation_revision(),
+    content="true",
+  )
+  inspect(second_font.source.length() == font.source.length(), content="true")
 }
 
 ///|

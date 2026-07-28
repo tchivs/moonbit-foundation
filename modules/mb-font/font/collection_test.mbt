@@ -421,8 +421,12 @@ fn font_collection_test_read_u32(source : Bytes, offset : Int) -> UInt64 {
 }
 
 ///|
-fn font_collection_test_selected_ttc() -> Bytes {
-  let standalone = font_test_minimal_truetype()
+fn font_collection_test_read_u16(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 8) | source[offset + 1].to_uint64()
+}
+
+///|
+fn font_collection_test_selected_ttc_from(standalone : Bytes) -> Bytes {
   let directory_start = 256
   let output = Array::make(directory_start + standalone.length(), b'\x00')
   font_collection_test_put_u32(output, 0, 0x74746366UL)
@@ -435,11 +439,16 @@ fn font_collection_test_selected_ttc() -> Bytes {
   // Relocate every selected table against collection byte zero. `loca` is
   // deliberately placed before the non-zero directory while the other real
   // tables remain after it, so accidental directory-relative rebasing fails.
-  let table_count = 10
+  let table_count = font_collection_test_read_u16(standalone, 4).to_int()
+  let mut loca_record = 0
   for index = 0; index < table_count; index = index + 1 {
     let record = 12 + index * 16
     let old_offset = font_collection_test_read_u32(standalone, record + 8)
-    let new_offset = if index == 6 { 20UL } else {
+    let tag = font_collection_test_read_u32(standalone, record)
+    let new_offset = if tag == 0x6C6F6361UL {
+      loca_record = record
+      32UL
+    } else {
       old_offset + directory_start.to_uint64()
     }
     font_collection_test_put_u32(
@@ -448,15 +457,136 @@ fn font_collection_test_selected_ttc() -> Bytes {
       new_offset,
     )
   }
-  let loca_offset = font_collection_test_read_u32(standalone, 12 + 6 * 16 + 8)
+  let loca_offset = font_collection_test_read_u32(standalone, loca_record + 8)
   let loca_length = font_collection_test_read_u32(
     standalone,
-    12 + 6 * 16 + 12,
+    loca_record + 12,
   )
   for index = 0; index < loca_length.to_int(); index = index + 1 {
-    output[20 + index] = standalone[loca_offset.to_int() + index]
+    output[32 + index] = standalone[loca_offset.to_int() + index]
   }
   Bytes::from_array(output)
+}
+
+///|
+fn font_collection_test_selected_ttc() -> Bytes {
+  font_collection_test_selected_ttc_from(font_test_minimal_truetype())
+}
+
+///|
+fn font_collection_test_equivalence_truetype() -> Bytes {
+  let simple = font_test_simple_outline_glyf()
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    {
+      tag: b"cmap",
+      payload: font_test_cmap_format12([
+        (0x0041UL, 0x0041UL, 1UL),
+        (0x1F600UL, 0x1F600UL, 2UL),
+      ]),
+    },
+    { tag: b"glyf", payload: simple },
+    { tag: b"head", payload: font_test_head_table() },
+    {
+      tag: b"hhea",
+      payload: font_test_metric_hhea_table_with_count(3UL),
+    },
+    {
+      tag: b"hmtx",
+      payload: b"\x01\xf4\x00\x00\x02\x58\x00\x0a\x02\xbc\xff\xec",
+    },
+    {
+      tag: b"kern",
+      payload: font_test_kern_format0([(1UL, 2UL, -37)]),
+    },
+    { tag: b"loca", payload: b"\x00\x00\x00\x00\x00\x0a\x00\x0a" },
+    { tag: b"maxp", payload: font_test_maxp_table_with_glyphs(3UL) },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
+fn font_collection_test_assert_point_equal(
+  left : @math.Point2,
+  right : @math.Point2,
+) -> Unit raise {
+  inspect(left.x() == right.x(), content="true")
+  inspect(left.y() == right.y(), content="true")
+}
+
+///|
+fn font_collection_test_assert_path_equal(
+  left : @math.Path2,
+  right : @math.Path2,
+) -> Unit raise {
+  inspect(left.length() == right.length(), content="true")
+  for index = 0; index < left.length(); index = index + 1 {
+    match (left.get(index), right.get(index)) {
+      (
+        Some(@math.PathCommand::MoveTo(left_point)),
+        Some(@math.PathCommand::MoveTo(right_point)),
+      )
+      | (
+        Some(@math.PathCommand::LineTo(left_point)),
+        Some(@math.PathCommand::LineTo(right_point)),
+      ) =>
+        font_collection_test_assert_point_equal(left_point, right_point)
+      (
+        Some(@math.PathCommand::QuadTo(left_control, left_end)),
+        Some(@math.PathCommand::QuadTo(right_control, right_end)),
+      ) => {
+        font_collection_test_assert_point_equal(left_control, right_control)
+        font_collection_test_assert_point_equal(left_end, right_end)
+      }
+      (
+        Some(
+          @math.PathCommand::CubicTo(
+            left_control1,
+            left_control2,
+            left_end,
+          ),
+        ),
+        Some(
+          @math.PathCommand::CubicTo(
+            right_control1,
+            right_control2,
+            right_end,
+          ),
+        ),
+      ) => {
+        font_collection_test_assert_point_equal(left_control1, right_control1)
+        font_collection_test_assert_point_equal(left_control2, right_control2)
+        font_collection_test_assert_point_equal(left_end, right_end)
+      }
+      (
+        Some(@math.PathCommand::Close),
+        Some(@math.PathCommand::Close),
+      ) => ()
+      _ => fail("standalone and selected outline commands differ")
+    }
+  }
+}
+
+///|
+fn font_collection_test_assert_bounds_equal(
+  left : FontBounds,
+  right : FontBounds,
+) -> Unit raise {
+  inspect(left.x_min() == right.x_min(), content="true")
+  inspect(left.y_min() == right.y_min(), content="true")
+  inspect(left.x_max() == right.x_max(), content="true")
+  inspect(left.y_max() == right.y_max(), content="true")
+}
+
+///|
+fn font_collection_test_assert_line_metrics_equal(
+  left : FontLineMetrics,
+  right : FontLineMetrics,
+) -> Unit raise {
+  inspect(left.ascent() == right.ascent(), content="true")
+  inspect(left.descent() == right.descent(), content="true")
+  inspect(left.line_gap() == right.line_gap(), content="true")
 }
 
 ///|
@@ -559,8 +689,8 @@ fn font_collection_test_selected_limits(source_length : UInt64) -> FontCollectio
   FontCollectionLimits::new(
     max_source_bytes=source_length,
     max_faces=1UL,
-    max_tables_per_face=10UL,
-    max_table_records=10UL,
+    max_tables_per_face=16UL,
+    max_table_records=16UL,
     max_dsig_records=1UL,
     max_dsig_bytes=1UL,
     max_retained_bookkeeping_bytes=4096UL,
@@ -577,7 +707,7 @@ fn font_collection_test_selected_collection_limits(
   FontCollectionLimits::new(
     max_source_bytes=source_length,
     max_faces=faces,
-    max_tables_per_face=10UL,
+    max_tables_per_face=16UL,
     max_table_records=records,
     max_dsig_records=1UL,
     max_dsig_bytes=1UL,
@@ -603,13 +733,34 @@ fn font_collection_test_selected_budget() -> @budget.Budget {
 }
 
 ///|
+fn font_collection_test_selected_budget_with(
+  bytes : UInt64,
+  allocations : UInt64,
+  allocation_size : UInt64,
+  work : UInt64,
+) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations~,
+      allocation_size~,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
 fn font_collection_test_selected_font_limits(
   max_source_bytes : UInt64,
   max_work? : UInt64 = 16384UL,
 ) -> FontLimits {
   FontLimits::new(
     max_source_bytes~,
-    max_tables=10UL,
+    max_tables=16UL,
     max_table_bytes=1024UL,
     max_glyphs=16UL,
     max_name_records=16UL,
@@ -652,6 +803,135 @@ test "TTC-02 opens a cached static face against the retained collection root" {
   inspect(
     first.outline(glyph, font_test_outline_budget()).unwrap().length(),
     content="0",
+  )
+}
+
+///|
+test "TTC-02 standalone and selected faces are publicly equivalent" {
+  let standalone_source = font_collection_test_equivalence_truetype()
+  let head_offset = font_test_table_offset(standalone_source, b"head")
+  inspect(
+    font_collection_test_read_u32(
+      standalone_source,
+      head_offset.to_int() + 8,
+    ) != 0UL,
+    content="true",
+  )
+  let standalone_owner = font_collection_test_owner(standalone_source)
+  let standalone = Font::open(
+    standalone_owner.view(),
+    font_collection_test_selected_font_limits(
+      standalone_source.length().to_uint64(),
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+
+  let collection_source = font_collection_test_selected_ttc_from(
+    standalone_source,
+  )
+  let collection_owner = font_collection_test_owner(collection_source)
+  let collection = FontCollection::open(
+    collection_owner.view(),
+    font_collection_test_selected_collection_limits(
+      collection_source.length().to_uint64(),
+      1UL,
+      11UL,
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let selected = collection
+    .open_face(
+      0UL,
+      font_collection_test_selected_font_limits(
+        collection_source.length().to_uint64(),
+      ),
+      font_collection_test_selected_budget(),
+    )
+    .unwrap()
+
+  inspect(
+    standalone.units_per_em().unwrap() == selected.units_per_em().unwrap(),
+    content="true",
+  )
+  font_collection_test_assert_bounds_equal(
+    standalone.global_bounds().unwrap(),
+    selected.global_bounds().unwrap(),
+  )
+  font_collection_test_assert_line_metrics_equal(
+    standalone.hhea_line_metrics().unwrap(),
+    selected.hhea_line_metrics().unwrap(),
+  )
+  font_collection_test_assert_line_metrics_equal(
+    standalone.typographic_line_metrics().unwrap(),
+    selected.typographic_line_metrics().unwrap(),
+  )
+
+  let standalone_bmp = standalone.glyph_for_scalar(0x0041).unwrap()
+  let selected_bmp = selected.glyph_for_scalar(0x0041).unwrap()
+  let standalone_supplementary = standalone
+    .glyph_for_scalar(0x1F600)
+    .unwrap()
+  let selected_supplementary = selected.glyph_for_scalar(0x1F600).unwrap()
+  inspect(
+    standalone_bmp.value() == selected_bmp.value(),
+    content="true",
+  )
+  inspect(
+    standalone_supplementary.value() == selected_supplementary.value(),
+    content="true",
+  )
+  inspect(
+    standalone.glyph_id(1UL).unwrap().value() ==
+    selected.glyph_id(1UL).unwrap().value(),
+    content="true",
+  )
+
+  for pair in [
+    (standalone_bmp, selected_bmp),
+    (standalone_supplementary, selected_supplementary),
+  ] {
+    let (standalone_glyph, selected_glyph) = pair
+    let standalone_metrics = standalone
+      .horizontal_metrics(standalone_glyph)
+      .unwrap()
+    let selected_metrics = selected.horizontal_metrics(selected_glyph).unwrap()
+    inspect(
+      standalone_metrics.advance_width() == selected_metrics.advance_width(),
+      content="true",
+    )
+    inspect(
+      standalone_metrics.left_side_bearing() ==
+      selected_metrics.left_side_bearing(),
+      content="true",
+    )
+    inspect(
+      standalone_metrics.right_side_bearing() ==
+      selected_metrics.right_side_bearing(),
+      content="true",
+    )
+    match (standalone_metrics.bounds(), selected_metrics.bounds()) {
+      (Some(left), Some(right)) =>
+        font_collection_test_assert_bounds_equal(left, right)
+      (None, None) => ()
+      _ => fail("standalone and selected glyph bounds differ")
+    }
+  }
+
+  inspect(
+    standalone.kerning(standalone_bmp, standalone_supplementary).unwrap() ==
+    selected.kerning(selected_bmp, selected_supplementary).unwrap(),
+    content="true",
+  )
+  inspect(
+    standalone.kerning(standalone_supplementary, standalone_bmp).unwrap() ==
+    selected.kerning(selected_supplementary, selected_bmp).unwrap(),
+    content="true",
+  )
+  font_collection_test_assert_path_equal(
+    standalone
+    .outline(standalone_bmp, font_test_composite_budget())
+    .unwrap(),
+    selected.outline(selected_bmp, font_test_composite_budget()).unwrap(),
   )
 }
 
@@ -751,6 +1031,186 @@ test "TTC-02 selection gates revision then index then cached profile" {
     content="true",
   )
   font_collection_test_assert_budget_unchanged(profile_before, profile_budget)
+}
+
+///|
+test "TTC-02 selected multi-fault precedence is exact and atomic" {
+  let mixed_source = font_collection_test_multi_ttc()
+  let mixed = FontCollection::open(
+    font_collection_test_owner(mixed_source).view(),
+    FontCollectionLimits::new(
+      max_source_bytes=400UL,
+      max_faces=5UL,
+      max_tables_per_face=3UL,
+      max_table_records=8UL,
+      max_dsig_records=1UL,
+      max_dsig_bytes=1UL,
+      max_retained_bookkeeping_bytes=440UL,
+      max_work=252UL,
+    ).unwrap(),
+    font_collection_test_pair_budget(440UL, 2UL, 200UL, 252UL),
+  ).unwrap()
+
+  let index_budget = font_collection_test_selected_budget()
+  let index_before = index_budget.remaining()
+  let index = mixed
+    .open_face(5UL, font_test_limits(), index_budget)
+    .unwrap_err()
+  inspect(
+    index.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(index.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    index.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(index.context() == Some("font-collection-face-index"), content="true")
+  inspect(index.requested() == Some(5UL), content="true")
+  inspect(index.limit() == Some(5UL), content="true")
+  font_collection_test_assert_budget_unchanged(index_before, index_budget)
+
+  let depleted = font_collection_test_selected_budget_with(0UL, 0UL, 0UL, 0UL)
+  let depleted_before = depleted.remaining()
+  let profile = mixed
+    .open_face(
+      1UL,
+      font_collection_test_selected_font_limits(1UL, max_work=1UL),
+      depleted,
+    )
+    .unwrap_err()
+  inspect(
+    profile.category() == @error.ErrorCategory::Capability,
+    content="true",
+  )
+  inspect(
+    profile.code() == @error.ErrorCode::CapabilityUnavailable,
+    content="true",
+  )
+  inspect(
+    profile.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(
+    profile.context() == Some("font-collection-face-profile"),
+    content="true",
+  )
+  inspect(profile.source_offset() is None, content="true")
+  inspect(profile.requested() is None, content="true")
+  inspect(profile.limit() is None, content="true")
+  font_collection_test_assert_budget_unchanged(depleted_before, depleted)
+
+  let malformed_standalone = font_test_minimal_truetype().to_array()
+  font_collection_test_put_u32(malformed_standalone, 64, 0UL)
+  font_collection_test_put_u32(malformed_standalone, 72, 0UL)
+  let malformed_source = font_collection_test_selected_ttc_from(
+    Bytes::from_array(malformed_standalone),
+  )
+  let malformed = FontCollection::open(
+    font_collection_test_owner(malformed_source).view(),
+    font_collection_test_selected_limits(
+      malformed_source.length().to_uint64(),
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let malformed_budget = font_collection_test_selected_budget_with(
+    1UL,
+    3UL,
+    640UL,
+    65536UL,
+  )
+  let malformed_before = malformed_budget.remaining()
+  let structural = malformed
+    .open_face(0UL, font_test_limits(), malformed_budget)
+    .unwrap_err()
+  inspect(structural.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    structural.code() == @error.ErrorCode::InvalidEncoding,
+    content="true",
+  )
+  inspect(structural.operation() == Some("font-open"), content="true")
+  inspect(structural.context() == Some("font-head-length"), content="true")
+  font_collection_test_assert_budget_unchanged(
+    malformed_before,
+    malformed_budget,
+  )
+
+  let missing_standalone = font_test_minimal_truetype().to_array()
+  missing_standalone[63] = b'e'
+  let cmap_offset = font_collection_test_read_u32(
+    Bytes::from_array(missing_standalone.copy()),
+    12 + 16 + 8,
+  )
+  missing_standalone[cmap_offset.to_int()] = (
+    missing_standalone[cmap_offset.to_int()].to_uint64() ^ 1UL
+  ).to_byte()
+  let missing_source = font_collection_test_selected_ttc_from(
+    Bytes::from_array(missing_standalone),
+  )
+  let missing = FontCollection::open(
+    font_collection_test_owner(missing_source).view(),
+    font_collection_test_selected_limits(missing_source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let missing_budget = font_collection_test_selected_budget()
+  let missing_before = missing_budget.remaining()
+  let required = missing
+    .open_face(0UL, font_test_limits(), missing_budget)
+    .unwrap_err()
+  inspect(required.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    required.code() == @error.ErrorCode::InvalidEncoding,
+    content="true",
+  )
+  inspect(required.operation() == Some("font-open"), content="true")
+  inspect(required.context() == Some("font-required-table"), content="true")
+  inspect(required.source_offset() is None, content="true")
+  inspect(required.requested() is None, content="true")
+  inspect(required.limit() is None, content="true")
+  font_collection_test_assert_budget_unchanged(missing_before, missing_budget)
+
+  let bad = font_collection_test_selected_ttc().to_array()
+  let bad_cmap_offset = font_collection_test_read_u32(
+    Bytes::from_array(bad.copy()),
+    256 + 12 + 16 + 8,
+  )
+  bad[bad_cmap_offset.to_int()] = (
+    bad[bad_cmap_offset.to_int()].to_uint64() ^ 1UL
+  ).to_byte()
+  let bad_source = Bytes::from_array(bad)
+  let bad_collection = FontCollection::open(
+    font_collection_test_owner(bad_source).view(),
+    font_collection_test_selected_limits(bad_source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let checksum_budget = font_collection_test_selected_budget_with(
+    1UL,
+    3UL,
+    640UL,
+    65536UL,
+  )
+  let checksum_before = checksum_budget.remaining()
+  let checksum = bad_collection
+    .open_face(0UL, font_test_limits(), checksum_budget)
+    .unwrap_err()
+  inspect(checksum.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    checksum.code() == @error.ErrorCode::InvalidEncoding,
+    content="true",
+  )
+  inspect(checksum.operation() == Some("font-open"), content="true")
+  inspect(checksum.context() == Some("font-table-checksum"), content="true")
+  inspect(checksum.source_offset() == Some(bad_cmap_offset), content="true")
+  inspect(
+    checksum.requested() ==
+    Some(font_collection_test_read_u32(bad_source, 256 + 12 + 16 + 12)),
+    content="true",
+  )
+  inspect(checksum.limit() is None, content="true")
+  font_collection_test_assert_budget_unchanged(
+    checksum_before,
+    checksum_budget,
+  )
 }
 
 ///|
@@ -882,18 +1342,65 @@ test "TTC-02 selected D plus T charge is exact and every failure is atomic" {
     short_work.category() == @error.ErrorCategory::Resource,
     content="true",
   )
+  inspect(
+    short_work.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(short_work.operation() == Some("font-open"), content="true")
   inspect(short_work.context() == Some("max-work"), content="true")
+  inspect(short_work.requested() == Some(exact_work), content="true")
+  inspect(short_work.limit() == Some(exact_work - 1UL), content="true")
   font_collection_test_assert_budget_unchanged(
     short_work_before,
     short_work_budget,
   )
   for item in [
-    (expected_bytes - 1UL, 3UL, 640UL, exact_work),
-    (expected_bytes, 2UL, 640UL, exact_work),
-    (expected_bytes, 3UL, 639UL, exact_work),
-    (expected_bytes, 3UL, 640UL, exact_work - 1UL),
+    (
+      expected_bytes - 1UL,
+      3UL,
+      640UL,
+      exact_work,
+      "bytes",
+      expected_bytes,
+      expected_bytes - 1UL,
+    ),
+    (
+      expected_bytes,
+      2UL,
+      640UL,
+      exact_work,
+      "allocations",
+      3UL,
+      2UL,
+    ),
+    (
+      expected_bytes,
+      3UL,
+      639UL,
+      exact_work,
+      "allocation_size",
+      640UL,
+      639UL,
+    ),
+    (
+      expected_bytes,
+      3UL,
+      640UL,
+      exact_work - 1UL,
+      "work",
+      exact_work,
+      exact_work - 1UL,
+    ),
   ] {
-    let (bytes, allocations, allocation_size, work) = item
+    let (
+      bytes,
+      allocations,
+      allocation_size,
+      work,
+      context,
+      requested,
+      limit,
+    ) = item
     let budget = @budget.Budget::new(
       @budget.ResourceLimits::new(
         bytes~,
@@ -911,6 +1418,11 @@ test "TTC-02 selected D plus T charge is exact and every failure is atomic" {
       .open_face(0UL, exact_limits, budget)
       .unwrap_err()
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+    inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    inspect(error.operation() == Some("budget_charge"), content="true")
+    inspect(error.context() == Some(context), content="true")
+    inspect(error.requested() == Some(requested), content="true")
+    inspect(error.limit() == Some(limit), content="true")
     font_collection_test_assert_budget_unchanged(before, budget)
   }
   let short_source_budget = font_collection_test_selected_budget()
@@ -928,7 +1440,20 @@ test "TTC-02 selected D plus T charge is exact and every failure is atomic" {
     short_source.category() == @error.ErrorCategory::Resource,
     content="true",
   )
+  inspect(
+    short_source.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(short_source.operation() == Some("font-open"), content="true")
   inspect(short_source.context() == Some("max-source-bytes"), content="true")
+  inspect(
+    short_source.requested() == Some(source.length().to_uint64()),
+    content="true",
+  )
+  inspect(
+    short_source.limit() == Some(source.length().to_uint64() - 1UL),
+    content="true",
+  )
   font_collection_test_assert_budget_unchanged(
     short_source_before,
     short_source_budget,
@@ -965,9 +1490,78 @@ test "TTC-02 selected D plus T charge is exact and every failure is atomic" {
     ancestor_error.category() == @error.ErrorCategory::Resource,
     content="true",
   )
+  inspect(
+    ancestor_error.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(
+    ancestor_error.operation() == Some("budget_charge"),
+    content="true",
+  )
   inspect(ancestor_error.context() == Some("bytes"), content="true")
+  inspect(ancestor_error.requested() == Some(expected_bytes), content="true")
+  inspect(
+    ancestor_error.limit() == Some(expected_bytes - 1UL),
+    content="true",
+  )
   font_collection_test_assert_budget_unchanged(ancestor_before, ancestor)
   font_collection_test_assert_budget_unchanged(child_before, child)
+
+  let work_ancestor = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=expected_bytes,
+      allocations=3UL,
+      allocation_size=640UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=exact_work,
+    ),
+  )
+  let work_child = work_ancestor.child(work_ancestor.remaining()).unwrap()
+  work_ancestor.charge(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=1UL,
+    ),
+  ).unwrap()
+  let work_ancestor_before = work_ancestor.remaining()
+  let work_child_before = work_child.remaining()
+  let work_ancestor_error = collection
+    .open_face(0UL, exact_limits, work_child)
+    .unwrap_err()
+  inspect(
+    work_ancestor_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(
+    work_ancestor_error.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(
+    work_ancestor_error.operation() == Some("budget_charge"),
+    content="true",
+  )
+  inspect(work_ancestor_error.context() == Some("work"), content="true")
+  inspect(
+    work_ancestor_error.requested() == Some(exact_work),
+    content="true",
+  )
+  inspect(
+    work_ancestor_error.limit() == Some(exact_work - 1UL),
+    content="true",
+  )
+  font_collection_test_assert_budget_unchanged(
+    work_ancestor_before,
+    work_ancestor,
+  )
+  font_collection_test_assert_budget_unchanged(work_child_before, work_child)
 
   let bad = source.to_array()
   let cmap_offset = font_collection_test_read_u32(source, 256 + 12 + 16 + 8)
@@ -998,27 +1592,52 @@ test "TTC-02 selected Fonts inherit permanent root mutation identity" {
     font_collection_test_selected_limits(source.length().to_uint64()),
     font_collection_test_selected_budget(),
   ).unwrap()
-  let font = collection
-    .open_face(0UL, font_test_limits(), font_collection_test_selected_budget())
+  let first_budget = font_collection_test_selected_budget()
+  let second_budget = font_collection_test_selected_budget()
+  let first_before = first_budget.remaining()
+  let second_before = second_budget.remaining()
+  let first = collection.open_face(0UL, font_test_limits(), first_budget).unwrap()
+  let second = collection
+    .open_face(0UL, font_test_limits(), second_budget)
     .unwrap()
-  let glyph = font.glyph_id(0UL).unwrap()
-  font_collection_test_mutate(owner, 20UL, b'\x01')
-  for error in [
-    font.units_per_em().unwrap_err(),
-    font.global_bounds().unwrap_err(),
-    font.hhea_line_metrics().unwrap_err(),
-    font.typographic_line_metrics().unwrap_err(),
-    font.glyph_for_scalar(65).unwrap_err(),
-    font.glyph_id(0UL).unwrap_err(),
-    font.horizontal_metrics(glyph).unwrap_err(),
-    font.kerning(glyph, glyph).unwrap_err(),
-    font.outline(glyph, font_test_outline_budget()).unwrap_err(),
-  ] {
-    inspect(error.category() == @error.ErrorCategory::State, content="true")
-    inspect(
-      error.context() == Some("font-source-revision-drift"),
-      content="true",
-    )
+  let first_glyph = first.glyph_id(0UL).unwrap()
+  let second_glyph = second.glyph_id(0UL).unwrap()
+  inspect(
+    first_before.bytes() - first_budget.remaining().bytes() ==
+    second_before.bytes() - second_budget.remaining().bytes(),
+    content="true",
+  )
+  inspect(
+    first_before.work() - first_budget.remaining().work() ==
+    second_before.work() - second_budget.remaining().work(),
+    content="true",
+  )
+  let original = owner.view().get(32UL).unwrap()
+  font_collection_test_mutate(
+    owner,
+    32UL,
+    (original.to_uint64() ^ 1UL).to_byte(),
+  )
+  font_collection_test_mutate(owner, 32UL, original)
+  for item in [(first, first_glyph), (second, second_glyph)] {
+    let (font, glyph) = item
+    for error in [
+      font.units_per_em().unwrap_err(),
+      font.global_bounds().unwrap_err(),
+      font.hhea_line_metrics().unwrap_err(),
+      font.typographic_line_metrics().unwrap_err(),
+      font.glyph_for_scalar(65).unwrap_err(),
+      font.glyph_id(0UL).unwrap_err(),
+      font.horizontal_metrics(glyph).unwrap_err(),
+      font.kerning(glyph, glyph).unwrap_err(),
+      font.outline(glyph, font_test_outline_budget()).unwrap_err(),
+    ] {
+      inspect(error.category() == @error.ErrorCategory::State, content="true")
+      inspect(
+        error.context() == Some("font-source-revision-drift"),
+        content="true",
+      )
+    }
   }
 }
 
