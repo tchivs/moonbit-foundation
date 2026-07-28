@@ -261,6 +261,46 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
   ).unwrap()
   inspect(admitted.charge.allocation_size, content="2048")
 
+  let predefined_short = cff_hostile_budget(
+    predefined.length().to_uint64(),
+    64UL,
+    2047UL,
+    65536UL,
+  )
+  let predefined_before = predefined_short.remaining()
+  let predefined_error = admit_cff1_structure(
+    font_wb_view(predefined),
+    font_wb_limits(),
+    predefined_short,
+    2UL,
+  ).unwrap_err()
+  inspect(
+    predefined_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(
+    predefined_error.context() == Some("allocation_size"),
+    content="true",
+  )
+  inspect(
+    predefined_short.remaining().bytes() == predefined_before.bytes(),
+    content="true",
+  )
+  inspect(
+    predefined_short.remaining().allocations() ==
+    predefined_before.allocations(),
+    content="true",
+  )
+  inspect(
+    predefined_short.remaining().allocation_size() ==
+    predefined_before.allocation_size(),
+    content="true",
+  )
+  inspect(
+    predefined_short.remaining().work() == predefined_before.work(),
+    content="true",
+  )
+
   let custom = cff_wb_otf(
     cff_name_wb_table(
       charset_mode=0UL,
