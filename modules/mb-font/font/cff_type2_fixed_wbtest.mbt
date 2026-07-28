@@ -132,6 +132,122 @@ fn type2_wb_number(value : Int64) -> CffNumber {
 }
 
 ///|
+fn type2_wb_fraction(
+  negative : Bool,
+  magnitude : UInt64,
+  denominator : UInt64,
+) -> CffNumber {
+  { negative, magnitude, denominator }
+}
+
+///|
+test "Type 2 Q16 conversion cancels huge CFF ratios before range checks" {
+  let near_one = type2_wb_fraction(
+    false,
+    999999999999999999UL,
+    1000000000000000000UL,
+  )
+  inspect(
+    cff_number_to_type2_fixed(near_one, "q16-large-ratio").unwrap().raw,
+    content="65535",
+  )
+  inspect(
+    cff_number_to_type2_fixed(
+      type2_wb_fraction(
+        true,
+        999999999999999999UL,
+        1000000000000000000UL,
+      ),
+      "q16-negative-large-ratio",
+    ).unwrap().raw,
+    content="-65535",
+  )
+
+  let denominator = 100000000000000UL
+  let negative_limit = type2_wb_fraction(
+    true,
+    3276800000000000000UL,
+    denominator,
+  )
+  let positive_max = type2_wb_fraction(
+    false,
+    3276799998474121093UL,
+    denominator,
+  )
+  inspect(
+    cff_number_to_type2_fixed(negative_limit, "q16-negative-limit").unwrap().raw,
+    content="-2147483648",
+  )
+  inspect(
+    cff_number_to_type2_fixed(positive_max, "q16-positive-max").unwrap().raw,
+    content="2147483647",
+  )
+  inspect(
+    cff_number_to_type2_fixed(
+      type2_wb_fraction(false, 3276800000000000000UL, denominator),
+      "q16-positive-out-of-range",
+    )
+    is Err(_),
+    content="true",
+  )
+  inspect(
+    cff_number_to_type2_fixed(
+      type2_wb_fraction(true, 3276800001525878907UL, denominator),
+      "q16-negative-out-of-range",
+    )
+    is Err(_),
+    content="true",
+  )
+}
+
+///|
+test "Type 2 rational add multiply and matrix scale cancel before products" {
+  let reciprocal_left = type2_rational(4000000001L, 3000000001L).unwrap()
+  let reciprocal_right = type2_rational(3000000001L, 4000000001L).unwrap()
+  let product = type2_rational_mul(reciprocal_left, reciprocal_right).unwrap()
+  inspect(product.numerator, content="1")
+  inspect(product.denominator, content="1")
+
+  let sum = type2_rational_add(
+    type2_rational(1L, 4000000000L).unwrap(),
+    type2_rational(1L, 6000000000L).unwrap(),
+  ).unwrap()
+  inspect(sum.numerator, content="1")
+  inspect(sum.denominator, content="2400000000")
+
+  let near_one = type2_wb_fraction(
+    false,
+    999999999999999999UL,
+    1000000000000000000UL,
+  )
+  let zero = type2_wb_number(0L)
+  let scaled = type2_matrix_compose(
+    [near_one, zero, zero, near_one, zero, zero],
+    None,
+    1000UL,
+  ).unwrap()
+  let point = type2_matrix_apply(
+    scaled,
+    type2_fixed_integer(1L).unwrap(),
+    type2_fixed_integer(1L).unwrap(),
+  ).unwrap()
+  inspect(type2_rational_floor(point.0).unwrap(), content="999")
+  inspect(type2_rational_ceil(point.0).unwrap(), content="1000")
+  inspect(type2_rational_floor(point.1).unwrap(), content="999")
+  inspect(type2_rational_ceil(point.1).unwrap(), content="1000")
+
+  let huge = type2_rational(9223372036854775807L, 1L).unwrap()
+  inspect(
+    type2_rational_mul(huge, type2_rational(2L, 1L).unwrap()) is Err(_),
+    content="true",
+  )
+  inspect(
+    type2_rational_add(huge, type2_rational(1L, 1L).unwrap()) is Err(_),
+    content="true",
+  )
+}
+
+///|
 fn type2_wb_matrix(
   a : Int64,
   b : Int64,
