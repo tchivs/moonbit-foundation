@@ -27,7 +27,9 @@ findings:
   warning: 0
   info: 0
   total: 1
-status: issues_found
+status: resolved
+resolved: 2026-07-28T07:27:54Z
+fix_report: 103-REVIEW-FIX.md
 ---
 
 # Phase 103: Code Review Report
@@ -35,13 +37,13 @@ status: issues_found
 **Reviewed:** 2026-07-28T07:19:00Z
 **Depth:** deep
 **Files Reviewed:** 18
-**Status:** issues_found
+**Status:** resolved
 
 ## Summary
 
 Final pass 3 reviewed HEAD `642a7e4caa3e8f6c961556167b06a5216543ea27`, including implementation commit `1e5ba954` and resolution-doc commit `642a7e4c`. The direct pass-2 mutation is fixed: plain, spaced, and mixed-case `continue-on-error` keys are rejected on every parsed step, and the FontQualification runner step is closed to exact `name`, `shell`, and `run` entries.
 
-The CI boundary is still bypassable through YAML-equivalent quoted keys. Both single-quoted and double-quoted `continue-on-error` keys on the pinned toolchain installation step are accepted by the policy. This leaves CR-06 open because a failed installer can be normalized away and the qualification can proceed with an already-present toolchain; the evidence validator records that toolchain but does not compare it to the exact pinned policy identity.
+The final residual boundary is closed by `052d6fa4`. Workflow mapping keys are normalized and unquoted before fail-closed comparison, checkout and pinned-installer steps have exact schemas, and job/prerequisite/runner/upload continuation variants are rejected. Captured and recorded evidence is now compared to the exact toolchain identity derived from the separately locked project policy before any target record is written.
 
 Pass 3 targeted validation passed:
 
@@ -53,6 +55,12 @@ Pass 3 targeted validation passed:
 - rejection of second-fixture schema drift, hostile-context drift, and failed-budget drift;
 - rejection of the original renamed Type2, SFNT-inflation, and gvar-delta probes.
 
+### Pass 3 Resolution
+
+The unchanged workflow is accepted and all 16 single-quoted, double-quoted, cased, and spaced job/prerequisite/runner/upload continuation mutations are rejected. Policy substitutions for the pinned Moon, moonc, and moonrun fields are rejected. Runtime capture and evidence records require exactly `moon 0.1.20260713 (75c7e1f 2026-07-13)`, `moonc v0.10.4+2cc641edf (2026-07-15)`, and `moonrun 0.1.20260713 (75c7e1f 2026-07-13)`.
+
+The complete four-target lane passed with 14 focused gates and 152 package tests per target, 29 evidence negatives, and semantic hash `af508a8c549bc5ebbeb4710960e2eabb7978dacbf4059e3efe0c83da4259f8d4`.
+
 ### Prior Finding Revalidation
 
 | Finding | Final result | Evidence |
@@ -62,7 +70,7 @@ Pass 3 targeted validation passed:
 | CR-03 | Closed | Canonical nested facts, every fixture schema, exact corpus digest, and failed-budget atomicity rejected targeted mutations. |
 | CR-04 | Closed for completed swaps | Target/comparison post-init link swaps were rejected without outside writes. |
 | CR-05 | Closed | Original CFF/WOFF/variable renamed aliases remain rejected and production/negative contracts remain locked. |
-| CR-06 | **Open** | Direct step continuation is fixed, but quoted YAML keys on an unclosed prerequisite step remain accepted. |
+| CR-06 | Closed | Quoted/cased/spaced keys are normalized before comparison, prerequisite schemas are closed, and evidence is bound to the exact pinned policy identity. |
 | WR-01 | Closed | Comparison evidence remains schema-closed, read back, and record/semantic hash checked. |
 | WR-02 | Closed | The semantic payload retains ordered identities for all eight focused sources plus commit/tree identity. |
 
@@ -109,6 +117,8 @@ foreach ($quotedKey in @("'continue-on-error'", '"continue-on-error"')) {
   } 'must not continue on error'
 }
 ```
+
+**Resolution:** Fixed in `052d6fa4`. The dependency-free restricted YAML parser now normalizes plain, single-quoted, and double-quoted mapping keys and rejects unsupported quoted forms fail-closed. The exact checkout, installer, runner, and upload schemas are enforced. Policy, runtime capture, each target record, and cross-target comparison reject toolchain substitution or drift.
 
 ---
 
