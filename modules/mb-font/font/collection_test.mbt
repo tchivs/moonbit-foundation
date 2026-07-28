@@ -413,6 +413,113 @@ fn font_collection_test_assert_every_query_drift(
 }
 
 ///|
+fn font_collection_test_read_u32(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 24) |
+  (source[offset + 1].to_uint64() << 16) |
+  (source[offset + 2].to_uint64() << 8) |
+  source[offset + 3].to_uint64()
+}
+
+///|
+fn font_collection_test_selected_ttc() -> Bytes {
+  let standalone = font_test_minimal_truetype()
+  let directory_start = 256
+  let output = Array::make(directory_start + standalone.length(), b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00010000UL)
+  font_collection_test_put_u32(output, 8, 1UL)
+  font_collection_test_put_u32(output, 12, directory_start.to_uint64())
+  for index, byte in standalone {
+    output[directory_start + index] = byte
+  }
+  // Relocate every selected table against collection byte zero. `loca` is
+  // deliberately placed before the non-zero directory while the other real
+  // tables remain after it, so accidental directory-relative rebasing fails.
+  let table_count = 10
+  for index = 0; index < table_count; index = index + 1 {
+    let record = 12 + index * 16
+    let old_offset = font_collection_test_read_u32(standalone, record + 8)
+    let new_offset = if index == 6 { 20UL } else {
+      old_offset + directory_start.to_uint64()
+    }
+    font_collection_test_put_u32(
+      output,
+      directory_start + record + 8,
+      new_offset,
+    )
+  }
+  let loca_offset = font_collection_test_read_u32(standalone, 12 + 6 * 16 + 8)
+  let loca_length = font_collection_test_read_u32(
+    standalone,
+    12 + 6 * 16 + 12,
+  )
+  for index = 0; index < loca_length.to_int(); index = index + 1 {
+    output[20 + index] = standalone[loca_offset.to_int() + index]
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_collection_test_selected_limits(source_length : UInt64) -> FontCollectionLimits {
+  FontCollectionLimits::new(
+    max_source_bytes=source_length,
+    max_faces=1UL,
+    max_tables_per_face=10UL,
+    max_table_records=10UL,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=4096UL,
+    max_work=65536UL,
+  ).unwrap()
+}
+
+///|
+fn font_collection_test_selected_budget() -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=65536UL,
+      allocations=16UL,
+      allocation_size=65536UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=65536UL,
+    ),
+  )
+}
+
+///|
+test "TTC-02 opens a cached static face against the retained collection root" {
+  let source = font_collection_test_selected_ttc()
+  let owner = font_collection_test_owner(source)
+  let collection = FontCollection::open(
+    owner.view(),
+    font_collection_test_selected_limits(source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let first = collection
+    .open_face(0UL, font_test_limits(), font_collection_test_selected_budget())
+    .unwrap()
+  let second = collection
+    .open_face(0UL, font_test_limits(), font_collection_test_selected_budget())
+    .unwrap()
+  inspect(first.units_per_em().unwrap(), content="1000")
+  inspect(second.units_per_em().unwrap(), content="1000")
+  inspect(first.global_bounds().unwrap().x_min(), content="-20")
+  inspect(first.hhea_line_metrics().unwrap().ascent(), content="800")
+  inspect(first.typographic_line_metrics().unwrap().descent(), content="-200")
+  inspect(first.glyph_for_scalar(65).unwrap().value(), content="0")
+  let glyph = first.glyph_id(0UL).unwrap()
+  inspect(first.horizontal_metrics(glyph).unwrap().advance_width(), content="500")
+  inspect(first.kerning(glyph, glyph).unwrap(), content="0")
+  inspect(
+    first.outline(glyph, font_test_outline_budget()).unwrap().length(),
+    content="0",
+  )
+}
+
+///|
 fn font_collection_test_limits_result(
   max_source_bytes : UInt64,
   max_faces : UInt64,
