@@ -10,13 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.33 Phase 102 Selected-Face Admission Complete
+## Current State: v0.33 TrueType Collection Adapters Complete
 
-**Delivered:** Phase 102 added the single public `FontCollection::open_face` operation. Library authors can select an admitted static `glyf` face and receive the existing opaque `Font` without copying the retained collection root. Selected admission resolves table records against the collection root, preserves exact shared ranges and unsupported-sibling isolation, uses fresh caller-owned limits and budgets, and retains standalone metrics, mapping, kerning, glyph, outline, checksum, and error behavior.
+**Delivered:** Phases 101-103 added bounded TTC/OTC version 1/2 inspection and the single public `FontCollection::open_face` operation. Library authors can inspect caller-owned collections, select an admitted static `glyf` face, and receive the existing opaque `Font` without copying the retained collection root. Selected admission preserves exact shared ranges and unsupported-sibling isolation, uses fresh caller-owned limits and budgets, and retains standalone metrics, mapping, kerning, glyph, outline, checksum, and error behavior.
 
-**Validated:** Phase 102 passed 14/14 goal must-haves with no gaps or human-verification debt after a three-iteration code-review/fix loop. Fresh independent runs passed public collection tests 31/31 and white-box tests 13/13 on `js`, `wasm`, `wasm-gc`, and `native`, plus the complete native font package at 147/147. The generated public interface is an exact 85-line allowlist containing only the intended `open_face` addition; all 23 plan-authored security threats are mitigated or explicitly accepted below the high blocking threshold.
+**Validated:** Phase 103 passed 16/16 goal must-haves with no gaps or human-verification debt. The final four-target lane passed 14 focused gates and 152/152 package tests per target, 29 evidence-negative probes, exact pinned `moon`/`moonc`/`moonrun` identities, and a closed four-record semantic comparison. The deterministic 757,428-byte two-face DejaVu TTC derivative, independent oracle, hostile 97-case matrix, mutation/resource atomicity, exact 85-line public interface, sole `mb-font -> mb-core` dependency, and WOFF/CFF/variable boundaries are policy-locked. Security verification closes 21 threats and records the three declared low-risk supply-chain assumptions as accepted, with zero open threats.
 
-**Next:** Phase 103 will close the milestone with hostile collection cases, licensed interoperability evidence, standalone compatibility qualification, and the broad reproducible four-target matrix.
+**Next:** Audit and archive v0.33, then choose the next code-first milestone from the validated backlog.
 
 ## Current Milestone: v0.33 TrueType Collection Adapters
 
@@ -43,11 +43,12 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Malformed collections, unsupported face profiles, mutation, exhausted limits, and exhausted budgets fail atomically with structured outcomes.
-- [ ] Maintainers can reproduce standalone and collection behavior with generated, licensed, hostile, and four-target evidence.
+- None for v0.33; all milestone requirements are validated.
 
 ### Validated
 
+- [x] Malformed collections, unsupported face profiles, mutation, exhausted limits, and exhausted budgets fail atomically with structured outcomes. — Validated in Phase 103.
+- [x] Maintainers can reproduce standalone and collection behavior with generated, licensed, hostile, and four-target evidence. — Validated in Phase 103.
 - [x] Library authors can select one in-range supported TTC/OTC face without copying the complete font. — Validated in Phase 102.
 - [x] A selected `glyf`-based TrueType face exposes the existing `Font` metrics, Unicode mapping, kerning, glyph identity, and outline behavior unchanged. — Validated in Phase 102.
 - [x] Library authors can open bounded caller-owned TTC/OTC v1/v2 bytes, inspect every face through a closed semantic profile, and distinguish absent from structurally present-but-unverified DSIG data without exposing raw offsets or records. — Validated in Phase 101.
@@ -237,6 +238,7 @@ Registry publication and release automation remain deferred unless a concrete co
 | Keep indexed compression qualification independent from production planning | Test-local parsing and checksum/raster reconstruction protect the wire contract without turning production helpers into their own oracle | ✓ Validated in v0.28 Phase 87 |
 | Implement the bounded TrueType font foundation before text shaping or PDF rendering | `mb-font` is the RFC-defined lower dependency for reusable glyph IDs, metrics, and outlines; proving it first prevents sibling modules from inventing incompatible font parsers | ✓ Validated in v0.32 Phases 97-100 |
 | Reuse the retained TTC/OTC root through one private root-relative selected-face adapter | A selected face should publish the existing opaque `Font` without copying bytes, exposing parser facts, weakening standalone checks, or charging before final revision validation | ✓ Validated in v0.33 Phase 102 |
+| Qualify collection behavior with generated and licensed evidence before widening font capability | A closed hostile/resource matrix, immutable licensed derivative, exact toolchain identity, and four-target semantic equality make the TTC/OTC adapter auditable without adding WOFF, CFF execution, variable instantiation, FFI, or ambient I/O | ✓ Validated in v0.33 Phase 103 |
 
 ## Evolution
 
@@ -256,4 +258,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after completing Phase 102 selected-face admission*
+*Last updated: 2026-07-28 after completing Phase 103 and the v0.33 implementation roadmap*
