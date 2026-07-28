@@ -200,6 +200,60 @@ priv struct CffStructuralLimits {
 }
 
 ///|
+/// Closed Type 2 VM ceilings intersected with the existing caller limits.
+#warnings("-7")
+priv struct Type2Limits {
+  max_operand_stack : UInt64
+  max_transient : UInt64
+  max_stems : UInt64
+  max_frames : UInt64
+  max_subrs : UInt64
+  max_executed_bytes : UInt64
+  max_points : UInt64
+  max_contours : UInt64
+  max_commands : UInt64
+  max_calls : UInt64
+  max_work : UInt64
+  scratch_allocations : UInt64
+  scratch_allocation_size : UInt64
+}
+
+///|
+fn type2_limits(limits : FontLimits) -> Result[Type2Limits, @error.CoreError] {
+  let contour_commands = match
+    @checked.checked_mul(limits.max_outline_contours(), 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let max_commands = match
+    @checked.checked_add(limits.max_outline_points(), contour_commands) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({
+    max_operand_stack: 48UL,
+    max_transient: 32UL,
+    max_stems: 96UL,
+    max_frames: 10UL,
+    max_subrs: 65536UL,
+    max_executed_bytes: if limits.max_outline_instruction_bytes() < 65535UL {
+      limits.max_outline_instruction_bytes()
+    } else {
+      65535UL
+    },
+    max_points: limits.max_outline_points(),
+    max_contours: limits.max_outline_contours(),
+    max_commands,
+    max_calls: limits.max_work(),
+    max_work: limits.max_work(),
+    // Operand, transient-value, transient-init, call-frame, and geometry scratch.
+    scratch_allocations: 5UL,
+    // The 48-entry operand stack is the largest fixed scratch array.
+    scratch_allocation_size: 48UL * 8UL,
+  })
+}
+
+///|
 fn cff_structural_limits(
   limits : FontLimits,
 ) -> Result[CffStructuralLimits, @error.CoreError] {
