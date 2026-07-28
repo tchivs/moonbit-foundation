@@ -38,6 +38,7 @@ priv struct Type2VmResult {
   terminated : Bool
   ledger : Type2ExecutionLedger
   geometry_operators : UInt64
+  geometry : Type2GeometryFacts
 }
 
 ///|
@@ -55,6 +56,7 @@ priv struct Type2Vm {
   mut stems : UInt64
   mut geometry_started : Bool
   mut geometry_operators : UInt64
+  mut geometry : Type2BoundsSink
   prng : Type2Prng
   limits : Type2Limits
   ledger : Type2ExecutionLedger
@@ -266,10 +268,12 @@ fn Type2Vm::resolve_width(
   }
   if has_explicit_width {
     let delta = self.remove_stack_first()
-    self.width = Some(match type2_fixed_add(self.nominal_width, delta) {
-      Err(_) => return Err(type2_data_error("font-cff-type2-width"))
-      Ok(value) => value
-    })
+    self.width = Some(
+      match type2_fixed_add(self.nominal_width, delta) {
+        Err(_) => return Err(type2_data_error("font-cff-type2-width"))
+        Ok(value) => value
+      },
+    )
   } else {
     self.width = Some(self.default_width)
   }
@@ -402,10 +406,7 @@ fn Type2Vm::execute_get(self : Type2Vm) -> Result[Unit, @error.CoreError] {
   }
   let top = self.stack.length() - 1
   let transient_index = match
-    type2_fixed_exact_int(
-      self.stack[top],
-      "font-cff-type2-transient-index",
-    ) {
+    type2_fixed_exact_int(self.stack[top], "font-cff-type2-transient-index") {
     Err(error) => return Err(error)
     Ok(index) => index
   }
@@ -431,7 +432,11 @@ fn Type2Vm::execute_ifelse(self : Type2Vm) -> Result[Unit, @error.CoreError] {
   let second = self.stack[count - 3]
   let selector_left = self.stack[count - 2]
   let selector_right = self.stack[count - 1]
-  let selected = if selector_left.raw <= selector_right.raw { first } else { second }
+  let selected = if selector_left.raw <= selector_right.raw {
+    first
+  } else {
+    second
+  }
   for _index = 0; _index < 4; _index = _index + 1 {
     ignore(self.stack.pop())
   }
@@ -481,14 +486,14 @@ fn Type2Vm::execute_roll(self : Type2Vm) -> Result[Unit, @error.CoreError] {
     return Err(type2_data_error("font-cff-type2-roll"))
   }
   let start = count - 2 - n
-  let normalized = ((j % n) + n) % n
+  let normalized = (j % n + n) % n
   if normalized != 0 {
     let copy : Array[Type2Fixed] = []
     for index = start; index < count - 2; index = index + 1 {
       copy.push(self.stack[index])
     }
     for index = 0; index < n; index = index + 1 {
-      self.stack[start + ((index + normalized) % n)] = copy[index]
+      self.stack[start + (index + normalized) % n] = copy[index]
     }
   }
   ignore(self.stack.pop())
@@ -602,8 +607,9 @@ fn Type2Vm::execute_stem(self : Type2Vm) -> Result[Unit, @error.CoreError] {
 ///|
 fn Type2Vm::execute_moveto(
   self : Type2Vm,
-  arity : Int,
+  operator : UInt64,
 ) -> Result[Unit, @error.CoreError] {
+  let arity = if operator == 21UL { 2 } else { 1 }
   let has_width = !self.width_resolved && self.stack.length() == arity + 1
   match self.resolve_width(has_width) {
     Err(error) => return Err(error)
@@ -612,6 +618,19 @@ fn Type2Vm::execute_moveto(
   if self.stack.length() != arity {
     return Err(type2_data_error("font-cff-type2-moveto-arity"))
   }
+  let zero : Type2Fixed = { raw: 0L }
+  let (dx, dy) = match operator {
+    4UL => (zero, self.stack[0])
+    21UL => (self.stack[0], self.stack[1])
+    22UL => (self.stack[0], zero)
+    _ => return Err(type2_data_error("font-cff-type2-operator"))
+  }
+  let staged = self.geometry.snapshot()
+  match staged.move_relative(dx, dy) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.geometry = staged
   self.geometry_started = true
   self.geometry_operators = self.geometry_operators + 1UL
   self.clear_stack()
@@ -633,13 +652,226 @@ fn Type2Vm::execute_geometry(
     8UL => count >= 6 && count % 6 == 0
     24UL => count >= 8 && (count - 2) % 6 == 0
     25UL => count >= 8 && (count - 6) % 2 == 0
-    26UL | 27UL => count >= 4
-    30UL | 31UL => count >= 4
+    26UL | 27UL | 30UL | 31UL =>
+      count >= 4 && (count % 4 == 0 || count % 4 == 1)
     _ => false
   }
   if !valid {
     return Err(type2_data_error("font-cff-type2-geometry-arity"))
   }
+  let (line_count, curve_count) = match operator {
+    5UL => (count / 2, 0)
+    6UL | 7UL => (count, 0)
+    8UL => (0, count / 6)
+    24UL => (1, (count - 2) / 6)
+    25UL => ((count - 6) / 2, 1)
+    26UL | 27UL | 30UL | 31UL => (0, count / 4)
+    _ => (0, 0)
+  }
+  let staged = self.geometry.snapshot()
+  match
+    staged.preflight_segments(
+      line_count.to_uint64() + curve_count.to_uint64() * 3UL,
+      line_count.to_uint64() + curve_count.to_uint64(),
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let zero : Type2Fixed = { raw: 0L }
+  match operator {
+    5UL => {
+      let mut index = 0
+      while index < count {
+        match
+          staged.line_relative_unchecked(
+            self.stack[index],
+            self.stack[index + 1],
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        index = index + 2
+      }
+    }
+    6UL | 7UL => {
+      let mut horizontal = operator == 6UL
+      for delta in self.stack {
+        let result = if horizontal {
+          staged.line_relative_unchecked(delta, zero)
+        } else {
+          staged.line_relative_unchecked(zero, delta)
+        }
+        match result {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        horizontal = !horizontal
+      }
+    }
+    8UL => {
+      let mut index = 0
+      while index < count {
+        match
+          staged.cubic_relative_unchecked(
+            self.stack[index],
+            self.stack[index + 1],
+            self.stack[index + 2],
+            self.stack[index + 3],
+            self.stack[index + 4],
+            self.stack[index + 5],
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        index = index + 6
+      }
+    }
+    24UL => {
+      let curve_end = count - 2
+      let mut index = 0
+      while index < curve_end {
+        match
+          staged.cubic_relative_unchecked(
+            self.stack[index],
+            self.stack[index + 1],
+            self.stack[index + 2],
+            self.stack[index + 3],
+            self.stack[index + 4],
+            self.stack[index + 5],
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        index = index + 6
+      }
+      match
+        staged.line_relative_unchecked(
+          self.stack[curve_end],
+          self.stack[curve_end + 1],
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
+    25UL => {
+      let curve_start = count - 6
+      let mut index = 0
+      while index < curve_start {
+        match
+          staged.line_relative_unchecked(
+            self.stack[index],
+            self.stack[index + 1],
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        index = index + 2
+      }
+      match
+        staged.cubic_relative_unchecked(
+          self.stack[curve_start],
+          self.stack[curve_start + 1],
+          self.stack[curve_start + 2],
+          self.stack[curve_start + 3],
+          self.stack[curve_start + 4],
+          self.stack[curve_start + 5],
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
+    26UL => {
+      let mut index = 0
+      let mut first_dx = zero
+      if count % 4 == 1 {
+        first_dx = self.stack[0]
+        index = 1
+      }
+      while index < count {
+        match
+          staged.cubic_relative_unchecked(
+            first_dx,
+            self.stack[index],
+            self.stack[index + 1],
+            self.stack[index + 2],
+            zero,
+            self.stack[index + 3],
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        first_dx = zero
+        index = index + 4
+      }
+    }
+    27UL => {
+      let mut index = 0
+      let mut first_dy = zero
+      if count % 4 == 1 {
+        first_dy = self.stack[0]
+        index = 1
+      }
+      while index < count {
+        match
+          staged.cubic_relative_unchecked(
+            self.stack[index],
+            first_dy,
+            self.stack[index + 1],
+            self.stack[index + 2],
+            self.stack[index + 3],
+            zero,
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        first_dy = zero
+        index = index + 4
+      }
+    }
+    30UL | 31UL => {
+      let mut index = 0
+      let mut horizontal = operator == 31UL
+      while index < count {
+        let remaining = count - index
+        let optional = remaining == 5
+        let result = if horizontal {
+          staged.cubic_relative_unchecked(
+            self.stack[index],
+            zero,
+            self.stack[index + 1],
+            self.stack[index + 2],
+            if optional {
+              self.stack[index + 4]
+            } else {
+              zero
+            },
+            self.stack[index + 3],
+          )
+        } else {
+          staged.cubic_relative_unchecked(
+            zero,
+            self.stack[index],
+            self.stack[index + 1],
+            self.stack[index + 2],
+            self.stack[index + 3],
+            if optional {
+              self.stack[index + 4]
+            } else {
+              zero
+            },
+          )
+        }
+        match result {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        index = index + (if optional { 5 } else { 4 })
+        horizontal = !horizontal
+      }
+    }
+    _ => return Err(type2_data_error("font-cff-type2-operator"))
+  }
+  self.geometry = staged
   self.geometry_started = true
   self.geometry_operators = self.geometry_operators + 1UL
   self.clear_stack()
@@ -664,6 +896,12 @@ fn Type2Vm::execute_endchar(self : Type2Vm) -> Result[Unit, @error.CoreError] {
   if self.stack.length() != 0 {
     return Err(type2_data_error("font-cff-type2-endchar-arity"))
   }
+  let staged = self.geometry.snapshot()
+  match staged.close() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.geometry = staged
   Ok(())
 }
 
@@ -788,8 +1026,7 @@ fn Type2Vm::execute_call(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let object = match
-    cff_index_object(index, biased.to_uint64(), context) {
+  let object = match cff_index_object(index, biased.to_uint64(), context) {
     Err(_) => return Err(type2_data_error(context))
     Ok(value) => value
   }
@@ -798,7 +1035,11 @@ fn Type2Vm::execute_call(
   let tail_call = caller.cursor == caller.source.length()
   self.frames.push(caller)
   self.frames.push({
-    kind: if global { Global } else { Local },
+    kind: if global {
+      Global
+    } else {
+      Local
+    },
     source: object.view,
     cursor: 0UL,
     tail_call,
@@ -899,6 +1140,7 @@ fn Type2Vm::new(
     stems: 0UL,
     geometry_started: false,
     geometry_operators: 0UL,
+    geometry: Type2BoundsSink::new(limits),
     prng: Type2Prng::new(seed),
     limits,
     ledger: {
@@ -929,13 +1171,7 @@ fn type2_execute_program(
     Ok(_) => ()
   }
   let vm = Type2Vm::new(
-    root,
-    local_subrs,
-    global_subrs,
-    default_width,
-    nominal_width,
-    seed,
-    limits,
+    root, local_subrs, global_subrs, default_width, nominal_width, seed, limits,
   )
   while vm.frames.length() > 0 {
     match type2_require_revision(root, opening_revision) {
@@ -951,7 +1187,8 @@ fn type2_execute_program(
       Err(_) => return Err(type2_data_error("font-cff-type2-byte"))
       Ok(value) => value.to_uint64()
     }
-    let result : Result[Type2Step, @error.CoreError] = match vm.charge_bytes(1UL) {
+    let result : Result[Type2Step, @error.CoreError] = match
+      vm.charge_bytes(1UL) {
       Err(error) => Err(error)
       Ok(_) =>
         match vm.charge_work(1UL) {
@@ -1028,11 +1265,17 @@ fn type2_execute_program(
                   match first {
                     1UL | 3UL | 18UL | 23UL => vm.execute_stem()
                     19UL | 20UL => vm.execute_mask(frame)
-                    4UL => vm.execute_moveto(1)
-                    21UL => vm.execute_moveto(2)
-                    22UL => vm.execute_moveto(1)
-                    5UL | 6UL | 7UL | 8UL | 24UL | 25UL | 26UL | 27UL
-                    | 30UL | 31UL => vm.execute_geometry(first)
+                    4UL | 21UL | 22UL => vm.execute_moveto(first)
+                    5UL
+                    | 6UL
+                    | 7UL
+                    | 8UL
+                    | 24UL
+                    | 25UL
+                    | 26UL
+                    | 27UL
+                    | 30UL
+                    | 31UL => vm.execute_geometry(first)
                     14UL => vm.execute_endchar()
                     15UL | 16UL =>
                       Err(
@@ -1044,7 +1287,7 @@ fn type2_execute_program(
                 }
                 match operator_result {
                   Err(error) => Err(error)
-                  Ok(_) => {
+                  Ok(_) =>
                     if first == 14UL {
                       match vm.validate_endchar_frame(frame) {
                         Err(error) => Err(error)
@@ -1053,7 +1296,6 @@ fn type2_execute_program(
                     } else {
                       Ok(Continue(frame))
                     }
-                  }
                 }
               }
             }
@@ -1061,10 +1303,9 @@ fn type2_execute_program(
         }
     }
     match result {
-      Err(error) => {
+      Err(error) =>
         return Err(type2_error_with_revision(root, opening_revision, error))
-      }
-      Ok(Terminate) => {
+      Ok(Terminate) =>
         match type2_require_revision(root, opening_revision) {
           Err(error) => return Err(error)
           Ok(_) =>
@@ -1074,9 +1315,9 @@ fn type2_execute_program(
               terminated: true,
               ledger: vm.ledger,
               geometry_operators: vm.geometry_operators,
+              geometry: vm.geometry.facts(),
             })
         }
-      }
       Ok(Continue(next)) => vm.frames.push(next)
       Ok(FramesManaged) => ()
     }
