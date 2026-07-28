@@ -1,0 +1,3980 @@
+{
+  "schema_version": "1.0.0",
+  "workflow_id": "font-collection-complete-public-v2",
+  "license": "Apache-2.0",
+  "fixtures": [
+    {
+      "id": "generated-ttc-v1-static-selected",
+      "origin": "generated",
+      "container_version": "1.0",
+      "face_count": 1,
+      "dsig_status": "absent",
+      "profiles": [
+        "StaticGlyf"
+      ],
+      "expected_use": "public v1 inspection and static selected-face admission"
+    },
+    {
+      "id": "generated-ttc-v2-dsig-absent",
+      "origin": "generated",
+      "container_version": "2.0",
+      "face_count": 1,
+      "dsig_status": "absent",
+      "profiles": [
+        "StaticGlyf"
+      ],
+      "expected_use": "public v2 all-zero DSIG tuple inspection"
+    },
+    {
+      "id": "generated-ttc-v2-dsig-present-unverified",
+      "origin": "generated",
+      "container_version": "2.0",
+      "face_count": 1,
+      "dsig_status": "present-unverified",
+      "profiles": [
+        "StaticGlyf"
+      ],
+      "expected_use": "public v2 bounded DSIG envelope inspection without trust"
+    },
+    {
+      "id": "generated-ttc-v1-exact-sharing",
+      "origin": "generated",
+      "container_version": "1.0",
+      "face_count": 2,
+      "dsig_status": "absent",
+      "profiles": [
+        "StaticGlyf",
+        "StaticGlyf"
+      ],
+      "expected_use": "exact root-range sharing and repeated selected-face admission"
+    },
+    {
+      "id": "generated-ttc-v2-mixed-profiles",
+      "origin": "generated",
+      "container_version": "2.0",
+      "face_count": 5,
+      "dsig_status": "absent",
+      "profiles": [
+        "StaticGlyf",
+        "Cff",
+        "Cff2",
+        "Variable",
+        "OtherUnsupported"
+      ],
+      "expected_use": "inspectable mixed profiles with unsupported selected siblings"
+    },
+    {
+      "id": "generated-ttc-v1-nonzero-directory-base",
+      "origin": "generated",
+      "container_version": "1.0",
+      "face_count": 1,
+      "dsig_status": "absent",
+      "profiles": [
+        "StaticGlyf"
+      ],
+      "expected_use": "root-relative table coordinates at a nonzero face directory"
+    },
+    {
+      "id": "licensed-dejavu-two-face-v1",
+      "origin": "external",
+      "container_version": "1.0",
+      "face_count": 2,
+      "dsig_status": "absent",
+      "profiles": [
+        "StaticGlyf",
+        "StaticGlyf"
+      ],
+      "expected_use": "licensed exact-sharing interoperability bound to standalone facts"
+    }
+  ],
+  "public_workflows": [
+    {
+      "id": "generated-ttc-v1-static-selected",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "generated",
+      "boundary": "success",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "generated-ttc-v2-dsig-absent",
+      "fixture_id": "generated-ttc-v2-dsig-absent",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "generated",
+      "boundary": "success",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "generated-ttc-v2-dsig-present-unverified",
+      "fixture_id": "generated-ttc-v2-dsig-present-unverified",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "generated",
+      "boundary": "success",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "generated-ttc-v1-exact-sharing",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "generated",
+      "boundary": "success",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "generated-ttc-v2-mixed-profiles",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "generated",
+      "boundary": "success",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "generated-ttc-v1-nonzero-directory-base",
+      "fixture_id": "generated-ttc-v1-nonzero-directory-base",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "generated",
+      "boundary": "success",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "licensed-dejavu-two-face-v1-face-0",
+      "fixture_id": "licensed-dejavu-two-face-v1",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "licensed",
+      "boundary": "success",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "licensed-dejavu-two-face-v1-face-1",
+      "fixture_id": "licensed-dejavu-two-face-v1",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 1,
+      "mutation_window": "none",
+      "authority": "licensed",
+      "boundary": "success",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    }
+  ],
+  "hostile_cases": [
+    {
+      "id": "collection-header-truncated",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-header-truncated",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-signature-invalid",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-signature-invalid",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-version-unsupported",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Capability",
+        "code": "CapabilityUnavailable",
+        "operation": "font-collection-open",
+        "context": "collection-version-unsupported",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-face-count-zero",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-face-count-zero",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-offset-array-truncated",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-offset-array-truncated",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-face-directory-truncated",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-face-directory-truncated",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-directory-search-facts-invalid",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-directory-search-facts-invalid",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-directory-tags-unordered",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-directory-tags-unordered",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-table-range-overflow",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-table-range-overflow",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-protected-range-overlap",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-protected-range-overlap",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-same-face-overlap",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-same-face-overlap",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-cross-face-partial-overlap",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-cross-face-partial-overlap",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-shared-range-metadata-conflict",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-shared-range-metadata-conflict",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-dsig-partial-zero-tuple",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-dsig-partial-zero-tuple",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-dsig-range-not-at-eof",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-dsig-range-not-at-eof",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-dsig-envelope-malformed",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-dsig-envelope-malformed",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-dsig-version-unsupported",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Capability",
+        "code": "CapabilityUnavailable",
+        "operation": "font-collection-open",
+        "context": "collection-dsig-version-unsupported",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-dsig-format-unsupported",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Capability",
+        "code": "CapabilityUnavailable",
+        "operation": "font-collection-open",
+        "context": "collection-dsig-format-unsupported",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-dsig-block-overlap",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "collection-dsig-block-overlap",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-face-index-equal-count",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 2,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Input",
+        "code": "InvalidInput",
+        "operation": "font-collection-face",
+        "context": "font-collection-face-index",
+        "source_offset": null,
+        "requested": 2,
+        "limit": 2
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-select-cff",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 1,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Capability",
+        "code": "CapabilityUnavailable",
+        "operation": "font-collection-face",
+        "context": "font-collection-face-profile",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-select-cff2",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 2,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Capability",
+        "code": "CapabilityUnavailable",
+        "operation": "font-collection-face",
+        "context": "font-collection-face-profile",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-select-variable",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 3,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Capability",
+        "code": "CapabilityUnavailable",
+        "operation": "font-collection-face",
+        "context": "font-collection-face-profile",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "collection-checked-pair-work-overflow",
+      "fixture_id": "generated-ttc-v2-mixed-profiles",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "hostile",
+      "boundary": "failure",
+      "error": {
+        "category": "Data",
+        "code": "InvalidEncoding",
+        "operation": "font-collection-open",
+        "context": "font-collection-pair-work",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    }
+  ],
+  "mutation_cases": [
+    {
+      "id": "mutation-collection-after-open-before-query",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "inspect",
+      "entrypoint": "FontCollection::face_profile",
+      "face_index": null,
+      "mutation_window": "mutation-collection-after-open-before-query",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-collection-revision",
+        "context": "font-collection-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-collection-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "mutation-collection-mid-open-final-guard",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "inspect",
+      "entrypoint": "FontCollection::face_profile",
+      "face_index": null,
+      "mutation_window": "mutation-collection-mid-open-final-guard",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-collection-revision",
+        "context": "font-collection-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-collection-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "mutation-selection-before-open-face",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "mutation-selection-before-open-face",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-collection-revision",
+        "context": "font-collection-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-collection-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "mutation-selection-mid-admission-final-guard",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "mutation-selection-mid-admission-final-guard",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-collection-revision",
+        "context": "font-collection-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-collection-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "mutation-selected-font-after-publication",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "query",
+      "entrypoint": "Font::query",
+      "face_index": 0,
+      "mutation_window": "mutation-selected-font-after-publication",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-query",
+        "context": "font-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-font-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "mutation-glyph-lookup-mid-query",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "query",
+      "entrypoint": "Font::query",
+      "face_index": 0,
+      "mutation_window": "mutation-glyph-lookup-mid-query",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-query",
+        "context": "font-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-font-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "mutation-kerning-mid-query",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "query",
+      "entrypoint": "Font::query",
+      "face_index": 0,
+      "mutation_window": "mutation-kerning-mid-query",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-query",
+        "context": "font-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-font-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "mutation-simple-outline-mid-query",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "query",
+      "entrypoint": "Font::query",
+      "face_index": 0,
+      "mutation_window": "mutation-simple-outline-mid-query",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-query",
+        "context": "font-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-font-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "mutation-composite-outline-mid-query",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "query",
+      "entrypoint": "Font::query",
+      "face_index": 0,
+      "mutation_window": "mutation-composite-outline-mid-query",
+      "authority": "mutation",
+      "boundary": "failure",
+      "error": {
+        "category": "State",
+        "code": "InvalidRange",
+        "operation": "font-query",
+        "context": "font-source-revision-drift",
+        "source_offset": null,
+        "requested": null,
+        "limit": null
+      },
+      "publication": "existing-font-only",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    }
+  ],
+  "limit_cases": [
+    {
+      "id": "limit-collection-source-bytes-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-source-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-collection-open",
+        "context": "max-source-bytes",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-faces-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-faces-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-collection-open",
+        "context": "max-faces",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-tables-per-face-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-tables-per-face-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-collection-open",
+        "context": "max-tables-per-face",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-table-records-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-table-records-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-collection-open",
+        "context": "max-table-records",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-dsig-records-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-dsig-records-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-collection-open",
+        "context": "max-dsig-records",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-dsig-bytes-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-dsig-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-collection-open",
+        "context": "max-dsig-bytes",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-retained-bookkeeping-bytes-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-retained-bookkeeping-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-collection-open",
+        "context": "max-retained-bookkeeping-bytes",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-work-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-collection-work-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "collection-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-collection-open",
+        "context": "max-work",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-source-bytes-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-source-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-source-bytes",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-tables-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-tables-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-tables",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-table-bytes-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-table-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-table-bytes",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-glyphs-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-glyphs-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-glyphs",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-name-records-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-name-records-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-name-records",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-cmap-records-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-cmap-records-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-cmap-records",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-kern-subtables-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-kern-subtables-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-kern-subtables",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-kern-pairs-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-kern-pairs-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-kern-pairs",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-outline-points-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-outline-points-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-outline-points",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-outline-contours-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-outline-contours-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-outline-contours",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-outline-components-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-outline-components-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-outline-components",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-instruction-bytes-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-instruction-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-instruction-bytes",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-post-name-bytes-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-post-name-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-post-name-bytes",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-work-exact",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 1,
+        "limit": 1
+      },
+      "publication": "font",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "limit-selected-work-one-short",
+      "fixture_id": "generated-ttc-v1-static-selected",
+      "stage": "select",
+      "entrypoint": "FontCollection::open_face",
+      "face_index": 0,
+      "mutation_window": "none",
+      "authority": "selected-limit",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "font-open",
+        "context": "max-work",
+        "source_offset": null,
+        "requested": 1,
+        "limit": 0
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 0,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    }
+  ],
+  "budget_cases": [
+    {
+      "id": "budget-caller-bytes-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "caller-budget",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 248,
+        "limit": 248
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "budget-caller-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "caller-budget",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "budget_charge",
+        "context": "bytes",
+        "source_offset": null,
+        "requested": 248,
+        "limit": 247
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 247,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 247,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      }
+    },
+    {
+      "id": "budget-caller-allocations-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "caller-budget",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 2,
+        "limit": 2
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "budget-caller-allocations-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "caller-budget",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "budget_charge",
+        "context": "allocations",
+        "source_offset": null,
+        "requested": 2,
+        "limit": 1
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 1,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 248,
+        "allocations": 1,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      }
+    },
+    {
+      "id": "budget-caller-allocation-size-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "caller-budget",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 80,
+        "limit": 80
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "budget-caller-allocation-size-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "caller-budget",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "budget_charge",
+        "context": "allocation_size",
+        "source_offset": null,
+        "requested": 80,
+        "limit": 79
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 79,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 79,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      }
+    },
+    {
+      "id": "budget-caller-work-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "caller-budget",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 66,
+        "limit": 66
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "budget-caller-work-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "caller-budget",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "budget_charge",
+        "context": "work",
+        "source_offset": null,
+        "requested": 66,
+        "limit": 65
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 65
+      },
+      "budget_after": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 65
+      }
+    },
+    {
+      "id": "budget-ancestor-bytes-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "ancestor-budget",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 248,
+        "limit": 248
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "budget-ancestor-bytes-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "ancestor-budget",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "budget_charge",
+        "context": "bytes",
+        "source_offset": null,
+        "requested": 248,
+        "limit": 247
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 247,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 247,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      }
+    },
+    {
+      "id": "budget-ancestor-work-exact",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "ancestor-budget",
+      "boundary": "exact",
+      "error": {
+        "category": null,
+        "code": null,
+        "operation": null,
+        "context": null,
+        "source_offset": null,
+        "requested": 66,
+        "limit": 66
+      },
+      "publication": "collection",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 66
+      },
+      "budget_after": {
+        "bytes": 0,
+        "allocations": 0,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 0
+      }
+    },
+    {
+      "id": "budget-ancestor-work-one-short",
+      "fixture_id": "generated-ttc-v1-exact-sharing",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
+      "face_index": null,
+      "mutation_window": "none",
+      "authority": "ancestor-budget",
+      "boundary": "one-short",
+      "error": {
+        "category": "Resource",
+        "code": "BudgetExceeded",
+        "operation": "budget_charge",
+        "context": "work",
+        "source_offset": null,
+        "requested": 66,
+        "limit": 65
+      },
+      "publication": "none",
+      "budget_before": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 65
+      },
+      "budget_after": {
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
+        "width": 0,
+        "height": 0,
+        "pixels": 0,
+        "depth": 0,
+        "work": 65
+      }
+    }
+  ]
+}

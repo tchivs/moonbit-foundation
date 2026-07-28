@@ -1,0 +1,502 @@
+{
+  "schema_version": "1.0.0",
+  "oracle": {
+    "implementation": "mnf-powershell-closed-ttc-reader",
+    "version": "1.0.0",
+    "independence": "offline parser; does not invoke tchivs/mb-font"
+  },
+  "lineage": {
+    "source_path": "fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf",
+    "source_length": 757076,
+    "source_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+    "source_archive": "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip",
+    "source_retrieval_date": "2026-07-27",
+    "generator_path": "scripts/fixtures/Generate-FontQualification.ps1",
+    "generator_identity": "dejavu-two-face-exact-sharing-v1",
+    "generation_date": "2026-07-28",
+    "author": "DejaVu Fonts project; derived from Bitstream Vera and Arev",
+    "license": "Bitstream-Vera AND LicenseRef-DejaVu-Arev",
+    "redistribution_status": "confirmed",
+    "notice_path": "fixtures/font/dejavu-sans-2.37/LICENSE",
+    "notice_sha256": "7a083b136e64d064794c3419751e5c7dd10d2f64c108fe5ba161eae5e5958a93"
+  },
+  "derivative": {
+    "path": "fixtures/font/dejavu-sans-2.37/DejaVuSans-two-face-v1.ttc",
+    "length": 757428,
+    "sha256": "833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b",
+    "signature": "ttcf",
+    "version": "0x00010000",
+    "algorithm": "dejavu-two-face-exact-sharing-v1"
+  },
+  "collection": {
+    "face_count": 2,
+    "face_offsets": [
+      20,
+      352
+    ],
+    "directory_length": 332,
+    "payload_start": 684,
+    "dsig_status": "absent",
+    "profiles": [
+      "StaticGlyf",
+      "StaticGlyf"
+    ]
+  },
+  "faces": [
+    {
+      "index": 0,
+      "directory_offset": 20,
+      "sfnt_signature": "0x00010000",
+      "table_count": 20,
+      "search_range": 256,
+      "entry_selector": 4,
+      "range_shift": 64,
+      "profile": "StaticGlyf",
+      "records": [
+        {
+          "tag": "FFTM",
+          "checksum": "73c1f4f0",
+          "offset": 684,
+          "length": 28
+        },
+        {
+          "tag": "GDEF",
+          "checksum": "94cf8ee6",
+          "offset": 712,
+          "length": 660
+        },
+        {
+          "tag": "GPOS",
+          "checksum": "5680c435",
+          "offset": 1372,
+          "length": 40586
+        },
+        {
+          "tag": "GSUB",
+          "checksum": "c1d04059",
+          "offset": 41960,
+          "length": 5598
+        },
+        {
+          "tag": "MATH",
+          "checksum": "a732387d",
+          "offset": 47560,
+          "length": 1598
+        },
+        {
+          "tag": "OS/2",
+          "checksum": "592d762d",
+          "offset": 49160,
+          "length": 86
+        },
+        {
+          "tag": "cmap",
+          "checksum": "c0492600",
+          "offset": 49248,
+          "length": 5914
+        },
+        {
+          "tag": "cvt ",
+          "checksum": "00691d39",
+          "offset": 55164,
+          "length": 510
+        },
+        {
+          "tag": "fpgm",
+          "checksum": "7134766a",
+          "offset": 55676,
+          "length": 171
+        },
+        {
+          "tag": "gasp",
+          "checksum": "00070007",
+          "offset": 55848,
+          "length": 12
+        },
+        {
+          "tag": "glyf",
+          "checksum": "610cf706",
+          "offset": 55860,
+          "length": 556004
+        },
+        {
+          "tag": "head",
+          "checksum": "0ce601d6",
+          "offset": 611864,
+          "length": 54
+        },
+        {
+          "tag": "hhea",
+          "checksum": "0d9f1fcb",
+          "offset": 611920,
+          "length": 36
+        },
+        {
+          "tag": "hmtx",
+          "checksum": "25a1dfad",
+          "offset": 611956,
+          "length": 24982
+        },
+        {
+          "tag": "kern",
+          "checksum": "0c99083b",
+          "offset": 636940,
+          "length": 16380
+        },
+        {
+          "tag": "loca",
+          "checksum": "60e48f28",
+          "offset": 653320,
+          "length": 25016
+        },
+        {
+          "tag": "maxp",
+          "checksum": "1cda0671",
+          "offset": 678336,
+          "length": 32
+        },
+        {
+          "tag": "name",
+          "checksum": "1f6f4da3",
+          "offset": 678368,
+          "length": 15624
+        },
+        {
+          "tag": "post",
+          "checksum": "48c89654",
+          "offset": 693992,
+          "length": 62052
+        },
+        {
+          "tag": "prep",
+          "checksum": "3b07f100",
+          "offset": 756044,
+          "length": 1384
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "directory_offset": 352,
+      "sfnt_signature": "0x00010000",
+      "table_count": 20,
+      "search_range": 256,
+      "entry_selector": 4,
+      "range_shift": 64,
+      "profile": "StaticGlyf",
+      "records": [
+        {
+          "tag": "FFTM",
+          "checksum": "73c1f4f0",
+          "offset": 684,
+          "length": 28
+        },
+        {
+          "tag": "GDEF",
+          "checksum": "94cf8ee6",
+          "offset": 712,
+          "length": 660
+        },
+        {
+          "tag": "GPOS",
+          "checksum": "5680c435",
+          "offset": 1372,
+          "length": 40586
+        },
+        {
+          "tag": "GSUB",
+          "checksum": "c1d04059",
+          "offset": 41960,
+          "length": 5598
+        },
+        {
+          "tag": "MATH",
+          "checksum": "a732387d",
+          "offset": 47560,
+          "length": 1598
+        },
+        {
+          "tag": "OS/2",
+          "checksum": "592d762d",
+          "offset": 49160,
+          "length": 86
+        },
+        {
+          "tag": "cmap",
+          "checksum": "c0492600",
+          "offset": 49248,
+          "length": 5914
+        },
+        {
+          "tag": "cvt ",
+          "checksum": "00691d39",
+          "offset": 55164,
+          "length": 510
+        },
+        {
+          "tag": "fpgm",
+          "checksum": "7134766a",
+          "offset": 55676,
+          "length": 171
+        },
+        {
+          "tag": "gasp",
+          "checksum": "00070007",
+          "offset": 55848,
+          "length": 12
+        },
+        {
+          "tag": "glyf",
+          "checksum": "610cf706",
+          "offset": 55860,
+          "length": 556004
+        },
+        {
+          "tag": "head",
+          "checksum": "0ce601d6",
+          "offset": 611864,
+          "length": 54
+        },
+        {
+          "tag": "hhea",
+          "checksum": "0d9f1fcb",
+          "offset": 611920,
+          "length": 36
+        },
+        {
+          "tag": "hmtx",
+          "checksum": "25a1dfad",
+          "offset": 611956,
+          "length": 24982
+        },
+        {
+          "tag": "kern",
+          "checksum": "0c99083b",
+          "offset": 636940,
+          "length": 16380
+        },
+        {
+          "tag": "loca",
+          "checksum": "60e48f28",
+          "offset": 653320,
+          "length": 25016
+        },
+        {
+          "tag": "maxp",
+          "checksum": "1cda0671",
+          "offset": 678336,
+          "length": 32
+        },
+        {
+          "tag": "name",
+          "checksum": "1f6f4da3",
+          "offset": 678368,
+          "length": 15624
+        },
+        {
+          "tag": "post",
+          "checksum": "48c89654",
+          "offset": 693992,
+          "length": 62052
+        },
+        {
+          "tag": "prep",
+          "checksum": "3b07f100",
+          "offset": 756044,
+          "length": 1384
+        }
+      ]
+    }
+  ],
+  "shared_tables": [
+    {
+      "tag": "FFTM",
+      "root_offset": 684,
+      "length": 28,
+      "stored_checksum": "73c1f4f0",
+      "recomputed_checksum": "73c1f4f0",
+      "source_offset": 332,
+      "source_payload_sha256": "b590121307f4c1233dc9211276a39b160a7a8a1ac122b2789d1b96536a91e026"
+    },
+    {
+      "tag": "GDEF",
+      "root_offset": 712,
+      "length": 660,
+      "stored_checksum": "94cf8ee6",
+      "recomputed_checksum": "94cf8ee6",
+      "source_offset": 360,
+      "source_payload_sha256": "1810daa53b5cb6d1a711fdcb2b827729e564eda714d6666a05190520699680af"
+    },
+    {
+      "tag": "GPOS",
+      "root_offset": 1372,
+      "length": 40586,
+      "stored_checksum": "5680c435",
+      "recomputed_checksum": "5680c435",
+      "source_offset": 1020,
+      "source_payload_sha256": "0c7e4d2914e5fa09454e6fbfadb8c9f249309495563be80c94223a306a892c1b"
+    },
+    {
+      "tag": "GSUB",
+      "root_offset": 41960,
+      "length": 5598,
+      "stored_checksum": "c1d04059",
+      "recomputed_checksum": "c1d04059",
+      "source_offset": 41608,
+      "source_payload_sha256": "f795122722ca922dbbd0fd2589ba5b29f3dea94d1b9c7548ea296aca156fe05c"
+    },
+    {
+      "tag": "MATH",
+      "root_offset": 47560,
+      "length": 1598,
+      "stored_checksum": "a732387d",
+      "recomputed_checksum": "a732387d",
+      "source_offset": 47208,
+      "source_payload_sha256": "dad6ba691d14c267fd5ef7273da5c5c8c0c8895be4839d62b43472e8ba438dae"
+    },
+    {
+      "tag": "OS/2",
+      "root_offset": 49160,
+      "length": 86,
+      "stored_checksum": "592d762d",
+      "recomputed_checksum": "592d762d",
+      "source_offset": 48808,
+      "source_payload_sha256": "e791b61a6bf40330c026fab5c2e96207015af2e04dfc7aa017068a2cf5cc7f80"
+    },
+    {
+      "tag": "cmap",
+      "root_offset": 49248,
+      "length": 5914,
+      "stored_checksum": "c0492600",
+      "recomputed_checksum": "c0492600",
+      "source_offset": 48896,
+      "source_payload_sha256": "0701a196d251b544ac72adaaea7453e64cea459d189fc0c3a3bcfc50567d8d91"
+    },
+    {
+      "tag": "cvt ",
+      "root_offset": 55164,
+      "length": 510,
+      "stored_checksum": "00691d39",
+      "recomputed_checksum": "00691d39",
+      "source_offset": 54812,
+      "source_payload_sha256": "857075c3f367703a43b3eebc0badf2a3d0050c6314cbbb837b5b4ee1c5fb5158"
+    },
+    {
+      "tag": "fpgm",
+      "root_offset": 55676,
+      "length": 171,
+      "stored_checksum": "7134766a",
+      "recomputed_checksum": "7134766a",
+      "source_offset": 55324,
+      "source_payload_sha256": "ef2bbb131b050c024c54eba425c900bb97f2f0f5a54258d9cebf1bb139bf28f5"
+    },
+    {
+      "tag": "gasp",
+      "root_offset": 55848,
+      "length": 12,
+      "stored_checksum": "00070007",
+      "recomputed_checksum": "00070007",
+      "source_offset": 55496,
+      "source_payload_sha256": "fa3a38cf37ba7443e57d44732c9e63082d42f317a72ad001974ebcd1c9b41e6e"
+    },
+    {
+      "tag": "glyf",
+      "root_offset": 55860,
+      "length": 556004,
+      "stored_checksum": "610cf706",
+      "recomputed_checksum": "610cf706",
+      "source_offset": 55508,
+      "source_payload_sha256": "d6a545d1089c66c518065e3e3ff499578d1b9e396d082faa78caae966b843206"
+    },
+    {
+      "tag": "head",
+      "root_offset": 611864,
+      "length": 54,
+      "stored_checksum": "0ce601d6",
+      "recomputed_checksum": "0ce601d6",
+      "source_offset": 611512,
+      "source_payload_sha256": "bee19e0c8462521e67692b53c6a5fbd0f37d4a33665a3745a1bb18b2fa668afd"
+    },
+    {
+      "tag": "hhea",
+      "root_offset": 611920,
+      "length": 36,
+      "stored_checksum": "0d9f1fcb",
+      "recomputed_checksum": "0d9f1fcb",
+      "source_offset": 611568,
+      "source_payload_sha256": "9854cac171ad717f4ba9b2844e4e7f93fbaaf44e91b5591f206a54d7ecc22c3a"
+    },
+    {
+      "tag": "hmtx",
+      "root_offset": 611956,
+      "length": 24982,
+      "stored_checksum": "25a1dfad",
+      "recomputed_checksum": "25a1dfad",
+      "source_offset": 611604,
+      "source_payload_sha256": "2ab593a31f74a8e61c1b285ec70e087a9aa75fb306a4001ec20301680a7be21a"
+    },
+    {
+      "tag": "kern",
+      "root_offset": 636940,
+      "length": 16380,
+      "stored_checksum": "0c99083b",
+      "recomputed_checksum": "0c99083b",
+      "source_offset": 636588,
+      "source_payload_sha256": "93682eebd3413472a4275629d6dc80afdc4d1f752756fde7fe6c079d365124e2"
+    },
+    {
+      "tag": "loca",
+      "root_offset": 653320,
+      "length": 25016,
+      "stored_checksum": "60e48f28",
+      "recomputed_checksum": "60e48f28",
+      "source_offset": 652968,
+      "source_payload_sha256": "132bfea0103f6c11dc89a56f427188b70540a6442571f3aa48c25273899f3b61"
+    },
+    {
+      "tag": "maxp",
+      "root_offset": 678336,
+      "length": 32,
+      "stored_checksum": "1cda0671",
+      "recomputed_checksum": "1cda0671",
+      "source_offset": 677984,
+      "source_payload_sha256": "521f0038f423e2e965a7281a82bbba828e336aa756e12079991bcd7cde9fe04f"
+    },
+    {
+      "tag": "name",
+      "root_offset": 678368,
+      "length": 15624,
+      "stored_checksum": "1f6f4da3",
+      "recomputed_checksum": "1f6f4da3",
+      "source_offset": 678016,
+      "source_payload_sha256": "3263a385f444770906587b2d5275354a9ef31d7dfc92ddb3b41d57d1ea0a5ac1"
+    },
+    {
+      "tag": "post",
+      "root_offset": 693992,
+      "length": 62052,
+      "stored_checksum": "48c89654",
+      "recomputed_checksum": "48c89654",
+      "source_offset": 693640,
+      "source_payload_sha256": "b12551adea2bfeb671a31223cce24fb7a382b369e6a9717c0bd359322610f6f4"
+    },
+    {
+      "tag": "prep",
+      "root_offset": 756044,
+      "length": 1384,
+      "stored_checksum": "3b07f100",
+      "recomputed_checksum": "3b07f100",
+      "source_offset": 755692,
+      "source_payload_sha256": "a683d604aab58b8d6d7fe4ce1c705836f24ae85e3bcb91691bb5cb6e4407b96c"
+    }
+  ],
+  "standalone_oracle_binding": {
+    "path": "fixtures/font/dejavu-sans-2.37/oracle.json",
+    "sha256": "4247394c3795a56aaf28c1885403201cfc277b06125f5887e14a40f3b4c6229a",
+    "semantic_source": "both selected faces use the standalone oracle; no target output is an oracle",
+    "face_indices": [
+      0,
+      1
+    ]
+  }
+}

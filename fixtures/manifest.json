@@ -155,6 +155,42 @@
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "Phase 100 closed hostile-input and transactional font qualification matrix"
+    },
+    {
+      "id": "font-collection-qualification-cases",
+      "path": "fixtures/font/collection-qualification-cases.json",
+      "origin": "generated",
+      "source": "repository-derived:scripts/fixtures/Generate-FontQualification.ps1",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-28",
+      "sha256": "699be85f05e8e73b53b066eafe1e89fae5cc56a9dec513c62a48c8089cfc5070",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "Phase 103 closed public, hostile, mutation, limit, caller-budget, and ancestor-budget collection qualification matrix"
+    },
+    {
+      "id": "font-dejavu-sans-2.37-two-face-v1",
+      "path": "fixtures/font/dejavu-sans-2.37/DejaVuSans-two-face-v1.ttc",
+      "origin": "external",
+      "source": "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip; parent=fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf@7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954; generator=scripts/fixtures/Generate-FontQualification.ps1#dejavu-two-face-exact-sharing-v1; notice=fixtures/font/dejavu-sans-2.37/LICENSE@7a083b136e64d064794c3419751e5c7dd10d2f64c108fe5ba161eae5e5958a93",
+      "author": "DejaVu Fonts project; derived from Bitstream Vera and Arev",
+      "retrieval_date": "2026-07-28",
+      "sha256": "833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b",
+      "license": "Bitstream-Vera AND LicenseRef-DejaVu-Arev",
+      "redistribution_status": "confirmed",
+      "expected_use": "Phase 103 qualification-only licensed two-face exact-sharing TTC v1 derivative"
+    },
+    {
+      "id": "font-dejavu-sans-2.37-collection-oracle",
+      "path": "fixtures/font/dejavu-sans-2.37/collection-oracle.json",
+      "origin": "generated",
+      "source": "repository-derived:scripts/fixtures/Generate-FontQualification.ps1; derivative=833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b; standalone-oracle=4247394c3795a56aaf28c1885403201cfc277b06125f5887e14a40f3b4c6229a; metadata-only-no-payload-bytes",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-28",
+      "sha256": "87b1e980714850cbdabdf293011aa34acfa19039ba6846ccbdcdcfcbf273c435",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "Phase 103 independent metadata-only TTC structure, checksum, sharing, lineage, and standalone-oracle binding"
     }
   ]
 }
