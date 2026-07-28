@@ -272,14 +272,37 @@ test "CFF CID keying validates every unused FD and matrix before publication" {
 
 ///|
 test "CFF CID keying reports one-short FDSelect format three sentinel" {
-  let exact = cff_cid_wb_table(fd_select_format=3UL)
-  // Format 3 is followed by retained FD data in this generated fixture. Make
-  // the sentinel claim an unavailable fourth glyph to lock the terminal stage.
-  cff_key_wb_assert_atomic_error(
-    cff_cid_wb_table(fd_select_format=3UL, fd_sentinel=4UL),
-    "font-cff-fd-select-sentinel",
+  let exact = cff_cid_wb_fd_select(3UL, 1UL)
+  let exact_view = font_wb_view(exact)
+  let exact_table : TableWindow = {
+    tag: 0x43464620UL,
+    checksum: 0UL,
+    offset: 0UL,
+    length_value: exact_view.length(),
+    view: exact_view,
+  }
+  let decoded = cff_decode_fd_select(exact_table, 0UL, 3UL, 2UL).unwrap()
+  inspect(decoded.selectors[2], content="1")
+  let short = Bytes::from_array(
+    font_wb_bytes_array(exact)[0:exact.length() - 1],
   )
-  inspect(exact.length() > 0, content="true")
+  let short_view = font_wb_view(short)
+  let error = cff_decode_fd_select(
+    {
+      tag: 0x43464620UL,
+      checksum: 0UL,
+      offset: 0UL,
+      length_value: short_view.length(),
+      view: short_view,
+    },
+    0UL,
+    3UL,
+    2UL,
+  ).unwrap_err()
+  inspect(
+    error.context() == Some("font-cff-fd-select-format3"),
+    content="true",
+  )
 }
 
 ///|

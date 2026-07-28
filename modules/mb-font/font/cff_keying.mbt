@@ -601,30 +601,109 @@ fn cff_decode_custom_encoding(
 }
 
 ///|
-fn cff_decode_fd_select_zero(
+fn cff_decode_fd_select(
   cff : TableWindow,
   offset : UInt64,
   num_glyphs : UInt64,
   fd_count : UInt64,
 ) -> Result[CffFdSelect, @error.CoreError] {
-  match
-    cff_require_window(
-      cff.view,
-      offset,
-      num_glyphs + 1UL,
-      "font-cff-fd-select-format0",
-    ) {
+  match cff_require_window(cff.view, offset, 1UL, "font-cff-fd-select-format") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
   let format = cff.view.get(offset).unwrap().to_uint64()
-  if format != 0UL {
+  if format == 0UL {
+    match
+      cff_require_window(
+        cff.view,
+        offset,
+        num_glyphs + 1UL,
+        "font-cff-fd-select-format0",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let selectors : Array[UInt64] = []
+    let mut gid = 0UL
+    while gid < num_glyphs {
+      let fd = cff.view.get(offset + 1UL + gid).unwrap().to_uint64()
+      if fd >= fd_count {
+        return Err(
+          cff_data_error(
+            "font-cff-fd-select-fd",
+            requested=fd,
+            limit=fd_count,
+          ),
+        )
+      }
+      selectors.push(fd)
+      gid = gid + 1UL
+    }
+    return Ok({ format, selectors })
+  }
+  if format != 3UL {
     return Err(cff_data_error("font-cff-fd-select-format"))
   }
-  let selectors : Array[UInt64] = []
-  let mut gid = 0UL
-  while gid < num_glyphs {
-    let fd = cff.view.get(offset + 1UL + gid).unwrap().to_uint64()
+  match
+    cff_require_window(
+      cff.view,
+      offset + 1UL,
+      2UL,
+      "font-cff-fd-select-format3",
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let range_count = read_u16(cff.view, offset + 1UL).unwrap()
+  if range_count == 0UL || range_count > num_glyphs {
+    return Err(
+      cff_data_error(
+        "font-cff-fd-select-range-count",
+        requested=range_count,
+        limit=num_glyphs,
+      ),
+    )
+  }
+  let range_bytes = match @checked.checked_mul(range_count, 3UL) {
+    Err(_) => return Err(cff_data_error("font-cff-fd-select-format3"))
+    Ok(value) => value
+  }
+  let body_bytes = match @checked.checked_add(range_bytes, 2UL) {
+    Err(_) => return Err(cff_data_error("font-cff-fd-select-format3"))
+    Ok(value) => value
+  }
+  match
+    cff_require_window(
+      cff.view,
+      offset + 3UL,
+      body_bytes,
+      "font-cff-fd-select-format3",
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let mut previous_first = 0UL
+  let mut range = 0UL
+  while range < range_count {
+    let record = offset + 3UL + range * 3UL
+    let first = read_u16(cff.view, record).unwrap()
+    let fd = cff.view.get(record + 2UL).unwrap().to_uint64()
+    if range == 0UL {
+      if first != 0UL {
+        return Err(cff_data_error("font-cff-fd-select-first"))
+      }
+    } else if first <= previous_first {
+      return Err(cff_data_error("font-cff-fd-select-order"))
+    }
+    if first >= num_glyphs {
+      return Err(
+        cff_data_error(
+          "font-cff-fd-select-range",
+          requested=first,
+          limit=num_glyphs,
+        ),
+      )
+    }
     if fd >= fd_count {
       return Err(
         cff_data_error(
@@ -634,8 +713,39 @@ fn cff_decode_fd_select_zero(
         ),
       )
     }
-    selectors.push(fd)
-    gid = gid + 1UL
+    previous_first = first
+    range = range + 1UL
+  }
+  let sentinel = read_u16(cff.view, offset + 3UL + range_bytes).unwrap()
+  if sentinel != num_glyphs {
+    return Err(
+      cff_data_error(
+        "font-cff-fd-select-sentinel",
+        requested=sentinel,
+        limit=num_glyphs,
+      ),
+    )
+  }
+  if sentinel <= previous_first {
+    return Err(cff_data_error("font-cff-fd-select-order"))
+  }
+  let selectors : Array[UInt64] = Array::make(num_glyphs.to_int(), 0UL)
+  range = 0UL
+  while range < range_count {
+    let record = offset + 3UL + range * 3UL
+    let first = read_u16(cff.view, record).unwrap()
+    let fd = cff.view.get(record + 2UL).unwrap().to_uint64()
+    let terminal = if range + 1UL < range_count {
+      read_u16(cff.view, record + 3UL).unwrap()
+    } else {
+      sentinel
+    }
+    let mut gid = first
+    while gid < terminal {
+      selectors[gid.to_int()] = fd
+      gid = gid + 1UL
+    }
+    range = range + 1UL
   }
   Ok({ format, selectors })
 }
@@ -890,7 +1000,7 @@ fn cff_resolve_cid_keying(
     fd = fd + 1UL
   }
   let fd_select = match
-    cff_decode_fd_select_zero(
+    cff_decode_fd_select(
       cff,
       fd_select_offset,
       num_glyphs,
