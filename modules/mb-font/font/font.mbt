@@ -1,4 +1,21 @@
 ///|
+/// Closed private promotion boundary for outline-bearing facts.
+///
+/// `Cff1` accepts only the complete post-ledger `AdmittedCff1` aggregate; no
+/// profile fragment, parser cursor, FD selection, or per-GID partial state has
+/// an independently constructible outline-source case.
+#warnings("-7")
+priv enum FontOutlineSource {
+  Glyf
+  Cff1(AdmittedCff1)
+}
+
+///|
+fn font_outline_source_from_cff(admitted : AdmittedCff1) -> FontOutlineSource {
+  FontOutlineSource::Cff1(admitted)
+}
+
+///|
 /// An atomically admitted font over retained caller-provided bytes.
 ///
 /// The representation is private. Queries guard the retained source revision
@@ -17,6 +34,7 @@ pub struct Font {
   priv tables : RequiredTableFacts
   priv metric_index : MetricIndexFacts
   priv limits : FontLimits
+  priv outline_source : FontOutlineSource
 }
 
 ///|
@@ -126,6 +144,7 @@ fn font_from_admitted_facts(
     tables,
     metric_index,
     limits,
+    outline_source: FontOutlineSource::Glyf,
   }
 }
 
