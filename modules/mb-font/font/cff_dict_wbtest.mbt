@@ -1,0 +1,79 @@
+///|
+test "CFF DICT decodes integer real and escaped structural operands exactly" {
+  for item in [
+    (b"\x8B", false, 0UL, 1UL),
+    (b"\xEF", false, 100UL, 1UL),
+    (b"\x27", true, 100UL, 1UL),
+    (b"\xF7\x00", false, 108UL, 1UL),
+    (b"\xFB\x00", true, 108UL, 1UL),
+    (b"\x1C\x00\x2A", false, 42UL, 1UL),
+    (b"\x1C\xFF\xD6", true, 42UL, 1UL),
+    (b"\x1D\x00\x00\x00\x2A", false, 42UL, 1UL),
+    (b"\x1D\xFF\xFF\xFF\xD6", true, 42UL, 1UL),
+    (b"\x1E\x1A\x5F", false, 15UL, 10UL),
+  ] {
+    let decoded = cff_decode_dict_number(
+      font_wb_view(item.0),
+      0UL,
+      "cff-dict-number-test",
+    ).unwrap().0
+    inspect(decoded.negative == item.1, content="true")
+    inspect(decoded.magnitude == item.2, content="true")
+    inspect(decoded.denominator == item.3, content="true")
+  }
+  let top = cff_decode_top_dict(
+    font_wb_view(b"\x8D\x0C\x06\x8C\x11"),
+  ).unwrap()
+  inspect(top.charstring_type.magnitude, content="2")
+  inspect(top.charstring_type_explicit, content="true")
+  inspect(top.charstrings.value, content="1")
+}
+
+///|
+test "CFF typed DICT schemas apply defaults and preserve named offset bases" {
+  let top = cff_decode_top_dict(font_wb_view(b"\x95\x11\x8D\xA0\x12")).unwrap()
+  inspect(top.charstring_type.magnitude, content="2")
+  inspect(top.charstring_type_explicit, content="false")
+  inspect(top.charstrings.value, content="10")
+  inspect(top.private_range.unwrap().size, content="2")
+  inspect(top.private_range.unwrap().offset.value, content="21")
+  inspect(top.font_matrix.length(), content="6")
+  inspect(top.font_matrix[0].magnitude, content="1")
+  inspect(top.font_matrix[0].denominator, content="1000")
+
+  let font = cff_decode_font_dict(
+    font_wb_view(b"\x8D\xA0\x12\x8C\x8B\x8B\x8C\x8B\x8B\x0C\x07"),
+  ).unwrap()
+  inspect(font.private_range.unwrap().offset.value, content="21")
+  inspect(font.font_matrix.length(), content="6")
+
+  let private = cff_decode_private_dict(
+    font_wb_view(b"\x8D\x13\xEF\x14\x27\x15"),
+  ).unwrap()
+  inspect(private.local_subrs.unwrap().value, content="2")
+  inspect(private.default_width_x.magnitude, content="100")
+  inspect(private.nominal_width_x.negative, content="true")
+  inspect(private.nominal_width_x.magnitude, content="100")
+}
+
+///|
+test "CFF typed DICT rejects wrong arity duplicate reserved and truncated forms" {
+  inspect(
+    cff_decode_top_dict(font_wb_view(b"\x8B\x8C\x00\x8C\x11")) is Err(_),
+    content="true",
+  )
+  inspect(
+    cff_decode_top_dict(font_wb_view(b"\x8C\x11\x8D\x11")) is Err(_),
+    content="true",
+  )
+  inspect(
+    cff_decode_private_dict(font_wb_view(b"\x8C\x13\x8D\x13")) is Err(_),
+    content="true",
+  )
+  for malformed in [b"\xFF", b"\x1C\x00", b"\x1D\x00\x00", b"\x1E\x1A"] {
+    inspect(
+      cff_parse_dict(font_wb_view(malformed), "cff-dict-test") is Err(_),
+      content="true",
+    )
+  }
+}
