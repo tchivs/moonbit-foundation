@@ -1,216 +1,233 @@
 # Project Research Summary
 
-**Project:** MoonBit Native Foundation — v0.33 TrueType Collection Adapters
-**Domain:** Portable, bounded, no-copy TTC/OTC inspection and selected static-`glyf` face admission
+**Project:** MoonBit Native Foundation — v0.34 CFF Outline Foundation
+**Domain:** Bounded static OpenType CFF1 admission and Type 2 CharString execution to reusable cubic `Path2`
 **Researched:** 2026-07-28
-**Confidence:** HIGH for scope and repository integration; MEDIUM for the new pre-1.0 API and exact resource/error policy
+**Confidence:** MEDIUM overall; HIGH for project scope and repository integration seams
 
 ## Executive Summary
 
-v0.33 should extend the existing `tchivs/mb-font@0.1.0` package with a narrow `FontCollection` adapter for raw TTC/OTC version 1.0 and 2.0 containers. The product is not a new font engine, decompressor, discovery service, or collection authoring tool. It accepts a caller-owned bounded `ByteView`, validates the collection envelope atomically, exposes zero-based face selection and minimal capability inspection, and returns the existing opaque `Font` only for a selected static TrueType face with `sfntVersion = 0x00010000` and `glyf`/`loca` outlines. CFF, CFF2, variable faces, WOFF, WOFF2, shaping, discovery, hinting, rasterization, and cryptographic signature verification remain explicit future boundaries.
+v0.34 is a code-first extension of the existing `tchivs/mb-font` foundation, not a new public CFF library or foreign-font wrapper. The honest desktop-grade slice is static OpenType CFF1 in both name-keyed Latin and CID-keyed CJK forms, opened from standalone `OTTO` SFNTs or selected TTC/OTC faces through the existing opaque `Font`. Public Unicode mapping, glyph identity, metrics, kerning, errors, and outline queries remain format-neutral; CFF curves are emitted directly as the existing `Path2::CubicTo`. Experts build this as a checked CFF data-model parser feeding a bounded Type 2 virtual machine, with format-specific facts kept behind a closed private `Glyf | Cff1` outline-source dispatch.
 
-The implementation should add no runtime dependency, module, FFI, ambient I/O, or target-specific path. The one necessary architectural change is to parameterize the existing private SFNT admission seam with an absolute face-directory offset and an explicit checksum policy. Directory fields are read at that non-zero base, but every table-record offset remains relative to byte zero of the collection. Selected tables become checked subviews of the retained root source, preserving legitimate table sharing, the existing mutation revision, and all shipped metrics, cmap, kern, limits, budget, error, and outline behavior.
+The recommended implementation remains pure MoonBit on the pinned v0.33 toolchain with `tchivs/mb-core` as the sole runtime dependency. One reusable INDEX decoder and typed Top/Font/Private DICT schemas establish checked CFF-local windows and resolve one unambiguous CharString, Private DICT, FontMatrix, and local-subroutine environment per GID. One iterative fixed-point Type 2 VM then serves two sinks: an admission-time validation/bounds sink for every glyph and a query-time path sink for one glyph. Hints are fully parsed because they frame bytecode, but their rendering effects are ignored. Every operation uses explicit limits, cumulative work accounting, mutation guards, private scratch state, and one final budget commit before publishing a `Font` or `Path2`.
 
-The principal risks are accidentally rebasing root-relative table offsets, applying standalone whole-font checksum rules to a collection face, allowing counts or offsets to become allocation authority, confusing exact cross-face sharing with malformed overlap, and publishing facts across a source-revision or budget boundary. Mitigate them with checked `UInt64` range arithmetic before narrowing, separate collection and selected-face atomic transactions, protected structural ranges, per-table checksums with collection-specific `head.checksumAdjustment` handling, pre/post revision guards, a closed error-precedence matrix, and independently generated/licensed qualification on `js`, `wasm`, `wasm-gc`, and `native`.
+The largest risks are wrong offset bases, incomplete CID keying, treating the Type 2 depth ceiling as sufficient resource control, hint-mask desynchronization, target-dependent arithmetic or random behavior, partial metric/bounds publication, TTC double rebasing, and self-confirming fixture evidence. Mitigation drives the roadmap order: first freeze structural profile/keying facts, then freeze VM and admission-time bounds semantics, then expose cubic paths and collection integration, and only then close licensed, hostile, compatibility, and four-target evidence. CFF2/variable execution, WOFF, shaping, hint execution, rasterization, color/bitmap glyphs, and authoring remain explicit later capabilities rather than partial v0.34 acceptance.
 
 ## Key Findings
 
-### Hard Scope and Resolved Decisions
-
-The four research reports agree on the core design. Roadmap and requirements should use these resolved rules where the reports left implementation choices open:
-
-1. **One additive adapter, one existing font model.** Add `FontCollection` and `FontCollectionLimits` to the existing public `font` package. Keep `Font::open` standalone-only and behavior-compatible. `open_face` returns the existing `Font`; do not create a parallel `CollectionFace` query API.
-2. **Raw TTC/OTC v1/v2 only.** Admit bytes by the `ttcf` signature, never by filename extension. Support TTCHeader 1.0 and 2.0. Explicitly reject WOFF/WOFF2 and do not add zlib, Brotli, table-transform reconstruction, or materialized standalone-font output.
-3. **Static `glyf` selection only.** Collection structure is outline-neutral, so a supported face can coexist with CFF, CFF2, variable, or otherwise deferred siblings. Minimal semantic face inspection should classify supported static `glyf`, CFF, CFF2, variable, and other unsupported profiles; only the selected supported static `glyf` face is fully admitted.
-4. **Minimal inspection wins over omission or raw exposure.** Architecture research considered omitting `face_profile`, while feature research requires useful mixed-collection inspection. Include a small closed semantic classification but keep raw directory offsets, table records, names, and table views private. Final type/function names may change during API review without weakening the capability.
-5. **DSIG is structural, never trusted.** For TTC v2, accept an all-zero DSIG tuple as absent. For a present tuple, require `DSIG`, a checked non-empty range ending at collection EOF, and bounded version-1/format-1 record envelopes; keep payload bytes opaque and expose only `present_unverified`. Malformed structure is `Data`; a well-formed unsupported version/format is `Capability`. Do not add cryptography or trust-store policy.
-6. **Two-stage validation is mandatory.** Collection opening validates the header, full offset array, every face-directory envelope, protected structural ranges, compact profile facts, and the DSIG envelope. It does not checksum or semantically admit every sibling table graph. `open_face` performs full existing font admission for exactly one selected face.
-7. **Sharing policy is fail-closed and scoped.** Preserve unique ordered tags and non-overlapping distinct tables within each face. Across faces, permit exact shared ranges with consistent length/checksum metadata; reject partial overlaps, conflicting metadata, and any table intersection with protected collection/directory ranges. Do not add a global table cache.
-8. **Resource accounting distinguishes retention from work.** A selected `Font` may enforce its source-retention ceiling against the root collection extent because it retains that root. The budget must not count the same root bytes as copied allocation or rescan the whole collection per selection. Collection bookkeeping/work and selected directory/table work are separate authoritative transactions. Freeze the exact requested/limit facts before implementation.
-
 ### Recommended Stack
 
-Use the existing repository stack unchanged:
+Extend the existing module in place. No new runtime dependency, public module, FFI layer, ambient I/O, database, native font engine, or target-specific implementation is justified. External font tooling belongs only in an integrity-pinned host qualification lane; generated MoonBit fixtures and hand-derived vectors remain the normative regression base.
 
-- **MoonBit `moon` / `moonrun` `0.1.20260713` and `moonc v0.10.4+2cc641edf`** — exact current build and qualification baseline; no toolchain upgrade is required.
-- **`tchivs/mb-font@0.1.0`** — add the collection facade and reuse the shipped `Font` behavior.
-- **`tchivs/mb-core@0.1.0`** — remain the only runtime dependency, supplying retained `ByteView`s, mutation revisions, checked ranges/arithmetic, budgets, structured errors, and `Path2`.
-- **OpenType Specification 1.9.1** — normative authority for TTCHeader 1.0/2.0, root-relative table offsets, table sharing, collection checksums, DSIG placement, and outline-profile distinctions.
-- **Existing `moon.work`, `moon.mod.json`, and CI patterns** — retain `preferred-target: native` and `supported-targets: +js+wasm+wasm-gc+native`.
+**Core technologies:**
 
-No database, persistent index, compression library, cryptography library, filesystem/network layer, foreign font engine, or native stub belongs in v0.33. Deterministic fixture tooling is development/test-only and must not become a production dependency or runtime oracle.
+- **MoonBit `moon` / `moonrun` `0.1.20260713` and `moonc v0.10.4+2cc641edf`**: build and run the same implementation on `js`, `wasm`, `wasm-gc`, and `native` — preserves the exact validated v0.33 baseline.
+- **`tchivs/mb-font@0.1.0`**: owns the opaque `Font`, collection selection, metrics, cmap, kern, glyph identity, and outline API — CFF1 must be a private second outline profile, not a parallel public type.
+- **`tchivs/mb-core@0.1.0`**: remains the sole runtime dependency — its retained `ByteView`, checked arithmetic, budget, structured errors, mutation revision, and cubic `Path2` already provide the required primitives.
+- **OpenType 1.9.1 plus Adobe Technical Notes #5176 and #5177**: normative static CFF1, OpenType integration, INDEX/DICT/CID structures, Type 2 semantics, and hard format ceilings.
+- **Checked signed Q16.16 in `Int64`**: VM operands, coordinates, transient values, arithmetic, and FontMatrix application — avoids cross-target drift; conversion to `Double` occurs only while publishing final `Point2` values.
+- **Pinned host oracles**: fontTools `4.63.0`, AFDKO `5.0.1`, and OTS `9.2.0` — qualification-only structural and semantic cross-checks, never production dependencies or the sole source of expected results.
 
-Critical version requirements:
+**Critical version and profile requirements:**
 
-- TTC/OTC container profile: exactly TTCHeader 1.0 and 2.0.
-- Selected supported face: `sfntVersion = 0x00010000`, static `glyf` plus `loca`, and the existing v0.32 required-table profile.
-- Existing module versions remain `0.1.0`; milestone numbering does not imply a publication-version bump.
+- Admit the new profile only for `OTTO` with exactly one `CFF ` table, no `CFF2`, no `glyf`/`loca` mixture, no variation-dependent outline profile, and `maxp` version 0.5.
+- Require `maxp.numGlyphs == CharStrings INDEX.count`; OpenType GID remains the CharStrings position.
+- Preserve the existing `0x00010000` static-`glyf`, common-table, checksum, collection, API, budget, and error behavior unchanged.
+- Keep `moon.mod.json`, the four declared targets, and the sole `mb-font -> mb-core` dependency for v0.34.
 
 ### Expected Features
 
 **Must have (table stakes):**
 
-- Separate bounded `FontCollection` entry point with frozen standalone `Font::open` behavior.
-- Atomic TTC/OTC v1/v2 header, offset-array, all-directory-envelope, and optional v2 DSIG structural validation.
-- Exact non-zero face count and explicit zero-based index semantics; no clamping, implicit face zero, raw-offset selection, or name-based identity.
-- Distinct `FontCollectionLimits` covering at least source bytes, faces, cumulative directory records, DSIG records/bytes, retained bookkeeping, and work.
-- Root-retaining, no-copy selected-face admission with table records resolved against collection byte zero.
-- Existing per-table checksums in both modes, with the standalone aggregate checksum equation used only by standalone `Font::open`.
-- Legitimate exact cross-face table sharing and strict fail-closed handling of same-face overlap, partial aliasing, conflicting metadata, or protected-range intersection.
-- Per-face classification and capability isolation so unsupported CFF/CFF2/variable siblings do not poison a supported static-`glyf` face.
-- Root source identity and permanent mutation-revision propagation through collection operations and every derived `Font`.
-- Stable stage-specific `InvalidInput`, `Data`, `Capability`, `Resource`, and `State` outcomes with atomic budget charges and no partial publication.
-- Generated, licensed, hostile, standalone-compatibility, and public-workflow qualification with identical semantic facts on all four production targets.
+- Static CFF1 admission behind the existing opaque `Font` for standalone OTF and selected TTC/OTC faces.
+- One checked INDEX implementation for Name, Top DICT, String, Global Subrs, CharStrings, FDArray, and local Subrs, including empty form and all `offSize` values.
+- Typed Top, Font, and Private DICT parsing with complete number encodings, arity/default/duplicate policy, named offset bases, checked ranges, and no embedded PostScript execution.
+- Both name-keyed selection (predefined/custom charset and Encoding) and CID-keyed selection (`ROS`, CID charset, FDArray, FDSelect 0/3, per-FD Private DICT and local Subrs).
+- Full normal static Type 2 execution: number/stack/transient/arithmetic/logical/storage operators, widths, path operators, all flex forms, local/global subroutines, legal termination, and deterministic `random`.
+- Exact hint/stem/mask framing and validation without device hint execution.
+- Bounded, atomic cubic path publication with explicit byte, work, call, depth, stack, stem, command, contour, point, allocation, mutation, and budget authority.
+- Admission-time validation of every glyph and retention of truthful compact bounds before any CFF-backed `Font` is published.
+- Existing `cmap`, `GlyphId`, `hmtx`, line/global metrics, legacy `kern`, checksum, structured error, and collection behavior preserved.
+- Generated name-keyed and multi-FD CID fixtures, licensed name-keyed and CID evidence, hostile/resource/mutation matrices, frozen `glyf` regressions, and exact four-target semantic comparison.
 
-**Should have (differentiators):**
+**Should have (competitive):**
 
-- Inspect the bounded collection once, then pay full TrueType admission cost only for the chosen face.
-- Small semantic profile and DSIG-presence facts without exposing storage internals.
-- Exact one-short/exact collection and selected-face resource evidence.
-- Adversarial offset-origin fixtures that remain in-bounds under an incorrect rebase, making the most dangerous bug observable.
-- Public equivalence evidence showing a collection-selected face preserves the existing metrics, Unicode mapping, kerning, glyph IDs, outlines, and revision failures of its standalone logical equivalent.
+- One public `Font` and native cubic `Path2` fidelity across both outline formats, so downstream SVG/PDF/canvas/CLI consumers do not branch on storage.
+- Zero-copy retained CFF views and capability-preserving TTC/OTC face selection, including shared CFF tables with face-local mapping and metrics.
+- Caller-authorized resource transactions and deterministic failure precedence rather than host OOM, host recursion, or target-dependent timeout.
+- Independent semantic oracle records covering GID/FD selection, commands, control points, bounds, metrics, failure class, and fixture provenance.
+- Reproducible Latin and CJK performance baselines after correctness gates close; optimizations must preserve commands, coordinates, errors, budgets, and API.
 
-**Defer to later milestones:**
+**Static CFF1 scope and explicit deferrals:**
 
-- WOFF1 and WOFF2 decoding, decompression, and transformed-table reconstruction.
-- CFF/CFF2 charstrings, variable-font instances, color/bitmap profiles, and broader font formats.
-- DSIG cryptographic verification, PKCS#7/X.509 parsing, trust stores, certificate policy, or authenticity claims.
-- Localized name/family/style discovery, fallback, shaping, GSUB/GPOS, bidi, hinting, rasterization, and system-font access.
-- Collection extraction, authoring, merging, subsetting, rewriting, standalone materialization, and persistent shared-table/font caching.
+- **In scope:** raw static CFF1 in `OTTO` SFNT and TTC/OTC selected faces; one-font CFF FontSet; name-keyed and CID-keyed data; Type 2 CharStrings; local/global Subrs; FontMatrix normalization; validated non-rendering hints; unhinted cubic design-space outlines.
+- **Deferred to v0.34.x:** semantics-preserving performance work, broader licensed corpus coverage, and optional metadata inspection only after a concrete RFC-backed consumer need.
+- **Deferred to v0.35+:** CFF2 and variable-font instantiation (`VariationStore`, `vsindex`, `blend`); WOFF1/WOFF2 decompression and reconstruction; shaping/GSUB/GPOS/bidi; hint execution and rasterization; color/bitmap glyphs; subsetting, authoring, serialization, discovery, fallback, and host-font lookup.
+- **Never in this slice:** foreign runtime font stacks, ambient filesystem/network access, cubic-to-quadratic approximation, public raw CFF offsets/DICT objects, or silent partial acceptance of deferred profiles.
+
+### Metrics Admission and Bounds Decision
+
+The roadmap should treat the following as resolved architecture, not leave it as a later API choice:
+
+1. **`hmtx` remains the sole public advance-width and left-side-bearing authority.** Type 2 optional/default/nominal widths are decoded and validated for legal program semantics and checked arithmetic, but they neither replace public metrics nor cause rejection merely because a collection face's face-local `hmtx` differs from a shared CFF table.
+2. **Every CharString is executed during CFF admission through the same VM used for outlines.** The admission sink validates the complete program, selected FD/private environment, subroutine behavior, hints, numeric operations, contour lifecycle, limits, and effective FontMatrix before `Font` publication.
+3. **Retain one compact conservative integer bound per GID, not a `Path2`.** Compute `floor(min)` / `ceil(max)` after the effective FontMatrix over line endpoints and cubic endpoints/control points. Preserve truthful empty-glyph semantics. `horizontal_metrics` performs no hidden or unbudgeted VM work and derives its existing bound/right-side-bearing result from these retained facts plus authoritative `hmtx`.
+4. **Admission is one transaction.** Structural parsing, all-glyph execution, retained bounds, exact work/allocation accounting, and final source-revision guard complete before one budget charge and `Font` publication. Any glyph, resource, numeric, or mutation failure publishes no font, no bounds, and no committed admission charge.
+5. **Outline queries remain separate transactions.** The VM runs one selected glyph with the path sink into private scratch geometry; only legal termination, final revision validation, and one caller-budget commit publish a complete cubic `Path2`.
 
 ### Architecture Approach
 
-Normalize the container difference at one private boundary. `FontCollection::open` retains the root `ByteView`, opening revision, protected structural ranges, and compact per-face facts. `open_face(index, limits, budget)` checks revision and index, parses one SFNT directory at the stored absolute directory offset, resolves each table record unchanged against the root view, selects collection checksum mode, and enters the same private font-admission transaction used by standalone `Font::open`.
-
-All downstream table readers remain collection-unaware because they already consume checked table-local views. `cmap`, metrics, kern, loca/glyf, and outline code should not acquire collection branches.
+Split common SFNT facts from a closed private outline source. The existing `glyf` decoder stays compatibility-frozen; CFF1 receives dedicated checked cursor, INDEX, DICT, keying, admission, Type 2 VM, and geometry-sink components within the current `font` package. Standalone and collection routes pass the same admitted common facts and one checked `'CFF '` table window into the same CFF admission transaction. SFNT/TTC table records stay root-relative; CFF internal offsets become table-relative only after windowing; INDEX offsets are 1-based from object data; Private `Subrs` is relative to its Private DICT.
 
 **Major components:**
 
-1. **Public collection facade** — bounded open, revision-guarded face count/profile facts, DSIG presence status, and explicit selected-face admission.
-2. **Collection limits and error policy** — semantic ceilings, authoritative transaction plans, stable operation/context names, and deterministic precedence.
-3. **TTC header/parser** — exact v1/v2 parsing, checked count/offset arithmetic, all-face directory envelopes, protected ranges, and v2 DSIG structure.
-4. **Offset-aware SFNT directory seam** — absolute directory-base reads, root-relative table windows, per-face tag/overlap rules, and cross-face exact sharing.
-5. **Explicit checksum policy** — selected per-table checksums in both modes; standalone aggregate `0xB1B0AFBA` validation only for the standalone facade.
-6. **Shared font admission transaction** — unchanged required-table, profile, cmap, kern, metrics, loca/glyf, outline, budget, and final revision gates producing the existing `Font`.
-7. **Qualification system** — independent micro-collection builder/oracle, licensed specimen manifest, hostile mutation matrix, standalone regressions, and four-target canonical selectors.
+1. **Closed outline-profile facade** — retains common cmap/metrics/kern facts once and dispatches only private `Glyf` or `Cff1` state at bounds and outline boundaries.
+2. **SFNT/TTC profile and table-window layer** — recognizes an exact static profile, preserves root-relative collection records/checksums, and hands CFF one checked table-local authority.
+3. **CFF structural parser** — central checked cursor, reusable INDEX parser, typed DICT schemas, String/SID validation, charsets, Encodings, Private DICTs, and Global/Local Subr windows.
+4. **CFF keying adapter** — normalizes name-keyed or CID-keyed data into exactly one per-GID CharString and private/local-subroutine/matrix environment before VM execution.
+5. **Iterative Type 2 VM** — fixed stack/transient/frame storage, Q16.16 arithmetic, deterministic PRNG, hint framing, subroutine biases/cycles, termination, and unified execution/work ledgers.
+6. **Two geometry sinks** — admission-time `ValidateBounds` retains conservative integer extents; query-time `BuildPath` publishes complete native cubic paths.
+7. **Qualification system** — one extended fixture generator and one upgraded four-target evidence lane with generated, licensed, hostile, compatibility, dependency, API, and toolchain facts.
 
-Likely future repository changes are concentrated in the mb-font collection facade, its limits and directory/font admission internals, focused tests, font fixtures and manifests, and qualification scripts. This is a planning forecast rather than a claim that those files already exist. mb-core, downstream modules, and public dependency policy should remain unchanged.
+**Key patterns:**
+
+- Parse → validate → exact preflight → final mutation guard → one budget commit → publish.
+- Preflight attacker-controlled counts and ranges before traversal, narrowing, or allocation.
+- Use explicit Type 2 frames rather than host recursion; distinguish `Global(index)` from `Local(environment,index)`.
+- Resolve CID FD/private facts before the VM; the VM never parses FDSelect.
+- Keep one interpreter/operator switch for both bounds and path sinks to prevent validator/renderer drift.
+- Retain compact views, offsets, FD ranges, and bounds; do not copy strings/CharStrings broadly, desubroutinize, memoize geometry, or retain every glyph path.
 
 ### Critical Pitfalls
 
-1. **Rebasing root-relative table offsets** — never feed a face-directory subview to the standalone parser and never compute `directory_offset + record.offset`; add the base only when reading directory-local fields.
-2. **Using zero-base ordering as overlap validation** — build checked absolute protected ranges for the TTC header and every face directory, then test actual intersection; valid collection tables may appear before or after a selected directory.
-3. **Conflating sharing with arbitrary aliasing** — allow deliberate exact cross-face sharing, retain strict per-face tags/ranges, and reject partial/conflicting aliases under bounded deterministic work.
-4. **Applying standalone checksum semantics to TTC** — keep selected table checksums active, zero the `head.checksumAdjustment` field only for the `head` table checksum calculation, and skip only the standalone whole-source invariant.
-5. **Letting counts/offsets authorize allocation or work** — keep wire values in checked `UInt64`, compare semantic limits before narrowing/allocation, preflight cumulative directory and DSIG work, and commit one exact transaction per operation.
-6. **Eagerly admitting all faces or poisoning supported siblings** — validate all directory envelopes structurally but defer table checksums and semantics to the selected face; classify well-formed unsupported profiles as capabilities.
-7. **Leaving a collection-to-font mutation window** — use the same root revision before and after collection open, inspection, face admission, and later font queries; mutation followed by restoration remains invalidation.
-8. **Claiming portability or fixture legitimacy by convention** — prohibit host/network fonts in tests, record source and derivative digests/licenses/tooling, use independent expected facts, and execute separate canonical runs on all four targets.
+1. **Wrong offset coordinate space** — centralize INDEX decoding and checked named windows; never mix SFNT-root, CFF-table, INDEX-object-data, or Private-DICT-relative offsets.
+2. **CID reduced to name-keyed behavior** — require the complete `ROS`/CID charset/FDArray/FDSelect contract, validate all FDs, and resolve one per-GID execution environment before the VM.
+3. **Incomplete Type 2 resource accounting** — hard stack/stem/depth/transient ceilings are insufficient; charge every executed byte/token, call/return, stack action, mask byte, arithmetic operation, range traversal, and emitted geometry unit.
+4. **Hints treated as zero-byte no-ops** — count stems across frames and consume exactly `ceil(stems/8)` mask bytes, including pending vstem operands, truncation, unused bits, and 96/97 boundaries.
+5. **Compatibility policy drift** — freeze deterministic PRNG/reset rules, fixed-point rounding/overflow, FontMatrix composition, contour closure, flex-as-two-cubics, and bounded non-nested seac support or a stable explicit unsupported outcome before implementation.
+6. **Partial bounds or metric admission** — validate all glyphs, retain compact bounds, keep `hmtx` authoritative, and commit only after the final mutation guard; never execute hidden work in `horizontal_metrics`.
+7. **TTC double rebasing and shared-table confusion** — preserve the v0.33 retained-root adapter, root-relative table records, table-local CFF windows, face-local common tables, and exact shared CFF ranges.
+8. **Self-oracle and target inference** — use hand-derived generated vectors plus independent pinned tools, provenance-complete licensed inputs, four isolated target runs, and exactly four normalized semantic records.
 
 ## Implications for Roadmap
 
-Use three implementation phases. This grouping follows the two-stage architecture and keeps qualification independent without deferring phase-local hostile tests.
+Use four phases, numbered 104–107. The boundary between Phases 104 and 105 is mandatory: structural offset/keying failures and VM execution/resource failures have distinct invariants, error precedence, and hostile matrices.
 
-### Phase 1: Collection Contract and Bounded Envelope
+### Phase 104: CFF1 Profile and Bounded Data Model
 
-**Rationale:** The new public identity, error, resource, and structural-validation contract must be frozen before the parser is generalized. It establishes the only new container trust boundary and prevents attacker-controlled counts from reaching allocation or repeated work.
+**Rationale:** Every later operation depends on a single checked CFF table authority and an unambiguous execution environment per GID. INDEX/DICT/keying semantics must be stable before a bytecode VM can safely consume them.
 
-**Delivers:** Additive opaque `FontCollection`, `FontCollectionLimits`, minimal `FontFaceProfile`, and structural DSIG-presence types; exact TTCHeader 1.0/2.0 parsing; checked `numFonts` and offset array; complete all-face directory envelopes and protected ranges; compact face facts; source-revision ownership; collection budget transaction; stable index/error semantics; no change to `Font::open`.
+**Delivers:** Closed static-CFF1 profile classification; common-versus-outline-specific table facts; CFF Header and all shared INDEX decoding; typed Top/Font/Private DICT schemas; String/SID checks; predefined/custom name-keyed charset and Encoding; CID `ROS`, charset, FDArray, FDSelect 0/3, Private DICT, and local/global Subr windows; CharStrings/`maxp` identity; derived semantic limits, error precedence, exact structural charge formula; generated structural and exact/one-short fixtures. The phase ends with internal proof that every GID selects exactly one bounded CharString and environment. It does not yet claim a publicly usable CFF-backed `Font`.
 
-**Addresses:** TTC-01 and the collection half of TTC-03/TTC-04: bounded container inspection, exact count/index behavior, mixed-profile visibility, DSIG structural status, atomic publication, and permanent mutation fail-closed behavior.
+**Addresses:** Static CFF1 profile admission, reusable INDEX/DICT, name-keyed and CID-keyed selection, GID identity, checked retained views, and explicit unsupported recognition for mixed/CFF2/variable profiles.
 
-**Avoids:** Header/version ambiguity, unchecked arithmetic and premature narrowing, raw offsets or names as identity, eager semantic admission of every face, false DSIG trust, inconsistent errors, and partial collection publication.
+**Primary risks avoided:** 1-based INDEX mistakes; unchecked count/offset arithmetic; duplicate or untyped DICT keys; wrong CFF/Private offset bases; malformed SID/CID/FDSelect facts; tag-only profile recognition.
 
-**Planning decisions to freeze:** exact public names; whether profile classification is enum or opaque facts; cumulative directory/DSIG limits; protected-range and cross-face partial-overlap policy; collection charge formula; validation/error precedence; fixture provenance policy.
+**Research flag:** **DEEP RESEARCH REQUIRED.** Freeze duplicate-key policy, DICT real/fixed conversion, predefined charset/Encoding tables, exact CID FontMatrix rules, semantic limit derivation, admission-time validation boundaries, and structural error precedence against primary specifications before planning implementation tasks.
 
-### Phase 2: Root-Relative Selected-Face Admission
+### Phase 105: Bounded Type 2 Validation and Retained Metrics
 
-**Rationale:** Once collection topology and authority are stable, refactor the existing SFNT seam exactly once and route both standalone and selected collection faces through one admission transaction. This phase carries the highest correctness risk because standalone assumptions previously coincided with offset zero.
+**Rationale:** The existing budgetless metrics API requires truthful bounds before a CFF `Font` can exist. This phase therefore closes execution semantics, all-glyph validation, and atomic metric admission before public path integration.
 
-**Delivers:** Private directory parser parameterized by absolute directory offset; root-relative table windows; strict per-face overlap plus exact cross-face sharing; explicit standalone/collection checksum modes; static-`glyf` capability gate; selected-face `FontLimits` and budget transaction; pre/post revision guards; unchanged existing `Font` queries and standalone behavior.
+**Delivers:** Iterative fixed-capacity Type 2 VM; Q16.16 numeric contract; all required stack/arithmetic/logical/storage, line/curve/flex, width, hint/mask, local/global subroutine, and termination semantics; hard ceilings plus caller work ledgers; deterministic PRNG; effective FontMatrix handling; one VM with a validation/bounds sink; all-glyph pass; one compact conservative bound per GID; `hmtx`-authoritative metric integration; private admission transaction with no publication or charge on failure.
 
-**Addresses:** TTC-02 and TTC-03 plus selected-face TTC-04: supported face selection, shared tables, collection checksum rules, sibling capability isolation, and existing metrics/cmap/kern/outline behavior.
+**Addresses:** Full static Type 2 execution, validated non-rendering hints, deterministic resource authority, truthful CFF bounds/RSB, atomic admission, and four-target-portable semantics by construction.
 
-**Avoids:** Double-basing offsets, directory subview parsing, global overlap rejection, disabling all checksums, whole-collection rescans per selection, CFF/CFF2 leakage into `glyf`, duplicated font APIs/parsers, and publication across revision or resource failure.
+**Primary risks avoided:** host recursion; wrong subroutine bias/environment; repeated shallow-call amplification; stack/transient misuse; mask-byte desynchronization; early floating point; random/FontMatrix/seac drift; lazy malformed-glyph discovery; partial bounds or budget publication.
 
-**Planning decisions to freeze:** exact selected-source retention versus budget facts; equal-range metadata consistency; table/protected-range interaction; collection-mode work formula; multi-fault error precedence.
+**Research flag:** **DEEP RESEARCH REQUIRED.** Before coding, freeze fixed-point rounding for `div`/`mul`/`sqrt` and final conversion, PRNG algorithm and reset semantics, effective Top/FD FontMatrix composition, contour closure, deprecated four-operand `endchar`/seac policy, exact geometric-bound rounding, and exhaustive resource-ledger units.
 
-### Phase 3: Hostile, Licensed, and Four-Target Qualification
+### Phase 106: Cubic Path and Public/TTC Integration
 
-**Rationale:** The adapter is complete only when offset origin, sharing, mixed profiles, resource atomicity, mutation, provenance, standalone compatibility, and target equality are proved at the public workflow boundary. This phase consolidates evidence; Phases 1 and 2 still add their own focused hostile tests as implementation proceeds.
+**Rationale:** Once the VM and retained metric facts are proven, public outlines become a thin second sink and collection support can reuse the already-qualified standalone CFF admission path without forking semantics.
 
-**Delivers:** Generated TTC v1/v2, null/present DSIG, non-zero-base, before/after-directory table, shared/distinct table, mixed-profile, corrupt selected/unselected face, limit/budget, error-precedence, and mutation fixtures; one compact provenance-tracked licensed positive collection or derivative; optional licensed unsupported-profile specimen only if size justifies it; unchanged v0.32 standalone suite; public collection-to-Font workflow; independent `js`, `wasm`, `wasm-gc`, and `native` canonical evidence.
+**Delivers:** `BuildPath` sink on the same VM; complete `MoveTo`/`LineTo`/`CubicTo`/`Close` publication; closed `FontOutlineSource::Glyf | Cff1` dispatch; standalone CFF1 `Font::open`; successful static-CFF1 `FontCollection::open_face`; root-relative shared-table handling; face-local `cmap`/`hmtx`/`kern` authority; final per-outline mutation/budget transaction; frozen existing static-`glyf` API, errors, charges, metrics, mappings, kerning, paths, and TTC behavior; stable unsupported outcomes for deferred capabilities.
 
-**Addresses:** TTC-05 and final acceptance of TTC-01 through TTC-04: reproducibility, interoperability, compatibility, deterministic errors/facts, and full four-target behavior.
+**Addresses:** One opaque `Font`, native cubic fidelity, selected CFF collection faces, mapping/metrics/kerning compatibility, no-copy retained views, and public atomic `Path2` extraction.
 
-**Avoids:** Happy-path-only evidence, self-confirming builders/oracles, system-font or network dependency, incomplete derivative licensing, face-zero-only coverage, hidden backend narrowing, and regression disguised as updated baselines.
+**Primary risks avoided:** a parallel CFF public API; validator/path divergence; partial geometry; TTC face-base double rebasing; shared CFF with wrong face-local metrics; accidental generalization of the qualified `glyf` decoder; silent CFF2/WOFF/shaping/hint/raster leakage.
+
+**Research flag:** **TARGETED CODE-LEVEL RESEARCH; SKIP BROAD ECOSYSTEM RESEARCH.** The repository already has the relevant facade, selected-face adapter, checksum, revision, budget, and `Path2` patterns. Planning should inspect exact local charge/error/interface baselines and build non-zero-directory/shared-CFF fixtures, but should not reopen the selected architecture.
+
+### Phase 107: Hostile, Licensed, and Four-Target Qualification
+
+**Rationale:** Desktop-grade support is not proven by generated Latin success or compilation. Final acceptance must exercise both keying models, real subroutinized fonts, the public standalone/collection routes, hostile limits and mutation, frozen `glyf`, and independent execution on all four targets.
+
+**Delivers:** Closed generated name-keyed and multi-FD CID matrices; hand-derived operator/path vectors; immutable licensed name-keyed OTF and licensed CID CJK OTF/OTC derivative; source/derivative hashes, licenses/notices, exact recipes and tool identities; independent fontTools/AFDKO/OTS semantic cross-checks; structural/program/resource/mutation exact/one-short cases; collection shared-table cases; existing-`glyf` regression suite; API/dependency/toolchain checks; reproducible Latin/CJK benchmark baselines; exactly four ordered semantic records from isolated `js`, `wasm`, `wasm-gc`, and `native` runs.
+
+**Addresses:** Interoperability, provenance, hostile-input closure, atomicity evidence, compatibility, performance baselines, deterministic errors/facts, and the milestone's reproducibility requirement.
+
+**Primary risks avoided:** generated-only or Latin-only claims; floating downloads; missing derivative lineage; one tool as both builder and oracle; target-produced expected data; compilation-only portability; broad numeric tolerances; premature optimization.
+
+**Research flag:** **TARGETED PROVENANCE RESEARCH REQUIRED.** Runtime patterns and four-target evidence machinery are established, so skip another format/architecture survey. Planning must approve exact redistributable name-keyed and CID assets, licenses/notices, parent and derivative digests, deterministic subset recipes, pinned oracle hashes/versions, and independence of expected facts.
 
 ### Phase Ordering Rationale
 
-- Public identity, structural-versus-semantic boundaries, protected ranges, limits, errors, and source ownership must exist before selected-face parsing can rely on them.
-- The parser/checksum refactor is isolated from fixture/CI breadth so standalone behavior can be compared continuously while the one critical offset seam changes.
-- Generated hostile tests accompany each implementation phase, while the final phase freezes licensed evidence, complete workflow facts, and independent target runs after API semantics settle.
-- Three phases are sufficient: adding separate phases for WOFF, CFF/CFF2, DSIG crypto, discovery, or authoring would violate the v0.33 product boundary.
+- Phase 104 owns byte authority and keying; the VM cannot safely execute before every GID has one validated CharString and local environment.
+- Phase 105 owns semantics, work, atomic admission, and retained bounds; no public CFF `Font` is honest before every glyph and metric fact is validated.
+- Phase 106 reuses proven semantics for complete cubic paths and adapts the existing standalone/collection facade; this isolates public compatibility risk from parser/VM construction.
+- Phase 107 qualifies the completed public slice with real fonts and independent targets; phase-local white-box and hostile tests still ship in Phases 104–106 rather than being postponed.
+- Performance optimization starts only after Phase 107 freezes semantic fingerprints and named Latin/CJK baselines.
 
 ### Research Flags
 
-Phases needing targeted planning research:
+Phases likely needing `$gsd-plan-phase --research-phase <N>`:
 
-- **Phase 1:** Confirm the exact TTC v2 DSIG envelope depth from the current linked OpenType DSIG definition; freeze the structural-versus-selected validation boundary, cumulative directory/DSIG limits, partial-overlap policy, and error precedence.
-- **Phase 2:** Inspect the existing `directory.mbt` and budget formulas in detail before planning edits; freeze selected-source retention versus allocation/work charges and the exact consistent-metadata rule for shared ranges.
-- **Phase 3:** Audit the chosen licensed TTC/derivative, notice obligations, exact generator command/version, source/output SHA-256 values, and independent oracle facts before committing binary evidence.
+- **Phase 104:** deep specification work for DICT/keying/matrix policy and error/limit boundaries.
+- **Phase 105:** deep Type 2 semantic work for numeric, random, seac, hint framing, bounds, and resource-ledger decisions.
+- **Phase 107:** narrow research for fixture licensing, provenance, tool pinning, and independent oracle design.
 
-Phases with established patterns that do not need broad ecosystem research:
+Phase with established patterns where broad research can be skipped:
 
-- **Phase 1:** TTCHeader 1.0/2.0, root-relative offsets, mixed outline profiles, collection checksums, and the repository's checked/budget/revision primitives are already documented. Only the project policy choices above remain.
-- **Phase 2:** The target architecture and existing local font admission seams are clear; planning needs code-level inspection, not another technology survey.
-- **Phase 3:** Four-target execution, fixture manifests, canonical selectors, and standalone qualification have established repository patterns. Research is limited to specimen provenance and coverage.
+- **Phase 106:** use targeted repository inspection during planning; closed outline dispatch, `Path2`, retained roots, collection selection, budgets, mutation guards, and four-target-compatible APIs are already established.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Exact MoonBit/toolchain/module/dependency facts are locally verified; official OpenType and W3C specifications support the format boundaries. |
-| Features | HIGH | TTC/OTC v1/v2 selection, mixed-profile isolation, no-copy sharing, structured failures, and four-target qualification converge across all reports and the project goal. Exact API names remain pre-1.0 choices. |
-| Architecture | HIGH | Repository source confirms downstream parsing is table-local and can reuse root-backed subviews; the root-relative offset and collection checksum rules are normative. |
-| Pitfalls | HIGH | Failure modes map to concrete current zero-base assumptions, checked-resource contracts, and adversarial verification cases. |
-| DSIG policy | MEDIUM | Structural placement is well supported, but exact public status shape and record-envelope depth should be frozen during Phase 1 planning. |
-| Resource/error policy | MEDIUM | Atomic budget/revision patterns already exist, but collection-versus-selected source-byte accounting and multi-fault precedence are project decisions. |
-| Fixture corpus | MEDIUM | Existing DejaVu provenance is a strong base; the exact v0.33 TTC derivative, digest, and independent facts have not yet been selected. |
+| Stack | MEDIUM | Exact local toolchain/module/dependency facts are strong; current oracle versions and external format findings are official but classified MEDIUM by the research seam, and final tool hashes remain to be pinned. |
+| Features | MEDIUM | Static CFF1 table stakes and deferrals converge across OpenType/Adobe sources and local contracts; obscure valid compatibility forms still require Phase 104–105 policy fixtures. |
+| Architecture | HIGH for integration; MEDIUM for VM details | Existing `Font`, TTC adapter, budgets, revision guards, table windows, metrics, and cubic `Path2` make the integration design concrete; PRNG, FontMatrix, seac, and exact fixed-point rules remain planning decisions. |
+| Pitfalls | MEDIUM overall; HIGH for local atomicity/TTC risks | Failure modes map directly to format rules and shipped MNF contracts; real CID corpus coverage is not yet frozen. |
 
-**Overall confidence:** HIGH for the roadmap and milestone boundary; MEDIUM for the small policy choices explicitly flagged for phase planning.
+**Overall confidence:** MEDIUM. The four-phase roadmap and product boundary are clear; the open work is concentrated in explicit semantic policies and qualification provenance rather than stack or module selection.
 
 ### Gaps to Address
 
-- **Selected-source accounting:** Decide whether `FontLimits.max_source_bytes` records the retained root extent, selected referenced-table extent, or both as separate facts. Never misreport retained caller bytes as copied allocation or make selection work scan unrelated payloads.
-- **Cross-face alias policy:** Freeze exact sharing as same absolute range plus consistent length/checksum metadata and specify deterministic rejection/context for partial or conflicting aliases without unbounded all-pairs work.
-- **DSIG envelope:** Confirm record-count, byte, version/format, and EOF rules; keep payload opaque and status unverified.
-- **Public inspection shape:** Keep profile facts minimal and closed. Confirm whether DSIG status belongs on collection inspection or a dedicated method, without exposing raw storage.
-- **Error precedence:** Specify revision, invalid index, malformed data, unsupported profile/signature, semantic limit, and budget ordering with multi-fault vectors.
-- **Licensed specimen:** Select the smallest redistributable TTC or deterministic derivative that proves real shared-table static-`glyf` behavior; record source/output digests, license/notice, exact transformation, and independent semantic expectations.
-- **Qualification commands:** Verify whether `moon ... --target all` is sufficient evidence or whether selectors must invoke four explicit target runs to freeze independent canonical results; acceptance must show all four target identities.
+- **Type 2 deterministic numeric contract:** specify Q16.16 rounding, overflow, `div`/`mul`/`sqrt`, matrix composition, and final `Double` conversion with exact generated vectors before Phase 105 implementation.
+- **`random` policy:** choose a project-owned PRNG, `initialRandomSeed` interpretation, per-glyph reset, and cross-target oracle facts.
+- **Deprecated `endchar` composition:** either implement bounded, non-nested name-keyed StandardEncoding seac semantics or return one stable recognized unsupported outcome; never accept partial geometry.
+- **DICT duplicate/default policy:** freeze exact behavior per typed Top/Font/Private schema and test every structural singleton.
+- **Metrics mismatch evidence:** retain the resolved `hmtx` authority rule and add shared-CFF collection fixtures whose face-local `hmtx` differs, proving Type 2 width validation does not silently replace or invalidate public metrics.
+- **Licensed CID fixture:** select an immutable redistributable multi-FD CFF1 CJK asset or deterministic derivative and record parent/derivative lineage, license/notice, hashes, recipe, and oracle versions.
+- **Admission performance ceiling:** validate all-glyph bounds cost on named Latin and CJK workloads before optimizing; preserve compact offsets/bounds and exact work preflight.
+- **Error and budget precedence:** freeze state/revision, caller input/range, resource, malformed data, and recognized capability ordering with multi-fault standalone and collection vectors.
 
 ## Sources
 
-### Primary (HIGH confidence)
+### Primary project sources (HIGH confidence)
 
-- [Project definition and v0.33 milestone](../PROJECT.md) — goal, target features, project constraints, and frozen v0.32 behavior.
-- [RFC 0004: `mb-font` Charter](../../docs/rfcs/0004-mb-font.md) — module boundary, portability, hostile-input posture, and downstream contracts.
-- [`STACK.md`](STACK.md), [`FEATURES.md`](FEATURES.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and [`PITFALLS.md`](PITFALLS.md) — detailed research synthesized here.
-- [OpenType Specification 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/) and [OpenType Font File / Font Collections](https://learn.microsoft.com/en-us/typography/opentype/spec/otff) — TTCHeader v1/v2, collection-root-relative offsets, table sharing, mixed outline profiles, DSIG tuple, and collection checksum semantics.
-- [OpenType `head` table](https://learn.microsoft.com/en-us/typography/opentype/spec/head) — collection treatment of `checksumAdjustment`.
-- [OpenType glyph format comparison](https://learn.microsoft.com/en-us/typography/opentype/spec/glyphformatcomparison) — distinct `glyf`, `CFF `, and CFF2 outline models.
-- [OpenType DSIG table](https://learn.microsoft.com/en-us/typography/opentype/spec/dsig) — collection-wide signature envelope and placement; v0.33 uses structure only, not trust.
-- [WOFF 1.0](https://www.w3.org/TR/WOFF/) and [WOFF2](https://www.w3.org/TR/WOFF2/) — official compression/reconstruction requirements supporting their exclusion.
-- Repository mb-font admission, directory, table, limit, cmap, kern, metric, and outline sources; the mb-core byte-view source; module manifests; workspace configuration; and font qualification artifacts — existing code and integration authority.
+- [Project definition and v0.34 milestone](../PROJECT.md) — binding goal, active requirements, static CFF1 scope, deferrals, and compatibility constraints.
+- [`STACK.md`](STACK.md), [`FEATURES.md`](FEATURES.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and [`PITFALLS.md`](PITFALLS.md) — detailed stack, capability, design, failure, and phase research synthesized here.
+- [RFC 0004: `mb-font` Charter](../../docs/rfcs/0004-mb-font.md) — font/outline ownership, `mb-canvas` raster boundary, shaping boundary, and portability policy.
+- Repository `mb-font` admission, directory, metrics, outline, collection, limits, fixture, and qualification sources plus `mb-core` byte, checked, budget, error, and `Path2` sources — existing integration authority.
 
-### Secondary (MEDIUM confidence)
+### Authoritative format sources (MEDIUM confidence under the research seam)
 
-- [FreeType 2.14.3 Face Creation](https://freetype.org/freetype2/docs/reference/ft2-face_creation.html) — established zero-based face-index/count behavior.
-- [`ttf-parser` 0.25.1 `RawFace`](https://docs.rs/ttf-parser/latest/ttf_parser/struct.RawFace.html) — established explicit collection-index parsing and differentiated face errors.
-- [fontTools `TTCollection`](https://fonttools.readthedocs.io/en/latest/ttLib/ttCollection.html) — established collection/member-font and table-sharing model; tooling may aid offline fixture curation only.
-- [DejaVu Fonts license](https://dejavu-fonts.github.io/License.html) and the repository's existing DejaVu fixture manifest — candidate derivative provenance baseline.
-- [Noto CJK repository](https://github.com/notofonts/noto-cjk) and [OFL 1.1 license](https://github.com/notofonts/noto-cjk/blob/main/Sans/LICENSE) — optional real OTC unsupported-profile evidence if repository size and licensing metadata justify inclusion.
+- [OpenType Specification 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/) — current OpenType authority and version.
+- [OpenType font file and collections](https://learn.microsoft.com/en-us/typography/opentype/spec/otff) — `OTTO`, common tables, profile separation, TTC/OTC sharing, and root-relative table records.
+- [OpenType CFF table](https://learn.microsoft.com/en-us/typography/opentype/spec/cff) — one-font CFF FontSet, Type 2 requirement, OpenType GID identity, `maxp` cardinality, and collection integration.
+- [OpenType CFF2 table](https://learn.microsoft.com/en-us/typography/opentype/spec/cff2) — authoritative contrast for the CFF2/variable deferral.
+- [Adobe Technical Note #5176: Compact Font Format](https://adobe-type-tools.github.io/font-tech-notes/pdfs/5176.CFF.pdf) — Header, INDEX, DICT, charset, Encoding, Private DICT, Subrs, CID, FDArray, FDSelect, and FontMatrix.
+- [Adobe Technical Note #5177: Type 2 Charstring Format](https://adobe-type-tools.github.io/font-tech-notes/pdfs/5177.Type2.pdf) — operators, numbers, stack/transient limits, subroutine bias/depth, hints/masks, flex, seac, and termination.
+- [WOFF 1.0](https://www.w3.org/TR/WOFF/) and [WOFF 2.0](https://www.w3.org/TR/WOFF2/) — compression and table-reconstruction boundaries supporting explicit deferral.
+
+### Qualification and compatibility sources (MEDIUM confidence)
+
+- [fontTools CFF library](https://fonttools.readthedocs.io/en/latest/cffLib/index.html) and [fontTools 4.63.0](https://github.com/fonttools/fonttools/releases/tag/4.63.0) — host-only CFF inspection, deterministic subset support, and one semantic oracle.
+- [AFDKO command-line tools](https://adobe-type-tools.github.io/afdko/CommandLineHowTo.html) and [AFDKO 5.0.1](https://github.com/adobe-type-tools/afdko/releases/tag/5.0.1) — independent CFF-specialist `tx`, `spot`, and `makeotf` qualification.
+- [OpenType Sanitizer 9.2.0](https://chromium.googlesource.com/external/ots/+/refs/tags/v9.2.0) — independent structural sanitizer/transcoder, not a semantic source of truth.
+- [Adobe Source Sans](https://github.com/adobe-fonts/source-sans), [Source Serif](https://github.com/adobe-fonts/source-serif), and [Source Han Serif](https://github.com/adobe-fonts/source-han-serif) — candidate OFL-1.1 static name-keyed and CID-keyed licensed fixtures; exact assets remain to be selected and pinned.
 
 ---
 *Research completed: 2026-07-28*
