@@ -502,6 +502,196 @@ fn Type2Vm::execute_roll(self : Type2Vm) -> Result[Unit, @error.CoreError] {
 }
 
 ///|
+fn type2_flex_add(
+  left : Type2Fixed,
+  right : Type2Fixed,
+) -> Result[Type2Fixed, @error.CoreError] {
+  match type2_fixed_add(left, right) {
+    Err(_) => Err(type2_data_error("font-cff-type2-coordinate"))
+    Ok(value) => Ok(value)
+  }
+}
+
+///|
+fn Type2Vm::execute_flex(
+  self : Type2Vm,
+  operator : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  if !self.width_resolved {
+    return Err(type2_data_error("font-cff-type2-geometry-order"))
+  }
+  let expected = match operator {
+    34UL => 7
+    35UL => 13
+    36UL => 9
+    37UL => 11
+    _ => return Err(type2_data_error("font-cff-type2-operator"))
+  }
+  if self.stack.length() != expected {
+    return Err(type2_data_error("font-cff-type2-flex-arity"))
+  }
+  let staged = self.geometry.snapshot()
+  match staged.preflight_segments(6UL, 2UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let zero : Type2Fixed = { raw: 0L }
+  let curves : Result[Unit, @error.CoreError] = match operator {
+    34UL => {
+      match staged.cubic_relative_unchecked(
+        self.stack[0],
+        zero,
+        self.stack[1],
+        self.stack[2],
+        self.stack[3],
+        zero,
+      ) {
+        Err(error) => Err(error)
+        Ok(_) => {
+          let opposite = match type2_fixed_neg(self.stack[2]) {
+            Err(_) => return Err(type2_data_error("font-cff-type2-coordinate"))
+            Ok(value) => value
+          }
+          staged.cubic_relative_unchecked(
+            self.stack[4],
+            zero,
+            self.stack[5],
+            opposite,
+            self.stack[6],
+            zero,
+          )
+        }
+      }
+    }
+    35UL => {
+      match staged.cubic_relative_unchecked(
+        self.stack[0],
+        self.stack[1],
+        self.stack[2],
+        self.stack[3],
+        self.stack[4],
+        self.stack[5],
+      ) {
+        Err(error) => Err(error)
+        Ok(_) =>
+          staged.cubic_relative_unchecked(
+            self.stack[6],
+            self.stack[7],
+            self.stack[8],
+            self.stack[9],
+            self.stack[10],
+            self.stack[11],
+          )
+      }
+    }
+    36UL => {
+      let dy = match type2_flex_add(self.stack[1], self.stack[3]) {
+        Err(error) => return Err(error)
+        Ok(value) =>
+          match type2_flex_add(value, self.stack[7]) {
+            Err(error) => return Err(error)
+            Ok(result) =>
+              match type2_fixed_neg(result) {
+                Err(_) =>
+                  return Err(type2_data_error("font-cff-type2-coordinate"))
+                Ok(negated) => negated
+              }
+          }
+      }
+      match staged.cubic_relative_unchecked(
+        self.stack[0],
+        self.stack[1],
+        self.stack[2],
+        self.stack[3],
+        self.stack[4],
+        zero,
+      ) {
+        Err(error) => Err(error)
+        Ok(_) =>
+          staged.cubic_relative_unchecked(
+            self.stack[5],
+            zero,
+            self.stack[6],
+            self.stack[7],
+            self.stack[8],
+            dy,
+          )
+      }
+    }
+    37UL => {
+      let mut sum_x = zero
+      let mut sum_y = zero
+      let mut index = 0
+      while index < 10 {
+        sum_x = match type2_flex_add(sum_x, self.stack[index]) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        sum_y = match type2_flex_add(sum_y, self.stack[index + 1]) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        index = index + 2
+      }
+      let abs_x = match type2_fixed_abs(sum_x) {
+        Err(_) => return Err(type2_data_error("font-cff-type2-coordinate"))
+        Ok(value) => value
+      }
+      let abs_y = match type2_fixed_abs(sum_y) {
+        Err(_) => return Err(type2_data_error("font-cff-type2-coordinate"))
+        Ok(value) => value
+      }
+      let (dx6, dy6) = if abs_x.raw > abs_y.raw {
+        (
+          self.stack[10],
+          match type2_fixed_neg(sum_y) {
+            Err(_) => return Err(type2_data_error("font-cff-type2-coordinate"))
+            Ok(value) => value
+          },
+        )
+      } else {
+        (
+          match type2_fixed_neg(sum_x) {
+            Err(_) => return Err(type2_data_error("font-cff-type2-coordinate"))
+            Ok(value) => value
+          },
+          self.stack[10],
+        )
+      }
+      match staged.cubic_relative_unchecked(
+        self.stack[0],
+        self.stack[1],
+        self.stack[2],
+        self.stack[3],
+        self.stack[4],
+        self.stack[5],
+      ) {
+        Err(error) => Err(error)
+        Ok(_) =>
+          staged.cubic_relative_unchecked(
+            self.stack[6],
+            self.stack[7],
+            self.stack[8],
+            self.stack[9],
+            dx6,
+            dy6,
+          )
+      }
+    }
+    _ => Err(type2_data_error("font-cff-type2-operator"))
+  }
+  match curves {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.geometry = staged
+  self.geometry_started = true
+  self.geometry_operators = self.geometry_operators + 1UL
+  self.clear_stack()
+  Ok(())
+}
+
+///|
 fn Type2Vm::execute_escaped(
   self : Type2Vm,
   operator : UInt64,
@@ -555,13 +745,7 @@ fn Type2Vm::execute_escaped(
     }
     29UL => self.execute_index()
     30UL => self.execute_roll()
-    // Flex operators are geometry and are lowered by Plan 03.
-    34UL | 35UL | 36UL | 37UL => {
-      self.geometry_started = true
-      self.geometry_operators = self.geometry_operators + 1UL
-      self.clear_stack()
-      Ok(())
-    }
+    34UL | 35UL | 36UL | 37UL => self.execute_flex(operator)
     _ => Err(type2_data_error("font-cff-type2-reserved-operator"))
   }
 }
@@ -1124,6 +1308,7 @@ fn Type2Vm::new(
   default_width : Type2Fixed,
   nominal_width : Type2Fixed,
   seed : Type2Fixed,
+  matrix : Type2Matrix,
   limits : Type2Limits,
 ) -> Type2Vm {
   {
@@ -1140,7 +1325,7 @@ fn Type2Vm::new(
     stems: 0UL,
     geometry_started: false,
     geometry_operators: 0UL,
-    geometry: Type2BoundsSink::new(limits),
+    geometry: Type2BoundsSink::new(matrix, limits),
     prng: Type2Prng::new(seed),
     limits,
     ledger: {
@@ -1166,12 +1351,44 @@ fn type2_execute_program(
   limits : Type2Limits,
   opening_revision : UInt64,
 ) -> Result[Type2VmResult, @error.CoreError] {
+  type2_execute_program_with_matrix(
+    root,
+    local_subrs,
+    global_subrs,
+    default_width,
+    nominal_width,
+    seed,
+    type2_identity_matrix(),
+    limits,
+    opening_revision,
+  )
+}
+
+///|
+fn type2_execute_program_with_matrix(
+  root : @bytes.ByteView,
+  local_subrs : CffIndex,
+  global_subrs : CffIndex,
+  default_width : Type2Fixed,
+  nominal_width : Type2Fixed,
+  seed : Type2Fixed,
+  matrix : Type2Matrix,
+  limits : Type2Limits,
+  opening_revision : UInt64,
+) -> Result[Type2VmResult, @error.CoreError] {
   match type2_require_revision(root, opening_revision) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
   let vm = Type2Vm::new(
-    root, local_subrs, global_subrs, default_width, nominal_width, seed, limits,
+    root,
+    local_subrs,
+    global_subrs,
+    default_width,
+    nominal_width,
+    seed,
+    matrix,
+    limits,
   )
   while vm.frames.length() > 0 {
     match type2_require_revision(root, opening_revision) {
@@ -1308,15 +1525,23 @@ fn type2_execute_program(
       Ok(Terminate) =>
         match type2_require_revision(root, opening_revision) {
           Err(error) => return Err(error)
-          Ok(_) =>
+          Ok(_) => {
+            let geometry = match vm.geometry.facts() {
+              Err(error) =>
+                return Err(
+                  type2_error_with_revision(root, opening_revision, error),
+                )
+              Ok(value) => value
+            }
             return Ok({
               width: vm.width,
               stems: vm.stems,
               terminated: true,
               ledger: vm.ledger,
               geometry_operators: vm.geometry_operators,
-              geometry: vm.geometry.facts(),
+              geometry,
             })
+          }
         }
       Ok(Continue(next)) => vm.frames.push(next)
       Ok(FramesManaged) => ()

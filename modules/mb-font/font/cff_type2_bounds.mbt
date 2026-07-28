@@ -10,6 +10,7 @@ priv struct Type2GeometryFacts {
   min_y : Type2Fixed
   max_x : Type2Fixed
   max_y : Type2Fixed
+  bounds : GlyphBoundsFacts?
 }
 
 ///|
@@ -27,12 +28,28 @@ priv struct Type2BoundsSink {
   mut min_y : Type2Fixed
   mut max_x : Type2Fixed
   mut max_y : Type2Fixed
+  mut transformed_min_x : Type2Rational
+  mut transformed_min_y : Type2Rational
+  mut transformed_max_x : Type2Rational
+  mut transformed_max_y : Type2Rational
+  matrix : Type2Matrix
   limits : Type2Limits
 }
 
 ///|
-fn Type2BoundsSink::new(limits : Type2Limits) -> Type2BoundsSink {
+fn type2_identity_matrix() -> Type2Matrix {
+  let zero : Type2Rational = { numerator: 0L, denominator: 1L }
+  let one : Type2Rational = { numerator: 1L, denominator: 1L }
+  { a: one, b: zero, c: zero, d: one, tx: zero, ty: zero }
+}
+
+///|
+fn Type2BoundsSink::new(
+  matrix : Type2Matrix,
+  limits : Type2Limits,
+) -> Type2BoundsSink {
   let zero : Type2Fixed = { raw: 0L }
+  let rational_zero : Type2Rational = { numerator: 0L, denominator: 1L }
   {
     current_x: zero,
     current_y: zero,
@@ -47,6 +64,11 @@ fn Type2BoundsSink::new(limits : Type2Limits) -> Type2BoundsSink {
     min_y: zero,
     max_x: zero,
     max_y: zero,
+    transformed_min_x: rational_zero,
+    transformed_min_y: rational_zero,
+    transformed_max_x: rational_zero,
+    transformed_max_y: rational_zero,
+    matrix,
     limits,
   }
 }
@@ -67,6 +89,11 @@ fn Type2BoundsSink::snapshot(self : Type2BoundsSink) -> Type2BoundsSink {
     min_y: self.min_y,
     max_x: self.max_x,
     max_y: self.max_y,
+    transformed_min_x: self.transformed_min_x,
+    transformed_min_y: self.transformed_min_y,
+    transformed_max_x: self.transformed_max_x,
+    transformed_max_y: self.transformed_max_y,
+    matrix: self.matrix,
     limits: self.limits,
   }
 }
@@ -133,16 +160,42 @@ fn type2_geometry_coordinate_add(
 }
 
 ///|
+fn type2_rational_less(
+  left : Type2Rational,
+  right : Type2Rational,
+) -> Result[Bool, @error.CoreError] {
+  let left_scaled = match
+    type2_checked_i64_mul(left.numerator, right.denominator) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let right_scaled = match
+    type2_checked_i64_mul(right.numerator, left.denominator) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(left_scaled < right_scaled)
+}
+
+///|
 fn Type2BoundsSink::include_point(
   self : Type2BoundsSink,
   x : Type2Fixed,
   y : Type2Fixed,
-) -> Unit {
+) -> Result[Unit, @error.CoreError] {
+  let transformed = match type2_matrix_apply(self.matrix, x, y) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   if !self.has_segments {
     self.min_x = x
     self.min_y = y
     self.max_x = x
     self.max_y = y
+    self.transformed_min_x = transformed.0
+    self.transformed_min_y = transformed.1
+    self.transformed_max_x = transformed.0
+    self.transformed_max_y = transformed.1
   } else {
     if x.raw < self.min_x.raw {
       self.min_x = x
@@ -156,8 +209,41 @@ fn Type2BoundsSink::include_point(
     if y.raw > self.max_y.raw {
       self.max_y = y
     }
+    let less_x = match
+      type2_rational_less(transformed.0, self.transformed_min_x) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if less_x {
+      self.transformed_min_x = transformed.0
+    }
+    let less_y = match
+      type2_rational_less(transformed.1, self.transformed_min_y) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if less_y {
+      self.transformed_min_y = transformed.1
+    }
+    let greater_x = match
+      type2_rational_less(self.transformed_max_x, transformed.0) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if greater_x {
+      self.transformed_max_x = transformed.0
+    }
+    let greater_y = match
+      type2_rational_less(self.transformed_max_y, transformed.1) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if greater_y {
+      self.transformed_max_y = transformed.1
+    }
   }
   self.has_segments = true
+  Ok(())
 }
 
 ///|
@@ -225,8 +311,16 @@ fn Type2BoundsSink::line_relative_unchecked(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  self.include_point(start_x, start_y)
-  self.include_point(x, y)
+  if !self.has_segments {
+    match self.include_point(start_x, start_y) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  match self.include_point(x, y) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   self.current_x = x
   self.current_y = y
   Ok(())
@@ -268,10 +362,22 @@ fn Type2BoundsSink::cubic_relative_unchecked(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  self.include_point(start_x, start_y)
-  self.include_point(control1_x, control1_y)
-  self.include_point(control2_x, control2_y)
-  self.include_point(end_x, end_y)
+  if !self.has_segments {
+    match self.include_point(start_x, start_y) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  for point in [
+    (control1_x, control1_y),
+    (control2_x, control2_y),
+    (end_x, end_y),
+  ] {
+    match self.include_point(point.0, point.1) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
   self.current_x = end_x
   self.current_y = end_y
   Ok(())
@@ -294,8 +400,32 @@ fn Type2BoundsSink::close(
 }
 
 ///|
-fn Type2BoundsSink::facts(self : Type2BoundsSink) -> Type2GeometryFacts {
-  {
+fn Type2BoundsSink::facts(
+  self : Type2BoundsSink,
+) -> Result[Type2GeometryFacts, @error.CoreError] {
+  let bounds = if self.has_segments {
+    Some({
+      x_min: match type2_rational_floor(self.transformed_min_x) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+      y_min: match type2_rational_floor(self.transformed_min_y) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+      x_max: match type2_rational_ceil(self.transformed_max_x) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+      y_max: match type2_rational_ceil(self.transformed_max_y) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    })
+  } else {
+    None
+  }
+  Ok({
     current_x: self.current_x,
     current_y: self.current_y,
     points: self.points,
@@ -306,5 +436,6 @@ fn Type2BoundsSink::facts(self : Type2BoundsSink) -> Type2GeometryFacts {
     min_y: self.min_y,
     max_x: self.max_x,
     max_y: self.max_y,
-  }
+    bounds,
+  })
 }

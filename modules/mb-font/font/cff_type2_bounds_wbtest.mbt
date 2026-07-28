@@ -227,6 +227,17 @@ test "Type 2 flex forms lower to the same two cubics as explicit rrcurveto" {
     inspect(flex.geometry.points, content="7")
     inspect(flex.geometry.commands, content="4")
   }
+
+  for item in [
+    (b'\x22', [1, 2, 3, 4, 5, 6]),
+    (b'\x23', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]),
+    (b'\x24', [1, 2, 3, 4, 5, 6, 7, 8]),
+    (b'\x25', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+  ] {
+    type2_vm_wb_assert_data(
+      type2_vm_wb_run(type2_flex_wb_program(item.1, item.0)),
+    )
+  }
 }
 
 ///|
@@ -279,4 +290,35 @@ test "Type 2 empty and moveto-only glyphs retain no bound" {
     type2_vm_wb_run(b"\x95\x9F\x15\x0E").unwrap().geometry.bounds is None,
     content="true",
   )
+}
+
+///|
+test "Type 2 bounds accept fixed extremes and reject transform overflow" {
+  let extremes = type2_vm_wb_run(
+    b"\x8B\x8B\x15\xFF\x7F\xFF\xFF\xFF\xFF\x80\x00\x00\x00\x05\x0E",
+  ).unwrap().geometry.bounds.unwrap()
+  inspect(extremes.x_min, content="0")
+  inspect(extremes.y_min, content="-32768")
+  inspect(extremes.x_max, content="32768")
+  inspect(extremes.y_max, content="0")
+
+  let zero : Type2Rational = { numerator: 0L, denominator: 1L }
+  let one : Type2Rational = { numerator: 1L, denominator: 1L }
+  let huge : Type2Rational = {
+    numerator: 9223372036854775807L,
+    denominator: 1L,
+  }
+  let overflow_matrix : Type2Matrix = {
+    a: huge,
+    b: zero,
+    c: zero,
+    d: one,
+    tx: zero,
+    ty: zero,
+  }
+  let overflow = type2_bounds_wb_run_with_matrix(
+    type2_geometry_wb_program([2, 0], b'\x05'),
+    overflow_matrix,
+  ).unwrap_err()
+  inspect(overflow.category() == @error.ErrorCategory::Data, content="true")
 }
