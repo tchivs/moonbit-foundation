@@ -248,7 +248,7 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
     num_glyphs=3UL,
   )
   let predefined_exact = cff_hostile_budget(
-    predefined.length().to_uint64() + 72UL,
+    predefined.length().to_uint64() + 96UL,
     64UL,
     2048UL,
     65536UL,
@@ -262,7 +262,7 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
   inspect(admitted.charge.allocation_size, content="2048")
 
   let predefined_short = cff_hostile_budget(
-    predefined.length().to_uint64() + 72UL,
+    predefined.length().to_uint64() + 96UL,
     64UL,
     2047UL,
     65536UL,
@@ -310,7 +310,7 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
     num_glyphs=3UL,
   )
   let exact = cff_hostile_budget(
-    custom.length().to_uint64() + 72UL,
+    custom.length().to_uint64() + 96UL,
     64UL,
     2048UL,
     65536UL,
@@ -325,7 +325,7 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
   inspect(custom_admitted.charge.allocation_size, content="2048")
 
   let short = cff_hostile_budget(
-    custom.length().to_uint64() + 72UL,
+    custom.length().to_uint64() + 96UL,
     64UL,
     2047UL,
     65536UL,

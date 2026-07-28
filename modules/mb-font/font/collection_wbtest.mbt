@@ -1240,10 +1240,10 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   inspect(admitted.charge.retained_bytes > 0UL, content="true")
 
   let exact_budget = font_collection_wb_cff_budget(
-    567UL,
-    23UL,
-    8192UL,
-    529UL,
+    admitted.combined_charge.bytes,
+    admitted.combined_charge.allocations,
+    admitted.combined_charge.allocation_size,
+    admitted.combined_charge.work,
   )
   admit_cff1_collection_structure(
     owner.view(),
@@ -1261,24 +1261,24 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   for short_dimension in [0, 1, 2, 3] {
     let short_budget = font_collection_wb_cff_budget(
       if short_dimension == 0 {
-        494UL
+        admitted.combined_charge.bytes - 1UL
       } else {
-        495UL
+        admitted.combined_charge.bytes
       },
       if short_dimension == 1 {
-        9UL
+        admitted.combined_charge.allocations - 1UL
       } else {
-        10UL
+        admitted.combined_charge.allocations
       },
       if short_dimension == 2 {
-        8191UL
+        admitted.combined_charge.allocation_size - 1UL
       } else {
-        8192UL
+        admitted.combined_charge.allocation_size
       },
       if short_dimension == 3 {
-        525UL
+        admitted.combined_charge.work - 1UL
       } else {
-        526UL
+        admitted.combined_charge.work
       },
     )
     let before = short_budget.remaining()
@@ -1295,10 +1295,10 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   }
 
   let mutation_budget = font_collection_wb_cff_budget(
-    495UL,
-    10UL,
-    8192UL,
-    526UL,
+    admitted.combined_charge.bytes,
+    admitted.combined_charge.allocations,
+    admitted.combined_charge.allocation_size,
+    admitted.combined_charge.work,
   )
   let mutation_before = mutation_budget.remaining()
   let mutation_error = admit_cff1_collection_structure_after_preflight(

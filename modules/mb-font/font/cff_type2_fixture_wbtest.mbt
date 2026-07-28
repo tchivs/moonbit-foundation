@@ -413,10 +413,10 @@ fn type2_fixture_many_curve_program(curves : Int) -> Bytes {
 fn type2_fixture_allocation_budget(allocations : UInt64) -> @budget.Budget {
   @budget.Budget::new(
     @budget.ResourceLimits::new(
-      // Two retained 24-byte bounds slots.
-      bytes=48UL,
+      // Two retained 32-byte bounds-plus-path-command slots.
+      bytes=64UL,
       // Independent invariant: four fixed scratch arrays per glyph, one
-      // retained-bounds payload for the drawn glyph, and one outer array.
+      // retained-bounds payload for the drawn glyph, and two outer arrays.
       allocations~,
       allocation_size=384UL,
       width=0UL,
@@ -438,7 +438,7 @@ test "Type 2 repeated roll and many curves use fixed scratch allocation authorit
     programs,
     [],
   )
-  let exact = type2_fixture_allocation_budget(10UL)
+  let exact = type2_fixture_allocation_budget(11UL)
   let staged = type2_stage_all_glyphs(
     descriptors,
     global_subrs,
@@ -450,12 +450,12 @@ test "Type 2 repeated roll and many curves use fixed scratch allocation authorit
   ).unwrap()
   inspect(staged.bounds[0] is None, content="true")
   inspect(staged.bounds[1] is Some(_), content="true")
-  inspect(staged.charge.allocations, content="10")
+  inspect(staged.charge.allocations, content="11")
   inspect(staged.charge.allocation_size, content="384")
 
   let (short_descriptors, short_global_subrs, short_authority) =
     type2_fixture_descriptors(programs, [])
-  let one_short = type2_fixture_allocation_budget(9UL)
+  let one_short = type2_fixture_allocation_budget(10UL)
   let before = one_short.remaining()
   let error = type2_stage_all_glyphs(
     short_descriptors,
@@ -498,13 +498,14 @@ test "Type 2 all-GID staging is ascending, exact, and does not commit budget" {
   ).unwrap()
   inspect(visited, content="[0, 1]")
   inspect(staged.bounds.length(), content="2")
+  inspect(staged.path_command_counts, content="[3, 3]")
   inspect(staged.charge.bounds_slots, content="2")
   inspect(staged.charge.executed_bytes, content="14")
   inspect(staged.charge.points, content="4")
   inspect(staged.charge.contours, content="2")
   inspect(staged.charge.commands, content="6")
-  inspect(staged.charge.bytes, content="48")
-  inspect(staged.charge.allocations, content="11")
+  inspect(staged.charge.bytes, content="64")
+  inspect(staged.charge.allocations, content="12")
   inspect(staged.charge.allocation_size, content="384")
   inspect(staged.charge.work, content="24")
   inspect(budget.remaining().bytes() == before.bytes(), content="true")

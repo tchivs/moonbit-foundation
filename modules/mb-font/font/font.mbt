@@ -6,7 +6,7 @@
 /// an independently constructible outline-source case.
 #warnings("-6")
 priv enum FontOutlineSource {
-  Glyf
+  Glyf(MetricIndexFacts)
   Cff1(AdmittedCff1)
 }
 
@@ -33,7 +33,6 @@ pub struct Font {
   priv typographic_line_metrics_value : FontLineMetrics
   priv directory : DirectoryFacts
   priv tables : RequiredTableFacts
-  priv metric_index : MetricIndexFacts
   priv limits : FontLimits
   priv outline_source : FontOutlineSource
 }
@@ -160,10 +159,89 @@ fn font_from_admitted_facts(
     },
     directory,
     tables,
-    metric_index,
     limits,
-    outline_source: FontOutlineSource::Glyf,
+    outline_source: FontOutlineSource::Glyf(metric_index),
   }
+}
+
+///|
+fn font_from_admitted_cff1(
+  source : @bytes.ByteView,
+  admitted : AdmittedCff1,
+  limits : FontLimits,
+) -> Font {
+  {
+    source,
+    opening_revision: admitted.opening_revision,
+    units_per_em_value: admitted.tables.head.units_per_em,
+    global_bounds_value: {
+      x_min_value: admitted.tables.head.x_min,
+      y_min_value: admitted.tables.head.y_min,
+      x_max_value: admitted.tables.head.x_max,
+      y_max_value: admitted.tables.head.y_max,
+    },
+    hhea_line_metrics_value: {
+      ascent_value: admitted.tables.hhea.ascent,
+      descent_value: admitted.tables.hhea.descent,
+      line_gap_value: admitted.tables.hhea.line_gap,
+    },
+    typographic_line_metrics_value: {
+      ascent_value: admitted.tables.os2.typo_ascent,
+      descent_value: admitted.tables.os2.typo_descent,
+      line_gap_value: admitted.tables.os2.typo_line_gap,
+    },
+    directory: admitted.directory,
+    tables: admitted.tables,
+    limits,
+    outline_source: FontOutlineSource::Cff1(admitted),
+  }
+}
+
+///|
+fn Font::num_glyphs(self : Font) -> UInt64 {
+  match self.outline_source {
+    FontOutlineSource::Glyf(index) => index.num_glyphs
+    FontOutlineSource::Cff1(admitted) => admitted.num_glyphs
+  }
+}
+
+///|
+fn Font::glyf_metric_index(self : Font) -> MetricIndexFacts {
+  match self.outline_source {
+    FontOutlineSource::Glyf(index) => index
+    FontOutlineSource::Cff1(_) => abort("CFF font has no glyf metric index")
+  }
+}
+
+///|
+fn font_lookup_cff_horizontal_metrics(
+  admitted : AdmittedCff1,
+  glyph : UInt64,
+) -> Result[GlyphHorizontalMetricFacts, @error.CoreError] {
+  let index = match @checked.checked_narrow_int(glyph) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let (advance_width, left_side_bearing) = match
+    cff_read_hmtx_metric(admitted.metrics, glyph) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let bounds = admitted.bounds[index]
+  let extent = match bounds {
+    None => 0UL
+    Some(value) =>
+      match font_signed_extent(value.x_min, value.x_max) {
+        Err(error) => return Err(error)
+        Ok(result) => result
+      }
+  }
+  let right_side_bearing = match
+    font_right_side_bearing(advance_width, left_side_bearing, extent) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ advance_width, left_side_bearing, bounds, right_side_bearing })
 }
 
 ///|
@@ -299,6 +377,20 @@ pub fn Font::open(
   limits : FontLimits,
   budget : @budget.Budget,
 ) -> Result[Font, @error.CoreError] {
+  if source.length() >= 4UL {
+    let signature = match read_u32(source, 0UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if signature == 0x4F54544FUL {
+      let admitted = match
+        admit_cff1_structure(source, limits, budget, 0UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      return Ok(font_from_admitted_cff1(source, admitted, limits))
+    }
+  }
   let opening_revision = source.mutation_revision()
   let discovery_charge = match font_directory_discovery_charge(source, limits) {
     Err(error) => return Err(error)
@@ -480,9 +572,10 @@ pub fn Font::glyph_id(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  if value >= self.metric_index.num_glyphs {
+  let num_glyphs = self.num_glyphs()
+  if value >= num_glyphs {
     Err(
-      font_glyph_id_error("font-glyph-id", value, self.metric_index.num_glyphs),
+      font_glyph_id_error("font-glyph-id", value, num_glyphs),
     )
   } else {
     Ok({ value_value: value })
@@ -503,17 +596,23 @@ pub fn Font::horizontal_metrics(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  if glyph.value_value >= self.metric_index.num_glyphs {
+  let num_glyphs = self.num_glyphs()
+  if glyph.value_value >= num_glyphs {
     return Err(
       font_glyph_id_error(
         "font-horizontal-metrics",
         glyph.value_value,
-        self.metric_index.num_glyphs,
+        num_glyphs,
       ),
     )
   }
-  let facts = match
-    font_lookup_horizontal_metrics(self.metric_index, glyph.value_value) {
+  let facts = match self.outline_source {
+    FontOutlineSource::Glyf(index) =>
+      font_lookup_horizontal_metrics(index, glyph.value_value)
+    FontOutlineSource::Cff1(admitted) =>
+      font_lookup_cff_horizontal_metrics(admitted, glyph.value_value)
+  }
+  let facts = match facts {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -560,21 +659,22 @@ fn Font::kerning_after_lookup(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  if left.value_value >= self.metric_index.num_glyphs {
+  let num_glyphs = self.num_glyphs()
+  if left.value_value >= num_glyphs {
     return Err(
       font_glyph_id_error(
         "font-kerning",
         left.value_value,
-        self.metric_index.num_glyphs,
+        num_glyphs,
       ),
     )
   }
-  if right.value_value >= self.metric_index.num_glyphs {
+  if right.value_value >= num_glyphs {
     return Err(
       font_glyph_id_error(
         "font-kerning",
         right.value_value,
-        self.metric_index.num_glyphs,
+        num_glyphs,
       ),
     )
   }
@@ -615,32 +715,46 @@ fn Font::outline_after_decode(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  if glyph.value_value >= self.metric_index.num_glyphs {
+  let num_glyphs = self.num_glyphs()
+  if glyph.value_value >= num_glyphs {
     return Err(
       font_glyph_id_error(
         "font-outline",
         glyph.value_value,
-        self.metric_index.num_glyphs,
+        num_glyphs,
       ),
     )
   }
-  let path = match
-    font_decode_outline(
-      self.metric_index,
-      self.tables.maxp,
-      self.limits,
-      glyph.value_value,
-      budget,
-    ) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  match self.outline_source {
+    FontOutlineSource::Cff1(admitted) =>
+      return cff_decode_outline_atomic(
+        self.source,
+        admitted,
+        glyph.value_value,
+        self.limits,
+        budget,
+        after_decode,
+      )
+    FontOutlineSource::Glyf(index) => {
+      let path = match
+        font_decode_outline(
+          index,
+          self.tables.maxp,
+          self.limits,
+          glyph.value_value,
+          budget,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      after_decode(path)
+      match self.require_revision("font-outline") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      Ok(path)
+    }
   }
-  after_decode(path)
-  match self.require_revision("font-outline") {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
-  Ok(path)
 }
 
 ///|

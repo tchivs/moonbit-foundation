@@ -219,7 +219,12 @@ test "CFF structural work allocation and caller authority are exact or absent" {
   inspect(admitted.charge.descriptors, content="3")
   inspect(admitted.charge.fd_environments, content="2")
   inspect(admitted.charge.work, content="1445")
-  let exact = cff_hostile_budget(652UL, 22UL, 8192UL, 1448UL)
+  let exact = cff_hostile_budget(
+    admitted.combined_charge.bytes,
+    admitted.combined_charge.allocations,
+    admitted.combined_charge.allocation_size,
+    admitted.combined_charge.work,
+  )
   admit_cff1_structure(font_wb_view(source), font_wb_limits(), exact, 2UL)
   |> ignore
   inspect(exact.remaining().bytes(), content="0")
@@ -229,24 +234,24 @@ test "CFF structural work allocation and caller authority are exact or absent" {
   for dimension in [0, 1, 2, 3] {
     let budget = cff_hostile_budget(
       if dimension == 0 {
-        651UL
+        admitted.combined_charge.bytes - 1UL
       } else {
-        652UL
+        admitted.combined_charge.bytes
       },
       if dimension == 1 {
-        21UL
+        admitted.combined_charge.allocations - 1UL
       } else {
-        22UL
+        admitted.combined_charge.allocations
       },
       if dimension == 2 {
-        8191UL
+        admitted.combined_charge.allocation_size - 1UL
       } else {
-        8192UL
+        admitted.combined_charge.allocation_size
       },
       if dimension == 3 {
-        1447UL
+        admitted.combined_charge.work - 1UL
       } else {
-        1448UL
+        admitted.combined_charge.work
       },
     )
     let before = budget.remaining()
@@ -281,10 +286,10 @@ test "CFF format-4 common-table search work is exact and one-short atomic" {
   inspect(admitted.charge.work, content="1467")
 
   let exact = cff_hostile_budget(
-    source.length().to_uint64() + 24UL,
-    64UL,
-    16384UL,
-    1468UL,
+    admitted.combined_charge.bytes,
+    admitted.combined_charge.allocations,
+    admitted.combined_charge.allocation_size,
+    admitted.combined_charge.work,
   )
   admit_cff1_structure(
     font_wb_view(source),
@@ -295,10 +300,10 @@ test "CFF format-4 common-table search work is exact and one-short atomic" {
   inspect(exact.remaining().work(), content="0")
 
   let one_short = cff_hostile_budget(
-    source.length().to_uint64() + 24UL,
-    64UL,
-    16384UL,
-    1467UL,
+    admitted.combined_charge.bytes,
+    admitted.combined_charge.allocations,
+    admitted.combined_charge.allocation_size,
+    admitted.combined_charge.work - 1UL,
   )
   let before = one_short.remaining()
   let error = admit_cff1_structure(

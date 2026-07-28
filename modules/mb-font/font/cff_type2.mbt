@@ -64,6 +64,7 @@ priv struct Type2StagedCharge {
 ///|
 priv struct Type2AllGlyphResult {
   bounds : Array[GlyphBoundsFacts?]
+  path_command_counts : Array[UInt64]
   charge : Type2StagedCharge
 }
 
@@ -1351,6 +1352,7 @@ fn Type2Vm::new(
   seed : Type2Fixed,
   matrix : Type2Matrix,
   limits : Type2Limits,
+  path_sink? : Type2PathSink? = None,
 ) -> Type2Vm {
   let stack : Array[Type2Fixed] = Array::new(
     capacity=limits.max_operand_stack.to_int(),
@@ -1373,7 +1375,7 @@ fn Type2Vm::new(
     stems: 0UL,
     geometry_started: false,
     geometry_operators: 0UL,
-    geometry: Type2BoundsSink::new(matrix, limits),
+    geometry: Type2BoundsSink::new_with_path(matrix, limits, path_sink),
     prng: Type2Prng::new(seed),
     limits,
     ledger: {
@@ -1479,6 +1481,7 @@ fn type2_execute_program_with_matrix_and_read_probe(
   opening_revision : UInt64,
   retain_bounds : Bool,
   read_probe : () -> Unit,
+  path_sink? : Type2PathSink? = None,
 ) -> Result[Type2VmResult, @error.CoreError] {
   match type2_require_revision(root, opening_revision) {
     Err(error) => return Err(error)
@@ -1493,6 +1496,7 @@ fn type2_execute_program_with_matrix_and_read_probe(
     seed,
     matrix,
     limits,
+    path_sink~,
   )
   while vm.frames.length() > 0 {
     match type2_require_revision(root, opening_revision) {
@@ -1702,6 +1706,25 @@ fn type2_execute_glyph(
   limits : Type2Limits,
   opening_revision : UInt64,
 ) -> Result[Type2VmResult, @error.CoreError] {
+  type2_execute_glyph_with_path_capacity(
+    descriptor,
+    global_subrs,
+    units_per_em,
+    limits,
+    opening_revision,
+    None,
+  )
+}
+
+///|
+fn type2_execute_glyph_with_path_capacity(
+  descriptor : CffGlyphDescriptor,
+  global_subrs : CffIndex,
+  units_per_em : UInt64,
+  limits : Type2Limits,
+  opening_revision : UInt64,
+  path_capacity : Int?,
+) -> Result[Type2VmResult, @error.CoreError] {
   let default_width = match
     cff_number_to_type2_fixed(
       descriptor.environment.private_dict.default_width_x,
@@ -1727,17 +1750,35 @@ fn type2_execute_glyph(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  type2_execute_program_with_matrix_unretained(
-    descriptor.charstring.view,
-    descriptor.environment.local_subrs,
-    global_subrs,
-    default_width,
-    nominal_width,
-    descriptor.environment.private_dict.initial_random_seed,
-    matrix,
-    limits,
-    opening_revision,
-  )
+  match path_capacity {
+    None =>
+      type2_execute_program_with_matrix_unretained(
+        descriptor.charstring.view,
+        descriptor.environment.local_subrs,
+        global_subrs,
+        default_width,
+        nominal_width,
+        descriptor.environment.private_dict.initial_random_seed,
+        matrix,
+        limits,
+        opening_revision,
+      )
+    Some(capacity) =>
+      type2_execute_program_with_matrix_and_read_probe(
+        descriptor.charstring.view,
+        descriptor.environment.local_subrs,
+        global_subrs,
+        default_width,
+        nominal_width,
+        descriptor.environment.private_dict.initial_random_seed,
+        matrix,
+        limits,
+        opening_revision,
+        false,
+        fn() { () },
+        path_sink=Some(Type2PathSink::new(capacity, matrix)),
+      )
+  }
 }
 
 ///|
@@ -1778,7 +1819,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
     Ok(_) => ()
   }
   let bounds_slots = descriptors.length().to_uint64()
-  let bytes = match @checked.checked_mul(bounds_slots, 24UL) {
+  let bytes = match @checked.checked_mul(bounds_slots, 32UL) {
     Err(_) =>
       return Err(
         type2_stage_error_with_revision(
@@ -1812,7 +1853,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
   let base_allocations = match
     @checked.checked_add(
       scratch_allocations,
-      if bounds_slots == 0UL { 0UL } else { 1UL },
+      if bounds_slots == 0UL { 0UL } else { 2UL },
     ) {
     Err(_) =>
       return Err(
@@ -1855,6 +1896,9 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
   }
 
   let bounds : Array[GlyphBoundsFacts?] = Array::new(
+    capacity=descriptors.length(),
+  )
+  let path_command_counts : Array[UInt64] = Array::new(
     capacity=descriptors.length(),
   )
   let mut allocations = base_allocations
@@ -1990,6 +2034,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    path_command_counts.push(result.geometry.path_commands)
     let geometry_work = match
       type2_stage_checked_add(
         result.geometry.points,
@@ -2085,6 +2130,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
     Ok(_) =>
       Ok({
         bounds,
+        path_command_counts,
         charge: {
           resource,
           bytes,

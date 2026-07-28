@@ -40,6 +40,15 @@ pub fn Path2::new() -> Path2 {
 }
 
 ///|
+/// Construct an empty path with exact initial command capacity.
+///
+/// The backing array remains private and append-only; callers receive the
+/// same format-neutral `Path2` contract as `Path2::new`.
+pub fn Path2::with_capacity(capacity : Int) -> Path2 {
+  { commands: Array::new(capacity~) }
+}
+
+///|
 /// The number of commands in this path.
 pub fn Path2::length(self : Path2) -> Int {
   self.commands.length()

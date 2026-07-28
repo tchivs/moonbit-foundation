@@ -415,8 +415,8 @@ test "CFF1 admission retains exact named VM charges including subroutine work" {
   inspect(admitted.type2_charge.points, content="0")
   inspect(admitted.type2_charge.contours, content="0")
   inspect(admitted.type2_charge.commands, content="0")
-  inspect(admitted.type2_charge.bytes, content="72")
-  inspect(admitted.type2_charge.allocations, content="13")
+  inspect(admitted.type2_charge.bytes, content="96")
+  inspect(admitted.type2_charge.allocations, content="14")
   inspect(admitted.type2_charge.allocation_size, content="384")
   inspect(admitted.type2_charge.work, content="9")
 }

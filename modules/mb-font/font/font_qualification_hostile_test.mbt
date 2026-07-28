@@ -162,7 +162,7 @@ fn font_qualification_run_hostile_case(
     }
     "unsupported-outline-profile" => {
       let owner = font_test_owner(font_qualification_compact_bytes())
-      font_test_mutate_bytes(owner, 0UL, b"OTTO")
+      font_test_mutate_bytes(owner, 0UL, b"typ1")
       font_qualification_expect_open_error(owner, expected)
     }
     "mutation-after-open" => {

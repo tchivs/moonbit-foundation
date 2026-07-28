@@ -5,6 +5,7 @@ priv struct Type2GeometryFacts {
   points : UInt64
   contours : UInt64
   commands : UInt64
+  path_commands : UInt64
   has_segments : Bool
   min_x : Type2Fixed
   min_y : Type2Fixed
@@ -15,6 +16,7 @@ priv struct Type2GeometryFacts {
   bound_x_max : Int
   bound_y_max : Int
   bounds : GlyphBoundsFacts?
+  path : @math.Path2?
 }
 
 ///|
@@ -28,6 +30,7 @@ priv struct Type2BoundsSink {
   mut points : UInt64
   mut contours : UInt64
   mut commands : UInt64
+  mut path_commands : UInt64
   mut has_segments : Bool
   mut min_x : Type2Fixed
   mut min_y : Type2Fixed
@@ -39,6 +42,7 @@ priv struct Type2BoundsSink {
   mut transformed_max_y : Type2Rational
   matrix : Type2Matrix
   limits : Type2Limits
+  path_sink : Type2PathSink?
 }
 
 ///|
@@ -53,6 +57,15 @@ fn Type2BoundsSink::new(
   matrix : Type2Matrix,
   limits : Type2Limits,
 ) -> Type2BoundsSink {
+  Type2BoundsSink::new_with_path(matrix, limits, None)
+}
+
+///|
+fn Type2BoundsSink::new_with_path(
+  matrix : Type2Matrix,
+  limits : Type2Limits,
+  path_sink : Type2PathSink?,
+) -> Type2BoundsSink {
   let zero : Type2Fixed = { raw: 0L }
   let rational_zero : Type2Rational = { numerator: 0L, denominator: 1L }
   {
@@ -65,6 +78,7 @@ fn Type2BoundsSink::new(
     points: 0UL,
     contours: 0UL,
     commands: 0UL,
+    path_commands: 0UL,
     has_segments: false,
     min_x: zero,
     min_y: zero,
@@ -76,6 +90,7 @@ fn Type2BoundsSink::new(
     transformed_max_y: rational_zero,
     matrix,
     limits,
+    path_sink,
   }
 }
 
@@ -246,6 +261,22 @@ fn Type2BoundsSink::move_relative(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  if self.contour_open && self.contour_has_segments {
+    match self.path_sink {
+      Some(sink) => sink.close()
+      None => ()
+    }
+    self.path_commands = match
+      type2_geometry_checked_total(
+        self.path_commands,
+        1UL,
+        self.limits.max_commands,
+        "font-cff-type2-commands",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
   self.current_x = x
   self.current_y = y
   self.contour_start_x = x
@@ -284,6 +315,24 @@ fn Type2BoundsSink::include_contour_start(
   if self.contour_has_segments {
     return Ok(())
   }
+  match self.path_sink {
+    Some(sink) =>
+      match sink.move_to(self.contour_start_x, self.contour_start_y) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    None => ()
+  }
+  self.path_commands = match
+    type2_geometry_checked_total(
+      self.path_commands,
+      1UL,
+      self.limits.max_commands,
+      "font-cff-type2-commands",
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   match self.include_point(self.contour_start_x, self.contour_start_y) {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -315,6 +364,24 @@ fn Type2BoundsSink::line_relative_unchecked(
   match self.include_point(x, y) {
     Err(error) => return Err(error)
     Ok(_) => ()
+  }
+  match self.path_sink {
+    Some(sink) =>
+      match sink.line_to(x, y) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    None => ()
+  }
+  self.path_commands = match
+    type2_geometry_checked_total(
+      self.path_commands,
+      1UL,
+      self.limits.max_commands,
+      "font-cff-type2-commands",
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   self.current_x = x
   self.current_y = y
@@ -373,6 +440,32 @@ fn Type2BoundsSink::cubic_relative_unchecked(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  match self.path_sink {
+    Some(sink) =>
+      match
+        sink.cubic_to(
+          control1_x,
+          control1_y,
+          control2_x,
+          control2_y,
+          end_x,
+          end_y,
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    None => ()
+  }
+  self.path_commands = match
+    type2_geometry_checked_total(
+      self.path_commands,
+      1UL,
+      self.limits.max_commands,
+      "font-cff-type2-commands",
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   self.current_x = end_x
   self.current_y = end_y
   Ok(())
@@ -390,6 +483,22 @@ fn Type2BoundsSink::close(
     Ok(value) => value
   }
   self.commands = totals.2
+  if self.contour_has_segments {
+    match self.path_sink {
+      Some(sink) => sink.close()
+      None => ()
+    }
+    self.path_commands = match
+      type2_geometry_checked_total(
+        self.path_commands,
+        1UL,
+        self.limits.max_commands,
+        "font-cff-type2-commands",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
   self.contour_open = false
   Ok(())
 }
@@ -437,6 +546,7 @@ fn Type2BoundsSink::facts(
     points: self.points,
     contours: self.contours,
     commands: self.commands,
+    path_commands: self.path_commands,
     has_segments: self.has_segments,
     min_x: self.min_x,
     min_y: self.min_y,
@@ -447,5 +557,6 @@ fn Type2BoundsSink::facts(
     bound_x_max,
     bound_y_max,
     bounds,
+    path: self.path_sink.map(fn(sink) { sink.path }),
   })
 }

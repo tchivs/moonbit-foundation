@@ -848,7 +848,10 @@ fn font_test_standalone_cff1(programs : Array[Bytes]) -> Bytes {
       payload: font_test_cff_program_table(programs),
     },
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
-    { tag: b"cmap", payload: font_test_cmap_format4_two_segments() },
+    {
+      tag: b"cmap",
+      payload: font_test_cmap_format12([(0x41UL, 0x41UL, 1UL)]),
+    },
     { tag: b"head", payload: font_test_head_table() },
     { tag: b"hhea", payload: font_test_hhea_table() },
     { tag: b"hmtx", payload: b"\x02\x58\x00\x0a\x00\x14" },
@@ -916,7 +919,7 @@ test "Phase 106 standalone CFF1 opens and publishes one native cubic path" {
   let metrics = font.horizontal_metrics(glyph).unwrap()
   inspect(metrics.advance_width(), content="600")
   inspect(metrics.left_side_bearing(), content="20")
-  inspect(metrics.right_side_bearing(), content="450")
+  inspect(metrics.right_side_bearing(), content="460")
   inspect(font.kerning(glyph, glyph).unwrap(), content="-25")
   let path = font.outline(glyph, font_test_cff_outline_budget()).unwrap()
   inspect(path.length(), content="3")
@@ -3553,19 +3556,19 @@ test "unsupported outline signature publishes no Font" {
   let owner = font_test_owner(font_test_minimal_truetype())
   owner
   .with_mut(0UL, 4UL, fn(lease) {
-    match lease.set(0UL, b'O') {
+    match lease.set(0UL, b't') {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
-    match lease.set(1UL, b'T') {
+    match lease.set(1UL, b'y') {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
-    match lease.set(2UL, b'T') {
+    match lease.set(2UL, b'p') {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
-    match lease.set(3UL, b'O') {
+    match lease.set(3UL, b'1') {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
@@ -5388,7 +5391,7 @@ test "semantic source ceiling and atomic budget charge reject before publication
 
 ///|
 test "unsupported containers outlines variations color and bitmap profiles are capabilities" {
-  for signature in [b"ttcf", b"wOFF", b"wOF2", b"OTTO"] {
+  for signature in [b"ttcf", b"wOFF", b"wOF2", b"typ1"] {
     let owner = font_test_owner(font_test_minimal_truetype())
     font_test_mutate_bytes(owner, 0UL, signature)
     let error = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap_err()

@@ -9,6 +9,9 @@ priv struct AdmittedCff1 {
   keying : CffKeying
   glyphs : Array[CffGlyphDescriptor]
   bounds : Array[GlyphBoundsFacts?]
+  path_command_counts : Array[UInt64]
+  directory : DirectoryFacts
+  tables : RequiredTableFacts
   metrics : CffMetricFacts
   num_glyphs : UInt64
   charge : CffStructuralCharge
@@ -36,6 +39,8 @@ priv struct CffStagedStructure {
   charstrings : CffIndex
   keying : CffKeying
   glyphs : Array[CffGlyphDescriptor]
+  directory : DirectoryFacts
+  tables : RequiredTableFacts
   metrics : CffMetricFacts
   num_glyphs : UInt64
   charge : CffStructuralCharge
@@ -323,16 +328,12 @@ fn cff_validate_common_tables(
   directory : DirectoryFacts,
   num_glyphs : UInt64,
   limits : FontLimits,
+  kern : KernState,
   traversal_probe : () -> Unit,
-) -> Result[CffMetricFacts, @error.CoreError] {
+) -> Result[(RequiredTableFacts, CffMetricFacts), @error.CoreError] {
   match font_require_common_table_presence(directory) {
     Err(error) => return Err(error)
     Ok(_) => ()
-  }
-  let head = match
-    font_decode_head(font_table_window(directory, 0x68656164UL).unwrap()) {
-    Err(error) => return Err(error)
-    Ok(value) => value
   }
   let maxp : MaxpFacts = {
     num_glyphs,
@@ -344,14 +345,20 @@ fn cff_validate_common_tables(
     max_component_elements: 0UL,
     max_component_depth: 0UL,
   }
-  let hhea = match
-    font_decode_hhea(font_table_window(directory, 0x68686561UL).unwrap(), maxp) {
+  let tables = match
+    font_admit_common_tables_with_maxp(
+      directory,
+      limits,
+      maxp,
+      kern,
+      traversal_probe,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   let hmtx = font_table_window(directory, 0x686D7478UL).unwrap()
   let hmtx_required = match
-    font_hmtx_required_length(num_glyphs, hhea.number_of_h_metrics) {
+    font_hmtx_required_length(num_glyphs, tables.hhea.number_of_h_metrics) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -364,45 +371,15 @@ fn cff_validate_common_tables(
       ),
     )
   }
-  match font_decode_os2(font_table_window(directory, 0x4F532F32UL).unwrap()) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
-  traversal_probe()
-  match
-    font_admit_cmap_envelope(
-      font_table_window(directory, 0x636D6170UL).unwrap(),
-      maxp,
-      limits,
-    ) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
-  traversal_probe()
-  match
-    font_admit_name_envelope(
-      font_table_window(directory, 0x6E616D65UL).unwrap(),
-      limits,
-    ) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
-  traversal_probe()
-  match
-    font_admit_post_envelope(
-      font_table_window(directory, 0x706F7374UL).unwrap(),
-      maxp,
-      limits,
-    ) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
-  Ok({
-    hmtx,
-    units_per_em: head.units_per_em,
-    num_glyphs,
-    number_of_h_metrics: hhea.number_of_h_metrics,
-  })
+  Ok((
+    tables,
+    {
+      hmtx,
+      units_per_em: tables.head.units_per_em,
+      num_glyphs,
+      number_of_h_metrics: tables.hhea.number_of_h_metrics,
+    },
+  ))
 }
 
 ///|
@@ -1243,16 +1220,50 @@ fn cff_stage_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let common_table_work = match
+  let base_common_table_work = match
     cff_preflight_common_table_traversal(
       directory, num_glyphs, limits, authority,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let metrics = match
+  let kern_ledger = FontAdmissionLedger::new(
+    budget,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  let kern = match
+    font_admit_kern_bounded(
+      font_optional_table_window(directory, 0x6B65726EUL),
+      num_glyphs,
+      limits,
+      kern_ledger,
+      0UL,
+      0UL,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let kern_work = match
+    @checked.checked_add(kern.subtable_work, kern.pair_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match authority.preflight(kern_work, 0UL, 0UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let common_table_work = match
+    @checked.checked_add(base_common_table_work, kern_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let common = match
     cff_validate_common_tables(
-      directory, num_glyphs, limits, common_traversal_probe,
+      directory,
+      num_glyphs,
+      limits,
+      kern.state,
+      common_traversal_probe,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -1598,7 +1609,9 @@ fn cff_stage_structure_at_after_preflight(
     charstrings,
     keying: keying.keying,
     glyphs: keying.glyphs,
-    metrics,
+    directory,
+    tables: common.0,
+    metrics: common.1,
     num_glyphs,
     charge,
     opening_revision,
@@ -1737,6 +1750,9 @@ fn admit_cff1_structure_at_after_preflight_with_glyph_probe(
     keying: staged.keying,
     glyphs: staged.glyphs,
     bounds: executed.bounds,
+    path_command_counts: executed.path_command_counts,
+    directory: staged.directory,
+    tables: staged.tables,
     metrics: staged.metrics,
     num_glyphs: staged.num_glyphs,
     charge: staged.charge,

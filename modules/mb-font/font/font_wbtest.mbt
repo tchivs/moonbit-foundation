@@ -194,7 +194,7 @@ test "generated composite fixtures reach the private full placement seam" {
 test "portable outline fixture freezes expanded points descriptors and graph" {
   let owner = font_wb_owner(generated_portable_outline_matrix_truetype())
   let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
-  let simple_source = font_glyph_window(font.metric_index, 1UL)
+  let simple_source = font_glyph_window(font.glyf_metric_index(), 1UL)
     .unwrap()
     .unwrap()
   let simple_ledger : OutlineWork = { used: 0UL }
@@ -218,7 +218,7 @@ test "portable outline fixture freezes expanded points descriptors and graph" {
   inspect(geometry.points[2].x_q15, content="3276800")
   inspect(geometry.points[3].y_q15, content="3276800")
 
-  let composite_source = font_glyph_window(font.metric_index, 2UL)
+  let composite_source = font_glyph_window(font.glyf_metric_index(), 2UL)
     .unwrap()
     .unwrap()
   let parse_ledger : OutlineWork = { used: 0UL }
@@ -252,7 +252,7 @@ test "portable outline fixture freezes expanded points descriptors and graph" {
   let classification = font_classify_composite_graph(
     2UL,
     composite_source,
-    font.metric_index,
+    font.glyf_metric_index(),
     font.tables.maxp,
     font.limits,
     graph_ledger,
@@ -283,7 +283,7 @@ test "composite graph state allocation enforces exact portable slot bytes" {
     ),
   )
   let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
-  let root_source = font_glyph_window(font.metric_index, 10UL).unwrap().unwrap()
+  let root_source = font_glyph_window(font.glyf_metric_index(), 10UL).unwrap().unwrap()
   let exact = @budget.Budget::new(
     @budget.ResourceLimits::new(
       bytes=0UL,
@@ -300,7 +300,7 @@ test "composite graph state allocation enforces exact portable slot bytes" {
   let classification = font_classify_composite_graph(
     10UL,
     root_source,
-    font.metric_index,
+    font.glyf_metric_index(),
     font.tables.maxp,
     font.limits,
     exact_ledger,
@@ -325,7 +325,7 @@ test "composite graph state allocation enforces exact portable slot bytes" {
   let one_short_error = font_classify_composite_graph(
     10UL,
     root_source,
-    font.metric_index,
+    font.glyf_metric_index(),
     font.tables.maxp,
     font.limits,
     one_short_ledger,
@@ -345,11 +345,11 @@ test "composite graph state allocation enforces exact portable slot bytes" {
   inspect(one_short.remaining().allocations(), content="3")
 
   let overflow_index : MetricIndexFacts = {
-    hmtx: font.metric_index.hmtx,
-    glyf: font.metric_index.glyf,
-    loca_offsets: font.metric_index.loca_offsets,
+    hmtx: font.glyf_metric_index().hmtx,
+    glyf: font.glyf_metric_index().glyf,
+    loca_offsets: font.glyf_metric_index().loca_offsets,
     num_glyphs: 18446744073709551615UL,
-    number_of_h_metrics: font.metric_index.number_of_h_metrics,
+    number_of_h_metrics: font.glyf_metric_index().number_of_h_metrics,
   }
   let overflow_ledger : OutlineWork = { used: 0UL }
   let overflow = font_classify_composite_graph(
@@ -1018,7 +1018,7 @@ test "private outline source accepts complete CFF facts and no partial or mixed 
     font_wb_open_budget(),
   ).unwrap()
   match glyf_font.outline_source {
-    FontOutlineSource::Glyf => ()
+    FontOutlineSource::Glyf(_) => ()
     _ => fail("existing public static glyf opening must remain Glyf")
   }
 
@@ -1070,6 +1070,51 @@ fn font_wb_shared_cff_face_local_hmtx_ttc() -> Bytes {
 }
 
 ///|
+fn font_wb_cff_path_charge(
+  font : Font,
+  glyph : GlyphId,
+) -> CffPathCharge {
+  let admitted = match font.outline_source {
+    FontOutlineSource::Cff1(value) => value
+    FontOutlineSource::Glyf(_) => abort("expected CFF outline source")
+  }
+  let vm_limits = type2_limits(font.limits).unwrap()
+  let index = glyph.value().to_int()
+  let command_capacity = admitted.path_command_counts[index]
+  let executed = type2_execute_glyph_with_path_capacity(
+    admitted.glyphs[index],
+    admitted.global_subrs,
+    admitted.metrics.units_per_em,
+    vm_limits,
+    admitted.opening_revision,
+    Some(command_capacity.to_int()),
+  ).unwrap()
+  let work = executed.ledger.work +
+    executed.geometry.points +
+    executed.geometry.path_commands
+  cff_path_charge(vm_limits, command_capacity, work).unwrap()
+}
+
+///|
+fn font_wb_budget_for_cff_charge(
+  charge : CffPathCharge,
+  allocation_size : UInt64,
+) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=charge.bytes,
+      allocations=charge.allocations,
+      allocation_size~,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=charge.work,
+    ),
+  )
+}
+
+///|
 test "shared CFF collection faces retain identical bounds and face-local hmtx" {
   let owner = font_wb_owner(font_wb_shared_cff_face_local_hmtx_ttc())
   let first = admit_cff1_collection_structure(
@@ -1108,9 +1153,9 @@ test "CFF outline exact path charge tracer rejects post-stage mutation atomicall
   let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
   let owner = font_wb_owner(
     cff_wb_otf_with_cmap(
-      cff_wb_name_table_with_programs([b"\x0e", cubic]),
+      cff_wb_name_table_with_programs([b"\x0e", cubic, b"\x0e"]),
       cff_wb_cmap_format4_two_segments(),
-      num_glyphs=2UL,
+      num_glyphs=3UL,
     ),
   )
   let font = Font::open(
@@ -1119,16 +1164,80 @@ test "CFF outline exact path charge tracer rejects post-stage mutation atomicall
     cff_wb_budget(),
   ).unwrap()
   let glyph = font.glyph_id(1UL).unwrap()
-  let budget = font_wb_outline_budget()
-  let before = budget.remaining()
-  let result = font.outline_after_decode(glyph, budget, fn(_path) {
+  let charge = font_wb_cff_path_charge(font, glyph)
+  inspect(charge.command_capacity, content="3")
+  inspect(charge.allocation_size, content="384")
+
+  let exact_parent = font_wb_budget_for_cff_charge(
+    charge,
+    charge.allocation_size,
+  )
+  let exact_child = exact_parent
+    .child(exact_parent.remaining())
+    .unwrap()
+  let exact_path = font.outline(glyph, exact_child).unwrap()
+  inspect(exact_path.length(), content="3")
+  inspect(exact_parent.remaining().bytes(), content="0")
+  inspect(exact_parent.remaining().allocations(), content="0")
+  inspect(exact_parent.remaining().work(), content="0")
+  inspect(exact_child.remaining().bytes(), content="0")
+  inspect(exact_child.remaining().allocations(), content="0")
+  inspect(exact_child.remaining().work(), content="0")
+
+  let short_parent = font_wb_budget_for_cff_charge(
+    charge,
+    charge.allocation_size,
+  )
+  let short_child = short_parent
+    .child(
+      @budget.ResourceLimits::new(
+        bytes=charge.bytes,
+        allocations=charge.allocations,
+        allocation_size=charge.allocation_size - 1UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=charge.work,
+      ),
+    )
+    .unwrap()
+  let short_parent_before = short_parent.remaining()
+  let short_before = short_child.remaining()
+  let short_result = font.outline(glyph, short_child)
+  inspect(short_result is Err(_), content="true")
+  let short_error = short_result.unwrap_err()
+  inspect(
+    short_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(short_error.context() == Some("allocation_size"), content="true")
+  inspect(
+    short_parent.remaining().bytes() == short_parent_before.bytes(),
+    content="true",
+  )
+  inspect(
+    short_child.remaining().bytes() == short_before.bytes(),
+    content="true",
+  )
+
+  let mutation_parent = font_wb_budget_for_cff_charge(
+    charge,
+    charge.allocation_size,
+  )
+  let mutation_budget = mutation_parent
+    .child(mutation_parent.remaining())
+    .unwrap()
+  let parent_before = mutation_parent.remaining()
+  let before = mutation_budget.remaining()
+  let result = font.outline_after_decode(glyph, mutation_budget, fn(_path) {
     font_wb_mutate_one_byte(owner, 0)
   })
   inspect(result is Err(_), content="true")
   let error = result.unwrap_err()
   inspect(error.category() == @error.ErrorCategory::State, content="true")
   inspect(error.context() == Some("font-source-revision-drift"), content="true")
-  let after = budget.remaining()
+  let after = mutation_budget.remaining()
   inspect(after.bytes() == before.bytes(), content="true")
   inspect(after.allocations() == before.allocations(), content="true")
   inspect(
@@ -1136,6 +1245,13 @@ test "CFF outline exact path charge tracer rejects post-stage mutation atomicall
     content="true",
   )
   inspect(after.work() == before.work(), content="true")
+  let parent_after = mutation_parent.remaining()
+  inspect(parent_after.bytes() == parent_before.bytes(), content="true")
+  inspect(
+    parent_after.allocations() == parent_before.allocations(),
+    content="true",
+  )
+  inspect(parent_after.work() == parent_before.work(), content="true")
 }
 
 ///|
