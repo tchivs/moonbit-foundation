@@ -136,8 +136,29 @@ fn font_open_collection_face(
   face : CollectionFaceFacts,
   limits : FontLimits,
   budget : @budget.Budget,
+  before_selected_loop : (String) -> Unit,
   before_final_guard : () -> Unit,
 ) -> Result[Font, @error.CoreError] {
+  let ledger = FontAdmissionLedger::new(
+    budget,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  let directory_structural_work = match
+    font_collection_directory_structural_work(face.table_count) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match
+    ledger.admit_stage(
+      limits.max_work(),
+      directory_structural_work,
+      0UL,
+      directory_structural_work,
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  before_selected_loop("directory")
   let directory = match
     font_parse_directory_at(
       source,
@@ -149,6 +170,32 @@ fn font_open_collection_face(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let table_count = directory.tables.length().to_uint64()
+  let profile_presence_checksum_work = match
+    @checked.checked_mul(table_count, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let checksum_bytes = match
+    @checked.checked_sub(directory.work, directory_structural_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let next_stage = match
+    @checked.checked_add(profile_presence_checksum_work, checksum_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let cumulative = match @checked.checked_add(ledger.staged_work, next_stage) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match
+    ledger.admit_stage(limits.max_work(), cumulative, 0UL, next_stage) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  before_selected_loop("profile-checksum")
   match font_validate_profile(directory) {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -163,15 +210,16 @@ fn font_open_collection_face(
     Ok(_) => ()
   }
   let admission = match
-    font_admission_charge(
+    font_admission_charge_with_ledger(
       directory,
       limits,
-      budget,
       FontAdmissionCommitMode::CollectionDeferred,
+      ledger,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  before_selected_loop("semantic")
   let tables = match
     font_admit_required_tables_with_kern(directory, limits, admission.kern) {
     Err(error) => return Err(error)

@@ -132,6 +132,9 @@ fn FontAdmissionLedger::admit_stage(
       )
     Ok(value) => value
   }
+  if next_staged > max_work {
+    return Err(font_limit_error("max-work", next_staged, max_work))
+  }
   let requested_work = match self.mode {
     FontAdmissionCommitMode::StandaloneIncremental =>
       match @checked.checked_add(budget_base_work, stage_work) {
@@ -145,18 +148,7 @@ fn FontAdmissionLedger::admit_stage(
           )
         Ok(value) => value
       }
-    FontAdmissionCommitMode::CollectionDeferred =>
-      match @checked.checked_add(budget_base_work, next_staged) {
-        Err(_) =>
-          return Err(
-            font_limit_error(
-              "max-work",
-              18446744073709551615UL,
-              max_work,
-            ),
-          )
-        Ok(value) => value
-      }
+    FontAdmissionCommitMode::CollectionDeferred => next_staged
   }
   match
     self.caller.preflight(
@@ -205,12 +197,16 @@ fn font_collection_selected_extent_bytes(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let mut table_bytes = 0UL
-  for table in directory.tables {
-    table_bytes = match @checked.checked_add(table_bytes, table.length_value) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
+  let structural_work = match
+    font_collection_directory_structural_work(
+      directory.tables.length().to_uint64(),
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let table_bytes = match @checked.checked_sub(directory.work, structural_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   @checked.checked_add(directory_bytes, table_bytes)
 }
@@ -222,7 +218,49 @@ fn font_admission_charge(
   budget : @budget.Budget,
   commit_mode : FontAdmissionCommitMode,
 ) -> Result[FontAdmissionPlan, @error.CoreError] {
-  let ledger = FontAdmissionLedger::new(budget, commit_mode)
+  font_admission_charge_with_ledger(
+    directory,
+    limits,
+    commit_mode,
+    FontAdmissionLedger::new(budget, commit_mode),
+  )
+}
+
+///|
+fn font_admission_charge_with_ledger(
+  directory : DirectoryFacts,
+  limits : FontLimits,
+  commit_mode : FontAdmissionCommitMode,
+  ledger : FontAdmissionLedger,
+) -> Result[FontAdmissionPlan, @error.CoreError] {
+  let table_count = directory.tables.length().to_uint64()
+  // Standalone discovery already preflights this prefix. Selected admission
+  // reaches this function with its directory/profile/checksum prefix staged,
+  // so extend that same non-consuming ledger before the first table lookup.
+  let precharge_lookup_work = match @checked.checked_mul(table_count, 5UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match commit_mode {
+    FontAdmissionCommitMode::StandaloneIncremental => ()
+    FontAdmissionCommitMode::CollectionDeferred => {
+      let semantic_work = match
+        @checked.checked_add(ledger.staged_work, precharge_lookup_work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match
+        ledger.admit_stage(
+          limits.max_work(),
+          semantic_work,
+          0UL,
+          precharge_lookup_work,
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
+  }
   let maxp_table = match font_table_window(directory, 0x6D617870UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -241,14 +279,9 @@ fn font_admission_charge(
   if num_glyphs > limits.max_glyphs() {
     return Err(font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()))
   }
-  let table_count = directory.tables.length().to_uint64()
   // The initial preflight authorizes the directory work plus four required
   // count lookups and the optional kern lookup. Carry that exact prefix into
   // the cumulative declared-work preflights below.
-  let precharge_lookup_work = match @checked.checked_mul(table_count, 5UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
   let cmap_discovery_base_work = match
     @checked.checked_add(directory.work, precharge_lookup_work) {
     Err(error) => return Err(error)
@@ -503,6 +536,29 @@ fn font_admission_charge(
         Err(error) => return Err(error)
         Ok(value) => value
       }
+  }
+  // All count-discovery passes above were authorized before they ran. Once
+  // they have produced the exact aggregate, authorize the remaining selected
+  // semantic, mapping, name/post, loca, and glyph traversal before any of
+  // those loops begin. Collection mode still performs no charge here.
+  match commit_mode {
+    FontAdmissionCommitMode::StandaloneIncremental => ()
+    FontAdmissionCommitMode::CollectionDeferred => {
+      let unstaged_work = match @checked.checked_sub(work, ledger.staged_work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match
+        ledger.admit_stage(
+          limits.max_work(),
+          work,
+          0UL,
+          unstaged_work,
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
   }
   Ok({
     charge: @budget.ResourceCharge::new(

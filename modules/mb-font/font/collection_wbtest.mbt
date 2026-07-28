@@ -280,6 +280,22 @@ fn font_collection_wb_selected_budget() -> @budget.Budget {
 }
 
 ///|
+fn font_collection_wb_selected_work_budget(work : UInt64) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=65536UL,
+      allocations=16UL,
+      allocation_size=65536UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
 test "selected final revision hook is atomic and successful Font retains root identity" {
   let source = font_collection_wb_selected_ttc()
   let owner = font_collection_wb_owner(source)
@@ -389,6 +405,150 @@ test "selected final revision hook is atomic and successful Font retains root id
     content="true",
   )
   inspect(second_font.source.length() == font.source.length(), content="true")
+}
+
+///|
+test "selected caller and ancestor authority precede every dependent loop family" {
+  let source = font_collection_wb_selected_ttc()
+  let owner = font_collection_wb_owner(source)
+  let collection = FontCollection::open(
+    owner.view(),
+    font_collection_wb_selected_collection_limits(source.length().to_uint64()),
+    font_collection_wb_selected_budget(),
+  ).unwrap()
+  let limits = font_collection_wb_selected_font_limits(source.length().to_uint64())
+  let directory = font_parse_directory_at(
+    owner.view(),
+    256UL,
+    Some(10UL),
+    limits,
+    FontChecksumMode::Collection,
+  ).unwrap()
+  let directory_prefix = font_collection_directory_structural_work(10UL).unwrap()
+  let profile_checksum_prefix = directory.work + 10UL * 12UL
+
+  let exact = font_collection_wb_selected_budget()
+  let exact_before = exact.remaining()
+  let mut exact_directory = 0
+  let mut exact_profile_checksum = 0
+  let mut exact_semantic = 0
+  ignore(
+    collection
+    .open_face_after_preflights(
+      0UL,
+      limits,
+      exact,
+      fn(stage) {
+        match stage {
+          "directory" => exact_directory = exact_directory + 1
+          "profile-checksum" =>
+            exact_profile_checksum = exact_profile_checksum + 1
+          "semantic" => exact_semantic = exact_semantic + 1
+          _ => ()
+        }
+      },
+      fn() { () },
+    )
+    .unwrap(),
+  )
+  let exact_work = exact_before.work() - exact.remaining().work()
+  inspect(exact_directory, content="1")
+  inspect(exact_profile_checksum, content="1")
+  inspect(exact_semantic, content="1")
+
+  let directory_short = font_collection_wb_selected_work_budget(
+    directory_prefix - 1UL,
+  )
+  let directory_short_before = directory_short.remaining()
+  let mut directory_entries = 0
+  let directory_error = collection
+  .open_face_after_preflights(
+    0UL,
+    limits,
+    directory_short,
+    fn(_stage) { directory_entries = directory_entries + 1 },
+    fn() { () },
+  )
+  .unwrap_err()
+  inspect(directory_error.context() == Some("work"), content="true")
+  inspect(directory_entries, content="0")
+  inspect(
+    directory_short.remaining().work() == directory_short_before.work(),
+    content="true",
+  )
+
+  let profile_short = font_collection_wb_selected_work_budget(
+    profile_checksum_prefix - 1UL,
+  )
+  let profile_short_before = profile_short.remaining()
+  let mut profile_directory = 0
+  let mut profile_later = 0
+  let profile_error = collection
+  .open_face_after_preflights(
+    0UL,
+    limits,
+    profile_short,
+    fn(stage) {
+      if stage == "directory" {
+        profile_directory = profile_directory + 1
+      } else {
+        profile_later = profile_later + 1
+      }
+    },
+    fn() { () },
+  )
+  .unwrap_err()
+  inspect(profile_error.context() == Some("work"), content="true")
+  inspect(profile_directory, content="1")
+  inspect(profile_later, content="0")
+  inspect(
+    profile_short.remaining().work() == profile_short_before.work(),
+    content="true",
+  )
+
+  let semantic_short = font_collection_wb_selected_work_budget(exact_work - 1UL)
+  let semantic_short_before = semantic_short.remaining()
+  let mut semantic_prefixes = 0
+  let semantic_error = collection
+  .open_face_after_preflights(
+    0UL,
+    limits,
+    semantic_short,
+    fn(_stage) { semantic_prefixes = semantic_prefixes + 1 },
+    fn() { () },
+  )
+  .unwrap_err()
+  inspect(semantic_error.context() == Some("work"), content="true")
+  inspect(semantic_error.requested() == Some(exact_work), content="true")
+  inspect(semantic_prefixes, content="2")
+  inspect(
+    semantic_short.remaining().work() == semantic_short_before.work(),
+    content="true",
+  )
+
+  let ancestor = font_collection_wb_selected_work_budget(exact_work)
+  let child = ancestor.child(ancestor.remaining()).unwrap()
+  ancestor.charge(font_collection_wb_work_charge(1UL)).unwrap()
+  let ancestor_before = ancestor.remaining()
+  let child_before = child.remaining()
+  let mut ancestor_prefixes = 0
+  let ancestor_error = collection
+  .open_face_after_preflights(
+    0UL,
+    limits,
+    child,
+    fn(_stage) { ancestor_prefixes = ancestor_prefixes + 1 },
+    fn() { () },
+  )
+  .unwrap_err()
+  inspect(ancestor_error.context() == Some("work"), content="true")
+  inspect(ancestor_error.requested() == Some(exact_work), content="true")
+  inspect(ancestor_prefixes, content="2")
+  inspect(
+    ancestor.remaining().work() == ancestor_before.work(),
+    content="true",
+  )
+  inspect(child.remaining().work() == child_before.work(), content="true")
 }
 
 ///|
@@ -583,7 +743,10 @@ test "deferred admission ledger cumulatively preflights ancestors without chargi
       work=20UL,
     ),
   ).unwrap()
-  root.charge(font_collection_wb_work_charge(6UL)).unwrap()
+  // Deferred stages preflight their exact cumulative staged prefix. Leave
+  // four units at the live ancestor so the first three-unit loop is
+  // authorized and the second loop fails before entry.
+  root.charge(font_collection_wb_work_charge(16UL)).unwrap()
   let root_before = root.remaining()
   let child_before = child.remaining()
   let ledger = FontAdmissionLedger::new(

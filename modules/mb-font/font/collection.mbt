@@ -166,6 +166,24 @@ fn FontCollection::open_face_after_admit(
   budget : @budget.Budget,
   before_final_guard : () -> Unit,
 ) -> Result[Font, @error.CoreError] {
+  self.open_face_after_preflights(
+    index,
+    limits,
+    budget,
+    fn(_stage) { () },
+    before_final_guard,
+  )
+}
+
+///|
+fn FontCollection::open_face_after_preflights(
+  self : FontCollection,
+  index : UInt64,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  before_selected_loop : (String) -> Unit,
+  before_final_guard : () -> Unit,
+) -> Result[Font, @error.CoreError] {
   match self.require_revision("font-collection-open-face") {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -193,6 +211,7 @@ fn FontCollection::open_face_after_admit(
     face,
     limits,
     budget,
+    before_selected_loop,
     before_final_guard,
   )
 }

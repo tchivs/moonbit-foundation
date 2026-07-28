@@ -204,6 +204,20 @@ fn font_collection_directory_work(
   table_bytes : UInt64,
   num_tables : UInt64,
 ) -> Result[UInt64, @error.CoreError] {
+  let structural_work = match
+    font_collection_directory_structural_work(num_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  @checked.checked_add(structural_work, table_bytes)
+}
+
+///|
+/// Exact selected-directory work known from cached collection authority before
+/// any attacker-declared record or overlap traversal begins.
+fn font_collection_directory_structural_work(
+  num_tables : UInt64,
+) -> Result[UInt64, @error.CoreError] {
   let overlap_work = match font_directory_overlap_work(num_tables) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -222,7 +236,7 @@ fn font_collection_directory_work(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  @checked.checked_add(with_selector, table_bytes)
+  Ok(with_selector)
 }
 
 ///|
