@@ -197,7 +197,7 @@ test "CFF typed DICT resolves retained SIDs against String INDEX domain" {
 }
 
 ///|
-test "CFF Private DICT enforces blue-zone and StemSnap array maxima" {
+test "CFF Private DICT distinguishes paired blue zones from StemSnap deltas" {
   let blue : Array[Byte] = []
   for index = 0; index < 16; index = index + 1 {
     blue.push(b'\x8B')
@@ -208,8 +208,21 @@ test "CFF Private DICT enforces blue-zone and StemSnap array maxima" {
     content="true",
   )
 
+  for accepted_count in [1, 11, 12] {
+    let stems : Array[Byte] = []
+    for index = 0; index < accepted_count; index = index + 1 {
+      stems.push(b'\x8B')
+    }
+    stems.push(b'\x0C')
+    stems.push(b'\x0C')
+    inspect(
+      cff_decode_private_dict(font_wb_view(Bytes::from_array(stems))) is Ok(_),
+      content="true",
+    )
+  }
+
   let stems : Array[Byte] = []
-  for index = 0; index < 14; index = index + 1 {
+  for index = 0; index < 13; index = index + 1 {
     stems.push(b'\x8B')
   }
   stems.push(b'\x0C')

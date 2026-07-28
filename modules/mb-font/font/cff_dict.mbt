@@ -493,6 +493,20 @@ fn cff_require_even_bounded(
 }
 
 ///|
+fn cff_require_nonempty_bounded(
+  entry : CffDictEntry,
+  maximum : UInt64,
+  context : String,
+) -> Result[Unit, @error.CoreError] {
+  let actual = entry.operands.length().to_uint64()
+  if actual == 0UL || actual > maximum {
+    Err(cff_data_error(context + "-arity", requested=actual, limit=maximum))
+  } else {
+    Ok(())
+  }
+}
+
+///|
 fn cff_dict_unit_count(
   entries : Array[CffDictEntry],
 ) -> Result[UInt64, @error.CoreError] {
@@ -903,7 +917,12 @@ fn cff_decode_private_dict(
           Ok(_) => ()
         }
       0x10CUL | 0x10DUL =>
-        match cff_require_even_bounded(entry, 12UL, "font-cff-private-stem-snap") {
+        match
+          cff_require_nonempty_bounded(
+            entry,
+            12UL,
+            "font-cff-private-stem-snap",
+          ) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
