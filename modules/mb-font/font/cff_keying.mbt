@@ -75,7 +75,7 @@ priv struct CffKeyingResult {
 fn cff_sid_limit(strings : CffIndex) -> Result[UInt64, @error.CoreError] {
   match @checked.checked_add(391UL, strings.count) {
     Err(_) => Err(cff_data_error("font-cff-sid-domain"))
-    Ok(value) => Ok(value)
+    Ok(value) => Ok(if value < 65000UL { value } else { 65000UL })
   }
 }
 

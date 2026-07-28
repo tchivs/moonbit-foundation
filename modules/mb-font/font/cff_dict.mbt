@@ -455,6 +455,22 @@ fn cff_require_boolean(
 }
 
 ///|
+fn cff_require_sid_number(
+  operand : CffNumber,
+  context : String,
+) -> Result[UInt64, @error.CoreError] {
+  let sid = match cff_number_nonnegative_integer(operand, context) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if sid > 64999UL {
+    Err(cff_data_error(context, requested=sid, limit=64999UL))
+  } else {
+    Ok(sid)
+  }
+}
+
+///|
 fn cff_require_sid_operand(
   entry : CffDictEntry,
   context : String,
@@ -463,15 +479,7 @@ fn cff_require_sid_operand(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let sid = match cff_number_nonnegative_integer(entry.operands[0], context) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  if sid > 65535UL {
-    Err(cff_data_error(context, requested=sid, limit=65535UL))
-  } else {
-    Ok(sid)
-  }
+  cff_require_sid_number(entry.operands[0], context)
 }
 
 ///|
@@ -661,12 +669,12 @@ fn cff_decode_top_dict(
           return Err(cff_data_error("font-cff-top-ros-duplicate"))
         }
         let registry_sid = match
-          cff_number_nonnegative_integer(entry.operands[0], "font-cff-top-ros") {
+          cff_require_sid_number(entry.operands[0], "font-cff-top-ros") {
           Err(error) => return Err(error)
           Ok(value) => value
         }
         let ordering_sid = match
-          cff_number_nonnegative_integer(entry.operands[1], "font-cff-top-ros") {
+          cff_require_sid_number(entry.operands[1], "font-cff-top-ros") {
           Err(error) => return Err(error)
           Ok(value) => value
         }
@@ -726,15 +734,14 @@ fn cff_decode_top_dict(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
+      0x114UL | 0x115UL | 0x116UL | 0x117UL =>
+        return Err(cff_capability_error("font-cff-top-operator-unsupported"))
       13UL
       | 0x102UL
       | 0x103UL
       | 0x104UL
       | 0x105UL
       | 0x108UL
-      | 0x114UL
-      | 0x115UL
-      | 0x116UL
       | 0x11FUL
       | 0x120UL
       | 0x121UL
@@ -750,7 +757,7 @@ fn cff_decode_top_dict(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
-      14UL | 0x117UL =>
+      14UL =>
         if entry.operands.length() == 0 {
           return Err(cff_data_error("font-cff-top-operator-arity"))
         }

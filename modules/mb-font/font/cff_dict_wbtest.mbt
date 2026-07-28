@@ -176,6 +176,35 @@ test "CFF typed DICT rejects invalid SID and boolean domains" {
     cff_decode_private_dict(font_wb_view(b"\x8D\x0C\x0E")) is Err(_),
     content="true",
   )
+  inspect(
+    cff_decode_top_dict(
+      font_wb_view(b"\x1D\x00\x00\xFD\xE8\x02\x8C\x11"),
+    )
+    is Err(_),
+    content="true",
+  )
+  inspect(
+    cff_decode_top_dict(
+      font_wb_view(b"\x1D\x00\x00\xFD\xE8\x8B\x8B\x0C\x1E\x8C\x11"),
+    )
+    is Err(_),
+    content="true",
+  )
+}
+
+///|
+test "CFF Top DICT rejects unsupported semantic operators as capabilities" {
+  for operator in [b'\x14', b'\x15', b'\x16', b'\x17'] {
+    let source : Array[Byte] = [b'\x8B', b'\x0C', operator, b'\x8C', b'\x11']
+    let error = cff_decode_top_dict(
+      font_wb_view(Bytes::from_array(source)),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+    inspect(
+      error.context() == Some("font-cff-top-operator-unsupported"),
+      content="true",
+    )
+  }
 }
 
 ///|
