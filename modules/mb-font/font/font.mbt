@@ -96,14 +96,31 @@ fn Font::require_revision(
 }
 
 ///|
-fn font_require_table_presence(
+fn font_require_common_table_presence(
   directory : DirectoryFacts,
 ) -> Result[Unit, @error.CoreError] {
   for
     tag in [
-      0x4F532F32UL, 0x636D6170UL, 0x676C7966UL, 0x68656164UL, 0x68686561UL, 0x686D7478UL,
-      0x6C6F6361UL, 0x6D617870UL, 0x6E616D65UL, 0x706F7374UL,
+      0x4F532F32UL, 0x636D6170UL, 0x68656164UL, 0x68686561UL, 0x686D7478UL, 0x6D617870UL,
+      0x6E616D65UL, 0x706F7374UL,
     ] {
+    match font_table_window(directory, tag) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  Ok(())
+}
+
+///|
+fn font_require_table_presence(
+  directory : DirectoryFacts,
+) -> Result[Unit, @error.CoreError] {
+  match font_require_common_table_presence(directory) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  for tag in [0x676C7966UL, 0x6C6F6361UL] {
     match font_table_window(directory, tag) {
       Err(error) => return Err(error)
       Ok(_) => ()

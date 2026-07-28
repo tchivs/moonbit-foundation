@@ -78,11 +78,42 @@ fn cff_wb_otf_tables(tables : Array[GeneratedFontTable]) -> Bytes {
 
 ///|
 fn cff_wb_otf(cff : Bytes, num_glyphs? : UInt64 = 1UL) -> Bytes {
+  let hmtx = Array::make(
+    (4UL + (num_glyphs - 1UL) * 2UL).to_int(),
+    b'\x00',
+  )
   cff_wb_otf_tables([
     font_wb_table(b"CFF ", cff),
+    font_wb_table(b"OS/2", generated_os2_table()),
+    font_wb_table(b"cmap", generated_cmap_table()),
     font_wb_table(b"head", generated_head_table()),
+    font_wb_table(b"hhea", generated_hhea_table()),
+    font_wb_table(b"hmtx", Bytes::from_array(hmtx)),
     font_wb_table(b"maxp", cff_wb_maxp_table(num_glyphs)),
+    font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
+    font_wb_table(b"post", generated_post_table()),
   ])
+}
+
+///|
+fn cff_wb_otf_without_common(tag : Bytes) -> Bytes {
+  let tables : Array[GeneratedFontTable] = []
+  for table in [
+    font_wb_table(b"CFF ", cff_wb_table()),
+    font_wb_table(b"OS/2", generated_os2_table()),
+    font_wb_table(b"cmap", generated_cmap_table()),
+    font_wb_table(b"head", generated_head_table()),
+    font_wb_table(b"hhea", generated_hhea_table()),
+    font_wb_table(b"hmtx", b"\x00\x00\x00\x00"),
+    font_wb_table(b"maxp", cff_wb_maxp_table(1UL)),
+    font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
+    font_wb_table(b"post", generated_post_table()),
+  ] {
+    if table.tag != tag {
+      tables.push(table)
+    }
+  }
+  cff_wb_otf_tables(tables)
 }
 
 ///|
@@ -150,6 +181,25 @@ test "CFF1 tracer rejects non-Type-2 before publication or budget charge" {
     content="true",
   )
   inspect(budget.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "CFF1 admission requires every validated common OpenType table" {
+  for tag in [
+    b"OS/2", b"cmap", b"head", b"hhea", b"hmtx", b"name", b"post",
+  ] {
+    let budget = cff_wb_budget()
+    let before = budget.remaining()
+    let result = admit_cff1_structure(
+      font_wb_view(cff_wb_otf_without_common(tag)),
+      font_wb_limits(),
+      budget,
+      0UL,
+    )
+    inspect(result is Err(_), content="true")
+    inspect(budget.remaining().bytes() == before.bytes(), content="true")
+    inspect(budget.remaining().work() == before.work(), content="true")
+  }
 }
 
 ///|

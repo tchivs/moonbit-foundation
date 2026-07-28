@@ -182,6 +182,87 @@ fn cff_decode_maxp05(
 }
 
 ///|
+fn cff_validate_common_tables(
+  directory : DirectoryFacts,
+  num_glyphs : UInt64,
+  limits : FontLimits,
+) -> Result[Unit, @error.CoreError] {
+  match font_require_common_table_presence(directory) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match font_decode_head(font_table_window(directory, 0x68656164UL).unwrap()) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let maxp : MaxpFacts = {
+    num_glyphs,
+    max_points: 0UL,
+    max_contours: 0UL,
+    max_composite_points: 0UL,
+    max_composite_contours: 0UL,
+    max_size_of_instructions: 0UL,
+    max_component_elements: 0UL,
+    max_component_depth: 0UL,
+  }
+  let hhea = match
+    font_decode_hhea(
+      font_table_window(directory, 0x68686561UL).unwrap(),
+      maxp,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let hmtx = font_table_window(directory, 0x686D7478UL).unwrap()
+  let hmtx_required = match
+    font_hmtx_required_length(num_glyphs, hhea.number_of_h_metrics) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if hmtx.length_value != hmtx_required {
+    return Err(
+      font_data_error(
+        "font-hmtx-cardinality",
+        requested=hmtx_required,
+        limit=hmtx.length_value,
+      ),
+    )
+  }
+  match
+    font_decode_os2(font_table_window(directory, 0x4F532F32UL).unwrap()) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match
+    font_admit_cmap_envelope(
+      font_table_window(directory, 0x636D6170UL).unwrap(),
+      maxp,
+      limits,
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match
+    font_admit_name_envelope(
+      font_table_window(directory, 0x6E616D65UL).unwrap(),
+      limits,
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match
+    font_admit_post_envelope(
+      font_table_window(directory, 0x706F7374UL).unwrap(),
+      maxp,
+      limits,
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok(())
+}
+
+///|
 fn cff_table_subview(
   table : TableWindow,
   offset : UInt64,
@@ -527,6 +608,10 @@ fn admit_cff1_structure_at_after_preflight(
   let num_glyphs = match cff_decode_maxp05(maxp, limits) {
     Err(error) => return Err(error)
     Ok(value) => value
+  }
+  match cff_validate_common_tables(directory, num_glyphs, limits) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   match cff_require_window(cff.view, 0UL, 4UL, "font-cff-header") {
     Err(error) => return Err(error)
