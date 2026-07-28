@@ -391,8 +391,14 @@ function Assert-FontQualificationCaseFact {
       'work'
     ) "$Label $budgetName"
   }
-  if ($Case.boundary -cnotin @('success', 'failure') -or
-      $Case.publication -cnotin @('none', 'collection', 'font')) {
+  if ($Case.boundary -cnotin @('success', 'failure', 'exact', 'one-short') -or
+      $Case.publication -cnotin @(
+        'none',
+        'collection',
+        'font',
+        'existing-collection-only',
+        'existing-font-only'
+      )) {
     throw "$Label enum drifted."
   }
 }
@@ -1137,7 +1143,7 @@ function Invoke-FontQualification {
   Push-Location $RepositoryRoot
   try {
     & ./scripts/fixtures/Generate-FontQualification.ps1 -Check
-    if ($LASTEXITCODE -ne 0) {
+    if (-not $?) {
       throw 'Font qualification generator check failed.'
     }
 
@@ -1435,7 +1441,10 @@ function Invoke-FontQualification {
     $comparison = Compare-FontQualificationEvidence $records $resolvedEvidence
     $writtenTargets = @(
       Get-ChildItem -LiteralPath $resolvedEvidence -Filter '*.json' |
-        Where-Object { $_.Name -cne 'comparison.json' } |
+        Where-Object {
+          $_.Name -cne 'comparison.json' -and
+          $_.Name -cne $EvidenceMarkerName
+        } |
         ForEach-Object { $_.BaseName }
     )
     if ($writtenTargets.Count -ne $Targets.Count -or
