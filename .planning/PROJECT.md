@@ -10,13 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.33 Phase 101 Collection Inspection Complete
+## Current State: v0.33 Phase 102 Selected-Face Admission Complete
 
-**Delivered:** Phase 101 added an opaque, bounded `FontCollection` identity beside the unchanged standalone `Font::open` contract. Library authors can inspect every face in caller-owned TTC/OTC v1/v2 bytes through closed profiles, distinguish absent from structurally present-but-unverified DSIG data, and rely on root-relative range/alias validation, staged exact work authority, atomic budget publication, and revision-guarded queries.
+**Delivered:** Phase 102 added the single public `FontCollection::open_face` operation. Library authors can select an admitted static `glyf` face and receive the existing opaque `Font` without copying the retained collection root. Selected admission resolves table records against the collection root, preserves exact shared ranges and unsupported-sibling isolation, uses fresh caller-owned limits and budgets, and retains standalone metrics, mapping, kerning, glyph, outline, checksum, and error behavior.
 
-**Validated:** Phase 101 passed 17/17 goal must-haves with no human-verification debt, a clean iterative code review, and 21/21 plan-authored security threats closed or explicitly accepted below the high blocking threshold. Fresh independent runs passed the complete 131-test font package on each of `js`, `wasm`, `wasm-gc`, and `native`; the generated public interface remained an exact 84-line allowlist with no selected-face or private parser leakage.
+**Validated:** Phase 102 passed 14/14 goal must-haves with no gaps or human-verification debt after a three-iteration code-review/fix loop. Fresh independent runs passed public collection tests 31/31 and white-box tests 13/13 on `js`, `wasm`, `wasm-gc`, and `native`, plus the complete native font package at 147/147. The generated public interface is an exact 85-line allowlist containing only the intended `open_face` addition; all 23 plan-authored security threats are mitigated or explicitly accepted below the high blocking threshold.
 
-**Next:** Phase 102 will select one supported collection face through a no-copy root-relative adapter and reuse the existing `Font` admission, metrics, mapping, kerning, and outline behavior.
+**Next:** Phase 103 will close the milestone with hostile collection cases, licensed interoperability evidence, standalone compatibility qualification, and the broad reproducible four-target matrix.
 
 ## Current Milestone: v0.33 TrueType Collection Adapters
 
@@ -43,13 +43,13 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Library authors can select one in-range supported TTC/OTC face without copying the complete font.
-- [ ] A selected `glyf`-based TrueType face exposes the existing `Font` metrics, Unicode mapping, kerning, and outline behavior unchanged.
 - [ ] Malformed collections, unsupported face profiles, mutation, exhausted limits, and exhausted budgets fail atomically with structured outcomes.
 - [ ] Maintainers can reproduce standalone and collection behavior with generated, licensed, hostile, and four-target evidence.
 
 ### Validated
 
+- [x] Library authors can select one in-range supported TTC/OTC face without copying the complete font. — Validated in Phase 102.
+- [x] A selected `glyf`-based TrueType face exposes the existing `Font` metrics, Unicode mapping, kerning, glyph identity, and outline behavior unchanged. — Validated in Phase 102.
 - [x] Library authors can open bounded caller-owned TTC/OTC v1/v2 bytes, inspect every face through a closed semantic profile, and distinguish absent from structurally present-but-unverified DSIG data without exposing raw offsets or records. — Validated in Phase 101.
 - [x] Maintainers can qualify the public font workflow and adversarial parser behavior on all four supported targets. — Validated in Phase 100.
 - [x] Library authors can extract checked reusable unhinted `Path2` glyph outlines, including bounded one-level composite glyphs, with exact Q15 transforms, explicit resource authority, and no partial geometry on failure. — Validated in Phase 99.
@@ -236,6 +236,7 @@ Registry publication and release automation remain deferred unless a concrete co
 | Add indexed Fixed-or-Stored compression as an explicit non-interlaced profile | Preserve all legacy/default Indexed1/2/4/8 bytes while selecting a bounded Fixed block only on a complete palette-aware frame win or tie | ✓ Validated in v0.28 Phases 85-87 |
 | Keep indexed compression qualification independent from production planning | Test-local parsing and checksum/raster reconstruction protect the wire contract without turning production helpers into their own oracle | ✓ Validated in v0.28 Phase 87 |
 | Implement the bounded TrueType font foundation before text shaping or PDF rendering | `mb-font` is the RFC-defined lower dependency for reusable glyph IDs, metrics, and outlines; proving it first prevents sibling modules from inventing incompatible font parsers | ✓ Validated in v0.32 Phases 97-100 |
+| Reuse the retained TTC/OTC root through one private root-relative selected-face adapter | A selected face should publish the existing opaque `Font` without copying bytes, exposing parser facts, weakening standalone checks, or charging before final revision validation | ✓ Validated in v0.33 Phase 102 |
 
 ## Evolution
 
@@ -255,4 +256,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after completing Phase 101 collection inspection*
+*Last updated: 2026-07-28 after completing Phase 102 selected-face admission*
