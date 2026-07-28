@@ -1371,7 +1371,7 @@ test "generated standalone TrueType opens and returns exact units per em" {
 }
 
 ///|
-test "Phase 104 freezes the public standalone static glyf fingerprint" {
+test "Phase 105 preserves the public standalone static glyf fingerprint" {
   let owner = font_test_owner(font_test_minimal_truetype())
   let budget = font_test_budget()
   let before = budget.remaining()
@@ -1382,7 +1382,9 @@ test "Phase 104 freezes the public standalone static glyf fingerprint" {
   inspect(font.hhea_line_metrics().unwrap().ascent(), content="0")
   inspect(font.typographic_line_metrics().unwrap().descent(), content="0")
   inspect(font.glyph_for_scalar(65).unwrap().value(), content="0")
-  inspect(font.horizontal_metrics(glyph).unwrap().advance_width(), content="500")
+  let metrics = font.horizontal_metrics(glyph).unwrap()
+  inspect(metrics.advance_width(), content="500")
+  inspect(metrics.left_side_bearing(), content="0")
   inspect(font.kerning(glyph, glyph).unwrap(), content="0")
   inspect(
     font.outline(glyph, font_test_outline_budget()).unwrap().length(),

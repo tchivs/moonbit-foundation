@@ -807,7 +807,7 @@ test "TTC-02 opens a cached static face against the retained collection root" {
 }
 
 ///|
-test "Phase 104 freezes the public selected static glyf fingerprint" {
+test "Phase 105 preserves the public selected static glyf fingerprint" {
   let source = font_collection_test_selected_ttc()
   let owner = font_collection_test_owner(source)
   let collection_budget = font_collection_test_selected_budget()
@@ -829,7 +829,9 @@ test "Phase 104 freezes the public selected static glyf fingerprint" {
     .unwrap()
   let glyph = font.glyph_id(0UL).unwrap()
   inspect(font.units_per_em().unwrap(), content="1000")
-  inspect(font.horizontal_metrics(glyph).unwrap().advance_width(), content="500")
+  let metrics = font.horizontal_metrics(glyph).unwrap()
+  inspect(metrics.advance_width(), content="500")
+  inspect(metrics.left_side_bearing(), content="0")
   inspect(font.kerning(glyph, glyph).unwrap(), content="0")
   inspect(
     font.outline(glyph, font_test_outline_budget()).unwrap().length(),
