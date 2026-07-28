@@ -240,13 +240,7 @@ test "font-complete-public exercises the compact format-4 branch" {
 }
 
 ///|
-test "font-complete-public freezes DejaVu Sans 2.37 public facts" {
-  let owner = font_test_owner(font_qualification_dejavu_sans_237_bytes())
-  let font = Font::open(
-    owner.view(),
-    font_qualification_limits(),
-    font_qualification_admission_budget(),
-  ).unwrap()
+fn font_qualification_assert_dejavu_public_facts(font : Font) -> Unit raise {
   inspect(font.units_per_em().unwrap(), content="2048")
   font_qualification_assert_bounds(
     font.global_bounds().unwrap(),
@@ -329,4 +323,213 @@ test "font-complete-public freezes DejaVu Sans 2.37 public facts" {
 
   let v = font.glyph_id(57UL).unwrap()
   inspect(font.kerning(a, v).unwrap(), content="-131")
+}
+
+///|
+test "font-complete-public freezes DejaVu Sans 2.37 public facts" {
+  let owner = font_test_owner(font_qualification_dejavu_sans_237_bytes())
+  let font = Font::open(
+    owner.view(),
+    font_qualification_limits(),
+    font_qualification_admission_budget(),
+  ).unwrap()
+  font_qualification_assert_dejavu_public_facts(font)
+}
+
+///|
+fn font_qualification_collection_limits(
+  source_length : UInt64,
+  faces : UInt64,
+  records : UInt64,
+) -> FontCollectionLimits {
+  FontCollectionLimits::new(
+    max_source_bytes=source_length,
+    max_faces=faces,
+    max_tables_per_face=64UL,
+    max_table_records=records,
+    max_dsig_records=8UL,
+    max_dsig_bytes=65536UL,
+    max_retained_bookkeeping_bytes=1000000UL,
+    max_work=10000000UL,
+  ).unwrap()
+}
+
+///|
+fn font_qualification_collection_budget() -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=2000000UL,
+      allocations=64UL,
+      allocation_size=1000000UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=20000000UL,
+    ),
+  )
+}
+
+///|
+fn font_qualification_assert_public_collection_case_ids() -> Unit raise {
+  let cases = font_collection_qualification_cases()
+  let expected_ids = [
+    "generated-ttc-v1-static-selected",
+    "generated-ttc-v2-dsig-absent",
+    "generated-ttc-v2-dsig-present-unverified",
+    "generated-ttc-v1-exact-sharing",
+    "generated-ttc-v2-mixed-profiles",
+    "generated-ttc-v1-nonzero-directory-base",
+    "licensed-dejavu-two-face-v1-face-0",
+    "licensed-dejavu-two-face-v1-face-1",
+  ]
+  inspect(cases.length() >= expected_ids.length(), content="true")
+  for index = 0; index < expected_ids.length(); index = index + 1 {
+    let expected = cases[index]
+    inspect(expected.id == expected_ids[index], content="true")
+    inspect(expected.group == "public_workflows", content="true")
+    inspect(expected.stage == "select", content="true")
+    inspect(expected.entrypoint == "FontCollection::open_face", content="true")
+    inspect(expected.boundary == "success", content="true")
+    inspect(expected.publication == "font", content="true")
+  }
+}
+
+///|
+test "font-complete-public qualifies generated collection workflows" {
+  font_qualification_assert_public_collection_case_ids()
+
+  let selected_source = font_collection_test_selected_ttc()
+  let selected_owner = font_collection_test_owner(selected_source)
+  let selected = FontCollection::open(
+    selected_owner.view(),
+    font_collection_test_selected_limits(selected_source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  inspect(selected.face_count().unwrap(), content="1")
+  inspect(
+    selected.face_profile(0UL).unwrap() == FontFaceProfile::StaticGlyf,
+    content="true",
+  )
+  inspect(
+    selected.dsig_status().unwrap() == FontCollectionDsigStatus::Absent,
+    content="true",
+  )
+  inspect(
+    selected
+    .open_face(0UL, font_test_limits(), font_collection_test_selected_budget())
+    .unwrap()
+    .units_per_em()
+    .unwrap(),
+    content="1000",
+  )
+
+  let shared_source = font_collection_test_shared_selected_ttc()
+  let shared_owner = font_collection_test_owner(shared_source)
+  let shared = FontCollection::open(
+    shared_owner.view(),
+    font_collection_test_selected_collection_limits(
+      shared_source.length().to_uint64(),
+      2UL,
+      20UL,
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  inspect(shared.face_count().unwrap(), content="2")
+  for index in [0UL, 1UL] {
+    inspect(
+      shared.face_profile(index).unwrap() == FontFaceProfile::StaticGlyf,
+      content="true",
+    )
+    inspect(
+      shared
+      .open_face(index, font_test_limits(), font_collection_test_selected_budget())
+      .unwrap()
+      .units_per_em()
+      .unwrap(),
+      content="1000",
+    )
+  }
+
+  let mixed_source = font_collection_test_multi_ttc()
+  let mixed_owner = font_collection_test_owner(mixed_source)
+  let mixed = FontCollection::open(
+    mixed_owner.view(),
+    font_qualification_collection_limits(
+      mixed_source.length().to_uint64(),
+      5UL,
+      8UL,
+    ),
+    font_qualification_collection_budget(),
+  ).unwrap()
+  inspect(mixed.face_count().unwrap(), content="5")
+  for
+    item in [
+      (0UL, FontFaceProfile::StaticGlyf),
+      (1UL, FontFaceProfile::Cff),
+      (2UL, FontFaceProfile::Cff2),
+      (3UL, FontFaceProfile::Variable),
+      (4UL, FontFaceProfile::OtherUnsupported),
+    ] {
+    let (index, profile) = item
+    inspect(mixed.face_profile(index).unwrap() == profile, content="true")
+  }
+  inspect(
+    mixed.dsig_status().unwrap() == FontCollectionDsigStatus::Absent,
+    content="true",
+  )
+
+  let dsig_source = font_collection_test_dsig_ttc()
+  let dsig_owner = font_collection_test_owner(dsig_source)
+  let dsig = FontCollection::open(
+    dsig_owner.view(),
+    font_collection_test_dsig_limits(1UL, 32UL, 57UL),
+    font_collection_test_dsig_budget(57UL),
+  ).unwrap()
+  inspect(
+    dsig.dsig_status().unwrap() == FontCollectionDsigStatus::PresentUnverified,
+    content="true",
+  )
+}
+
+///|
+test "font-complete-public qualifies licensed DejaVu collection faces" {
+  font_qualification_assert_public_collection_case_ids()
+  let cases = font_collection_qualification_cases()
+  inspect(cases[6].fixture_id == "licensed-dejavu-two-face-v1", content="true")
+  inspect(cases[6].face_index == Some(0UL), content="true")
+  inspect(cases[7].fixture_id == "licensed-dejavu-two-face-v1", content="true")
+  inspect(cases[7].face_index == Some(1UL), content="true")
+
+  let source = font_qualification_dejavu_two_face_ttc_v1_bytes()
+  inspect(source.length(), content="757428")
+  let owner = font_test_owner(source)
+  let collection = FontCollection::open(
+    owner.view(),
+    font_qualification_collection_limits(
+      source.length().to_uint64(),
+      2UL,
+      40UL,
+    ),
+    font_qualification_collection_budget(),
+  ).unwrap()
+  inspect(collection.face_count().unwrap(), content="2")
+  inspect(
+    collection.dsig_status().unwrap() == FontCollectionDsigStatus::Absent,
+    content="true",
+  )
+  for index in [0UL, 1UL] {
+    inspect(
+      collection.face_profile(index).unwrap() == FontFaceProfile::StaticGlyf,
+      content="true",
+    )
+    let font = collection
+      .open_face(
+        index,
+        font_qualification_limits(),
+        font_qualification_admission_budget(),
+      )
+      .unwrap()
+    font_qualification_assert_dejavu_public_facts(font)
+  }
 }
