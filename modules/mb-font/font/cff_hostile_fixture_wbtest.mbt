@@ -61,6 +61,14 @@ test "cff_structural_exact_and_one_short_cases" {
   inspect(admitted.charge.dict_units > 0UL, content="true")
   inspect(admitted.charge.charset_entries > 0UL, content="true")
   inspect(admitted.charge.sid_cid_lookups > 0UL, content="true")
+  let ceilings = cff_structural_limits(font_wb_limits()).unwrap()
+  inspect(ceilings.max_index_entries > 0UL, content="true")
+  inspect(ceilings.max_dict_units > 0UL, content="true")
+  inspect(ceilings.max_charset_entries > 0UL, content="true")
+  inspect(ceilings.max_encoding_entries > 0UL, content="true")
+  inspect(ceilings.max_fd_ranges > 0UL, content="true")
+  inspect(ceilings.max_sid_cid_lookups > 0UL, content="true")
+  inspect(ceilings.max_retained_bytes > 0UL, content="true")
 
   // Header, Name, Top, String, Global Subrs, CharStrings, Private DICT,
   // and local Subrs exact/one-short boundaries.
@@ -101,12 +109,37 @@ test "cff_structural_exact_and_one_short_cases" {
   )
   cff_hostile_assert_atomic_error(
     cff_cid_wb_table(ros_operands=0UL),
-    "font-cff-top-ros",
+    "font-cff-top-dict-arity",
     num_glyphs=3UL,
   )
   cff_hostile_assert_atomic_error(
     cff_cid_wb_table(fd_select_format=0UL, gid_two_fd=2UL),
     "font-cff-fd-select-fd",
+    num_glyphs=3UL,
+  )
+  cff_hostile_assert_atomic_error(
+    cff_cid_wb_table(fd_select_format=3UL, fd_sentinel=2UL),
+    "font-cff-fd-select-sentinel",
+    num_glyphs=3UL,
+  )
+  cff_hostile_assert_atomic_error(
+    cff_cid_wb_table(invalid_unused_fd=true),
+    "font-cff-fd-private-range",
+    num_glyphs=3UL,
+  )
+  cff_hostile_assert_atomic_error(
+    cff_cid_wb_table(invalid_matrix=true),
+    "font-cff-font-matrix-arity",
+    num_glyphs=3UL,
+  )
+  cff_hostile_assert_atomic_error(
+    cff_cid_wb_table(predefined_charset=true),
+    "font-cff-cid-charset",
+    num_glyphs=3UL,
+  )
+  cff_hostile_assert_atomic_error(
+    cff_cid_wb_table(include_encoding=true),
+    "font-cff-cid-encoding",
     num_glyphs=3UL,
   )
   cff_hostile_assert_atomic_error(

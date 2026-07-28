@@ -26,7 +26,14 @@ priv struct CffStructuralCharge {
   allocations : UInt64
   allocation_size : UInt64
   retained_bytes : UInt64
+  header_bytes : UInt64
   index_offsets : UInt64
+  index_objects : UInt64
+  dict_units : UInt64
+  charset_entries : UInt64
+  encoding_entries : UInt64
+  fd_ranges : UInt64
+  sid_cid_lookups : UInt64
   descriptors : UInt64
   fd_environments : UInt64
   work : UInt64
@@ -223,6 +230,11 @@ fn cff_admission_charge(
   directory : DirectoryFacts,
   cff : TableWindow,
   indexes : Array[CffIndex],
+  dict_units : UInt64,
+  charset_entries : UInt64,
+  encoding_entries : UInt64,
+  fd_ranges : UInt64,
+  sid_cid_lookups : UInt64,
   descriptor_count : UInt64,
   fd_count : UInt64,
   limits : FontLimits,
@@ -232,9 +244,14 @@ fn cff_admission_charge(
     Ok(value) => value
   }
   let mut retained_offsets = 0UL
+  let mut index_objects = 0UL
   for index in indexes {
     retained_offsets = match
       @checked.checked_add(retained_offsets, index.offsets.length().to_uint64()) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    index_objects = match @checked.checked_add(index_objects, index.count) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -279,6 +296,51 @@ fn cff_admission_charge(
       ),
     )
   }
+  if dict_units > structural_limits.max_dict_units {
+    return Err(
+      font_limit_error(
+        "max-cff-dict-units",
+        dict_units,
+        structural_limits.max_dict_units,
+      ),
+    )
+  }
+  if charset_entries > structural_limits.max_charset_entries {
+    return Err(
+      font_limit_error(
+        "max-cff-charset-entries",
+        charset_entries,
+        structural_limits.max_charset_entries,
+      ),
+    )
+  }
+  if encoding_entries > structural_limits.max_encoding_entries {
+    return Err(
+      font_limit_error(
+        "max-cff-encoding-entries",
+        encoding_entries,
+        structural_limits.max_encoding_entries,
+      ),
+    )
+  }
+  if fd_ranges > structural_limits.max_fd_ranges {
+    return Err(
+      font_limit_error(
+        "max-cff-fd-ranges",
+        fd_ranges,
+        structural_limits.max_fd_ranges,
+      ),
+    )
+  }
+  if sid_cid_lookups > structural_limits.max_sid_cid_lookups {
+    return Err(
+      font_limit_error(
+        "max-cff-sid-cid-lookups",
+        sid_cid_lookups,
+        structural_limits.max_sid_cid_lookups,
+      ),
+    )
+  }
   let allocation_size = match
     @checked.checked_add(cff.length_value, retained_bytes) {
     Err(error) => return Err(error)
@@ -298,8 +360,50 @@ fn cff_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let named_structural_work = match
+    @checked.checked_add(
+      4UL,
+      match @checked.checked_add(index_objects, dict_units) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let named_keying_work = match
+    @checked.checked_add(
+      charset_entries,
+      match
+        @checked.checked_add(
+          encoding_entries,
+          match @checked.checked_add(fd_ranges, sid_cid_lookups) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let work = match
-    @checked.checked_add(structural_work, complete_keying_work) {
+    @checked.checked_add(
+      structural_work,
+      match
+        @checked.checked_add(
+          complete_keying_work,
+          match @checked.checked_add(named_structural_work, named_keying_work) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -322,7 +426,14 @@ fn cff_admission_charge(
     allocations,
     allocation_size,
     retained_bytes,
+    header_bytes: 4UL,
     index_offsets: retained_offsets,
+    index_objects,
+    dict_units,
+    charset_entries,
+    encoding_entries,
+    fd_ranges,
+    sid_cid_lookups,
     descriptors: descriptor_count,
     fd_environments: fd_count,
     work,
@@ -343,6 +454,20 @@ fn admit_cff1_structure_at_after_preflight(
   before_final_guard : () -> Unit,
 ) -> Result[AdmittedCff1, @error.CoreError] {
   let opening_revision = source.mutation_revision()
+  // Test and selected-face adapters place their mutation hook immediately
+  // after the opening revision capture. Any already-observed revision drift
+  // therefore has precedence over caller/resource/profile/data outcomes.
+  before_final_guard()
+  if source.mutation_revision() != opening_revision {
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::State,
+        @error.ErrorCode::InvalidRange,
+        operation="font-cff-admit",
+        context="font-cff-source-revision-drift",
+      ),
+    )
+  }
   if source.length() > limits.max_source_bytes() {
     return Err(
       font_limit_error(
@@ -351,6 +476,26 @@ fn admit_cff1_structure_at_after_preflight(
         limits.max_source_bytes(),
       ),
     )
+  }
+  // Caller byte authority is known without touching attacker-controlled CFF
+  // structure. It therefore precedes capability classification and malformed
+  // supported-profile traversal for standalone admission.
+  if !collection_charge {
+    match
+      budget.preflight(
+        @budget.ResourceCharge::new(
+          bytes=source.length(),
+          allocations=0UL,
+          allocation_size=0UL,
+          width=0UL,
+          height=0UL,
+          pixels=0UL,
+          work=0UL,
+        ),
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
   }
   match cff_preclassify_static_profile(source, directory_start) {
     Err(error) => return Err(error)
@@ -496,6 +641,38 @@ fn admit_cff1_structure_at_after_preflight(
   for index in keying.retained_indexes {
     indexes.push(index)
   }
+  let encoding_entries = match keying.keying.encoding {
+    None => 0UL
+    Some(value) => value.codes.length().to_uint64()
+  }
+  let fd_ranges = match keying.keying.fd_select {
+    None => 0UL
+    Some(value) => value.selectors.length().to_uint64()
+  }
+  let charset_entries = keying.keying.charset.values.length().to_uint64()
+  let sid_cid_lookups = match
+    @checked.checked_add(
+      charset_entries,
+      match
+        @checked.checked_add(
+          encoding_entries,
+          if keying.keying.cid_keyed { 2UL } else { 0UL },
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  // Top DICT bytes plus one explicit unit for each validated per-FD schema.
+  // Private DICT bytes are already charged by the table-byte traversal and
+  // retained environment count; no second parser is introduced for charging.
+  let dict_units = match
+    @checked.checked_add(top_object.view.length(), keying.keying.fd_count) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let charge_bytes = if collection_charge {
     match font_collection_selected_extent_bytes(directory) {
       Err(error) => return Err(error)
@@ -510,6 +687,11 @@ fn admit_cff1_structure_at_after_preflight(
       directory,
       cff,
       indexes,
+      dict_units,
+      charset_entries,
+      encoding_entries,
+      fd_ranges,
+      sid_cid_lookups,
       keying.glyphs.length().to_uint64(),
       keying.keying.fd_count,
       limits,
@@ -530,7 +712,6 @@ fn admit_cff1_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  before_final_guard()
   if source.mutation_revision() != opening_revision {
     return Err(
       @error.CoreError::new(

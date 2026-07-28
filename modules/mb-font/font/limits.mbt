@@ -203,10 +203,17 @@ priv struct CffStructuralLimits {
 fn cff_structural_limits(
   limits : FontLimits,
 ) -> Result[CffStructuralLimits, @error.CoreError] {
-  let max_index_entries = if limits.max_glyphs() > limits.max_name_records() {
+  let per_index_entries = if limits.max_glyphs() > limits.max_name_records() {
     limits.max_glyphs()
   } else {
     limits.max_name_records()
+  }
+  // Header-adjacent, global, glyph, FDArray, and local-Subrs INDEX families
+  // can coexist. Bound the aggregate retained offsets rather than silently
+  // reusing a per-INDEX ceiling as a transaction ceiling.
+  let max_index_entries = match @checked.checked_mul(per_index_entries, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   // One byte code can name at most 256 Encoding entries. Supplements remain
   // bounded by the glyph/SID domain and are charged as SID lookups.
