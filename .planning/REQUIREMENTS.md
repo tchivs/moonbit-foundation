@@ -14,9 +14,9 @@ Requirements for the CFF Outline Foundation milestone. Each requirement maps to 
 
 ### Type 2 Execution and Retained Metrics
 
-- [ ] **T2-01**: Maintainers have one deterministic pure-MoonBit Type 2 interpreter covering the supported static number, stack, transient, arithmetic, logical, storage, width, line, curve, flex, local/global subroutine, termination, and project-owned `random` semantics with target-identical fixed-point results.
-- [ ] **T2-02**: Type 2 hint and stem operators are validated as non-rendering framing data, including exact `hintmask`/`cntrmask` byte consumption, while explicit stack, stem, frame, depth, byte, call, work, contour, command, point, allocation, mutation, and caller-budget limits prevent partial state, host recursion, or unbounded execution.
-- [ ] **CFF-03**: CFF admission executes every glyph through the same interpreter before publication, retains truthful compact conservative integer bounds per GID, keeps `hmtx` authoritative for public advance and side-bearing metrics, and publishes no `Font`, bounds, or committed charge when any structural, program, numeric, resource, or mutation check fails.
+- [x] **T2-01**: Maintainers have one deterministic pure-MoonBit Type 2 interpreter covering the supported static number, stack, transient, arithmetic, logical, storage, width, line, curve, flex, local/global subroutine, termination, and project-owned `random` semantics with target-identical fixed-point results.
+- [x] **T2-02**: Type 2 hint and stem operators are validated as non-rendering framing data, including exact `hintmask`/`cntrmask` byte consumption, while explicit stack, stem, frame, depth, byte, call, work, contour, command, point, allocation, mutation, and caller-budget limits prevent partial state, host recursion, or unbounded execution.
+- [x] **CFF-03**: CFF admission executes every glyph through the same interpreter before publication, retains truthful compact conservative integer bounds per GID, keeps `hmtx` authoritative for public advance and side-bearing metrics, and publishes no `Font`, bounds, or committed charge when any structural, program, numeric, resource, or mutation check fails.
 
 ### Public Font and Collection Integration
 
@@ -66,9 +66,9 @@ Populated during roadmap creation.
 |-------------|-------|--------|
 | CFF-01 | Phase 104 | Gaps Found |
 | CFF-02 | Phase 104 | Gaps Found |
-| T2-01 | Phase 105 | Pending |
-| T2-02 | Phase 105 | Pending |
-| CFF-03 | Phase 105 | Pending |
+| T2-01 | Phase 105 | Complete |
+| T2-02 | Phase 105 | Complete |
+| CFF-03 | Phase 105 | Complete |
 | CFF-04 | Phase 106 | Pending |
 | CFF-05 | Phase 106 | Pending |
 | CFF-06 | Phase 107 | Pending |

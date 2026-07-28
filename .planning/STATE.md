@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.34
 milestone_name: CFF Outline Foundation
-current_phase: 105
-current_phase_name: Bounded Type 2 Validation and Retained Metrics
+current_phase: 106
+current_phase_name: Cubic Path and Public/TTC Integration
 status: planning
 stopped_at: Phase 105 planned; ready to execute 105-01
-last_updated: "2026-07-28T14:17:02.048Z"
-last_activity: 2026-07-28
-last_activity_desc: Phase 104 complete, transitioned to Phase 105
+last_updated: "2026-07-28T17:35:42.712Z"
+last_activity: 2026-07-29
+last_activity_desc: Phase 105 complete, transitioned to Phase 106
 progress:
   total_phases: 2
-  completed_phases: 1
-  total_plans: 8
-  completed_plans: 4
+  completed_phases: 2
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 
 ## Current Position
 
-Phase: 105 of 107 (Bounded Type 2 Validation and Retained Metrics)
+Phase: 106 of 107 (Cubic Path and Public/TTC Integration)
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-07-28 — Phase 104 complete, transitioned to Phase 105
+Last activity: 2026-07-29 — Phase 105 complete, transitioned to Phase 106
 
 Progress: [██████████] 100%
 
@@ -98,6 +98,7 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 104 | 4 | - | - |
+| 105 | 5 | - | - |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
