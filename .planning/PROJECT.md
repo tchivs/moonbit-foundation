@@ -10,13 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.32 TrueType Font Foundation Shipped
+## Current State: v0.33 Phase 101 Collection Inspection Complete
 
-**Delivered:** Phases 97-100 established and qualified the independently publishable, pure-MoonBit `tchivs/mb-font` module. Library authors can open bounded standalone TrueType SFNT bytes, inspect checked font-wide and per-glyph horizontal metrics, resolve BMP and supplementary Unicode scalars through one canonical cmap, query distinguishable legacy horizontal kerning outcomes, and extract transactional unhinted `Path2` outlines for simple glyphs and bounded one-level composites. Maintainers can reproduce the complete workflow against immutable compact and licensed DejaVu Sans fixtures on every supported target.
+**Delivered:** Phase 101 added an opaque, bounded `FontCollection` identity beside the unchanged standalone `Font::open` contract. Library authors can inspect every face in caller-owned TTC/OTC v1/v2 bytes through closed profiles, distinguish absent from structurally present-but-unverified DSIG data, and rely on root-relative range/alias validation, staged exact work authority, atomic budget publication, and revision-guarded queries.
 
-**Validated:** Phase 100 passed 4/4 goal must-haves, 18/18 automated UAT deliverables, a clean deep code review, and 35/35 security threat checks. Fresh local runs passed 103/103 font tests on each of `js`, `wasm`, `wasm-gc`, and `native`; hosted GitHub Actions run `30297979654` passed the complete Required, focused font-qualification, POSIX containment, and experimental LLVM jobs on the exact implementation commit. Required diagnostics prove exit 0 with verified full-session termination, while focused evidence proves equal four-target semantics and complete 74-command outline assertions.
+**Validated:** Phase 101 passed 17/17 goal must-haves with no human-verification debt, a clean iterative code review, and 21/21 plan-authored security threats closed or explicitly accepted below the high blocking threshold. Fresh independent runs passed the complete 131-test font package on each of `js`, `wasm`, `wasm-gc`, and `native`; the generated public interface remained an exact 84-line allowlist with no selected-face or private parser leakage.
 
-**Next:** Deliver v0.33 bounded TrueType Collection adapters while preserving the existing standalone-SFNT API and keeping compressed containers, CFF, shaping, discovery, hinting, and rasterization behind explicit future boundaries.
+**Next:** Phase 102 will select one supported collection face through a no-copy root-relative adapter and reuse the existing `Font` admission, metrics, mapping, kerning, and outline behavior.
 
 ## Current Milestone: v0.33 TrueType Collection Adapters
 
@@ -43,13 +43,14 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Library authors can inspect a bounded TTC/OTC container and select one in-range face without copying the complete font.
+- [ ] Library authors can select one in-range supported TTC/OTC face without copying the complete font.
 - [ ] A selected `glyf`-based TrueType face exposes the existing `Font` metrics, Unicode mapping, kerning, and outline behavior unchanged.
 - [ ] Malformed collections, unsupported face profiles, mutation, exhausted limits, and exhausted budgets fail atomically with structured outcomes.
 - [ ] Maintainers can reproduce standalone and collection behavior with generated, licensed, hostile, and four-target evidence.
 
 ### Validated
 
+- [x] Library authors can open bounded caller-owned TTC/OTC v1/v2 bytes, inspect every face through a closed semantic profile, and distinguish absent from structurally present-but-unverified DSIG data without exposing raw offsets or records. — Validated in Phase 101.
 - [x] Maintainers can qualify the public font workflow and adversarial parser behavior on all four supported targets. — Validated in Phase 100.
 - [x] Library authors can extract checked reusable unhinted `Path2` glyph outlines, including bounded one-level composite glyphs, with exact Q15 transforms, explicit resource authority, and no partial geometry on failure. — Validated in Phase 99.
 - [x] Library authors can open a bounded TrueType font and inspect stable font-wide and per-glyph metrics without FFI or target-specific behavior. — Validated in Phase 97.
@@ -254,4 +255,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after starting v0.33 milestone*
+*Last updated: 2026-07-28 after completing Phase 101 collection inspection*
