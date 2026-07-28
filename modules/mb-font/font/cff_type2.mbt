@@ -1,0 +1,915 @@
+///|
+priv enum Type2FrameKind {
+  Root
+  Local
+  Global
+}
+
+///|
+priv struct Type2Frame {
+  kind : Type2FrameKind
+  source : @bytes.ByteView
+  mut cursor : UInt64
+  tail_call : Bool
+}
+
+///|
+priv struct Type2ExecutionLedger {
+  mut executed_bytes : UInt64
+  mut work : UInt64
+  mut calls : UInt64
+  mut returns : UInt64
+  mut operators : UInt64
+  mut numbers : UInt64
+  mut mask_bytes : UInt64
+}
+
+///|
+priv struct Type2VmResult {
+  width : Type2Fixed?
+  stems : UInt64
+  terminated : Bool
+  ledger : Type2ExecutionLedger
+  geometry_operators : UInt64
+}
+
+///|
+priv struct Type2Vm {
+  stack : Array[Type2Fixed]
+  transient : Array[Type2Fixed]
+  transient_initialized : Array[Bool]
+  frames : Array[Type2Frame]
+  local_subrs : CffIndex
+  global_subrs : CffIndex
+  default_width : Type2Fixed
+  nominal_width : Type2Fixed
+  mut width : Type2Fixed?
+  mut width_resolved : Bool
+  mut stems : UInt64
+  mut geometry_started : Bool
+  mut geometry_operators : UInt64
+  prng : Type2Prng
+  limits : Type2Limits
+  ledger : Type2ExecutionLedger
+}
+
+///|
+fn type2_resource_error(
+  context : String,
+  requested : UInt64,
+  limit : UInt64,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::BudgetExceeded,
+    operation="font-cff-type2",
+    requested~,
+    limit~,
+    context~,
+  )
+}
+
+///|
+fn type2_capability_error(context : String) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Capability,
+    @error.ErrorCode::CapabilityUnavailable,
+    operation="font-cff-type2",
+    context~,
+  )
+}
+
+///|
+fn type2_state_error() -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::State,
+    @error.ErrorCode::InvalidRange,
+    operation="font-cff-type2",
+    context="font-cff-type2-source-revision-drift",
+  )
+}
+
+///|
+fn type2_require_revision(
+  source : @bytes.ByteView,
+  opening_revision : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  if source.mutation_revision() != opening_revision {
+    Err(type2_state_error())
+  } else {
+    Ok(())
+  }
+}
+
+///|
+fn type2_checked_counter_add(
+  current : UInt64,
+  amount : UInt64,
+  limit : UInt64,
+  context : String,
+) -> Result[UInt64, @error.CoreError] {
+  let requested = match @checked.checked_add(current, amount) {
+    Err(_) => return Err(type2_resource_error(context, current, limit))
+    Ok(value) => value
+  }
+  if requested > limit {
+    Err(type2_resource_error(context, requested, limit))
+  } else {
+    Ok(requested)
+  }
+}
+
+///|
+fn Type2Vm::charge_bytes(
+  self : Type2Vm,
+  amount : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let requested = match
+    type2_checked_counter_add(
+      self.ledger.executed_bytes,
+      amount,
+      self.limits.max_executed_bytes,
+      "font-cff-type2-executed-bytes",
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  self.ledger.executed_bytes = requested
+  Ok(())
+}
+
+///|
+fn Type2Vm::charge_work(
+  self : Type2Vm,
+  amount : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let requested = match
+    type2_checked_counter_add(
+      self.ledger.work,
+      amount,
+      self.limits.max_work,
+      "font-cff-type2-work",
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  self.ledger.work = requested
+  Ok(())
+}
+
+///|
+fn Type2Vm::require_stack(
+  self : Type2Vm,
+  count : Int,
+) -> Result[Unit, @error.CoreError] {
+  if count < 0 || self.stack.length() < count {
+    Err(type2_data_error("font-cff-type2-stack-underflow"))
+  } else {
+    Ok(())
+  }
+}
+
+///|
+fn Type2Vm::require_stack_space(
+  self : Type2Vm,
+  count : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let requested = match
+    @checked.checked_add(self.stack.length().to_uint64(), count) {
+    Err(_) =>
+      return Err(
+        type2_resource_error(
+          "font-cff-type2-operand-stack",
+          self.stack.length().to_uint64(),
+          self.limits.max_operand_stack,
+        ),
+      )
+    Ok(value) => value
+  }
+  if requested > self.limits.max_operand_stack {
+    Err(
+      type2_resource_error(
+        "font-cff-type2-operand-stack",
+        requested,
+        self.limits.max_operand_stack,
+      ),
+    )
+  } else {
+    Ok(())
+  }
+}
+
+///|
+fn Type2Vm::push(
+  self : Type2Vm,
+  value : Type2Fixed,
+) -> Result[Unit, @error.CoreError] {
+  match self.require_stack_space(1UL) {
+    Err(error) => Err(error)
+    Ok(_) => {
+      self.stack.push(value)
+      Ok(())
+    }
+  }
+}
+
+///|
+fn Type2Vm::clear_stack(self : Type2Vm) -> Unit {
+  while self.stack.length() > 0 {
+    ignore(self.stack.pop())
+  }
+}
+
+///|
+fn Type2Vm::remove_stack_first(self : Type2Vm) -> Type2Fixed {
+  let first = self.stack[0]
+  for index = 1; index < self.stack.length(); index = index + 1 {
+    self.stack[index - 1] = self.stack[index]
+  }
+  ignore(self.stack.pop())
+  first
+}
+
+///|
+fn type2_fixed_exact_int(
+  value : Type2Fixed,
+  context : String,
+) -> Result[Int, @error.CoreError] {
+  if value.raw % 65536L != 0L {
+    return Err(type2_data_error(context))
+  }
+  let integer = value.raw / 65536L
+  if integer < -2147483647L || integer > 2147483647L {
+    Err(type2_data_error(context))
+  } else {
+    Ok(integer.to_int())
+  }
+}
+
+///|
+fn Type2Vm::resolve_width(
+  self : Type2Vm,
+  has_explicit_width : Bool,
+) -> Result[Unit, @error.CoreError] {
+  if self.width_resolved {
+    if has_explicit_width {
+      return Err(type2_data_error("font-cff-type2-width-duplicate"))
+    }
+    return Ok(())
+  }
+  if has_explicit_width {
+    let delta = self.remove_stack_first()
+    self.width = Some(match type2_fixed_add(self.nominal_width, delta) {
+      Err(_) => return Err(type2_data_error("font-cff-type2-width"))
+      Ok(value) => value
+    })
+  } else {
+    self.width = Some(self.default_width)
+  }
+  self.width_resolved = true
+  Ok(())
+}
+
+///|
+fn Type2Vm::binary_arithmetic(
+  self : Type2Vm,
+  operator : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(2) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let count = self.stack.length()
+  let left = self.stack[count - 2]
+  let right = self.stack[count - 1]
+  let result = match operator {
+    10UL =>
+      match type2_fixed_add(left, right) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    11UL =>
+      match type2_fixed_sub(left, right) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    12UL =>
+      match type2_fixed_div(left, right) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    24UL =>
+      match type2_fixed_mul(left, right) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    _ => return Err(type2_data_error("font-cff-type2-operator"))
+  }
+  ignore(self.stack.pop())
+  ignore(self.stack.pop())
+  self.stack.push(result)
+  Ok(())
+}
+
+///|
+fn Type2Vm::binary_logic(
+  self : Type2Vm,
+  operator : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(2) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let count = self.stack.length()
+  let left = self.stack[count - 2]
+  let right = self.stack[count - 1]
+  let truth = match operator {
+    3UL => left.raw != 0L && right.raw != 0L
+    4UL => left.raw != 0L || right.raw != 0L
+    15UL => left.raw == right.raw
+    _ => return Err(type2_data_error("font-cff-type2-operator"))
+  }
+  ignore(self.stack.pop())
+  ignore(self.stack.pop())
+  self.stack.push({ raw: if truth { 65536L } else { 0L } })
+  Ok(())
+}
+
+///|
+fn Type2Vm::unary_operator(
+  self : Type2Vm,
+  operator : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(1) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let index = self.stack.length() - 1
+  let operand = self.stack[index]
+  let result = match operator {
+    5UL => Ok({ raw: if operand.raw == 0L { 65536L } else { 0L } })
+    9UL => type2_fixed_abs(operand)
+    14UL => type2_fixed_neg(operand)
+    26UL => type2_fixed_sqrt(operand)
+    _ => Err(type2_data_error("font-cff-type2-operator"))
+  }
+  self.stack[index] = match result {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_put(self : Type2Vm) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(2) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let count = self.stack.length()
+  let value = self.stack[count - 2]
+  let transient_index = match
+    type2_fixed_exact_int(
+      self.stack[count - 1],
+      "font-cff-type2-transient-index",
+    ) {
+    Err(error) => return Err(error)
+    Ok(index) => index
+  }
+  if transient_index < 0 ||
+    transient_index >= self.limits.max_transient.to_int() {
+    return Err(type2_data_error("font-cff-type2-transient-index"))
+  }
+  ignore(self.stack.pop())
+  ignore(self.stack.pop())
+  self.transient[transient_index] = value
+  self.transient_initialized[transient_index] = true
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_get(self : Type2Vm) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(1) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let top = self.stack.length() - 1
+  let transient_index = match
+    type2_fixed_exact_int(
+      self.stack[top],
+      "font-cff-type2-transient-index",
+    ) {
+    Err(error) => return Err(error)
+    Ok(index) => index
+  }
+  if transient_index < 0 ||
+    transient_index >= self.limits.max_transient.to_int() {
+    return Err(type2_data_error("font-cff-type2-transient-index"))
+  }
+  if !self.transient_initialized[transient_index] {
+    return Err(type2_data_error("font-cff-type2-transient-uninitialized"))
+  }
+  self.stack[top] = self.transient[transient_index]
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_ifelse(self : Type2Vm) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(4) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let count = self.stack.length()
+  let first = self.stack[count - 4]
+  let second = self.stack[count - 3]
+  let selector_left = self.stack[count - 2]
+  let selector_right = self.stack[count - 1]
+  let selected = if selector_left.raw <= selector_right.raw { first } else { second }
+  for _index = 0; _index < 4; _index = _index + 1 {
+    ignore(self.stack.pop())
+  }
+  self.stack.push(selected)
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_index(self : Type2Vm) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(2) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let count = self.stack.length()
+  let operand = match
+    type2_fixed_exact_int(self.stack[count - 1], "font-cff-type2-index") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if operand < 0 || operand >= count - 1 {
+    return Err(type2_data_error("font-cff-type2-index"))
+  }
+  let selected = self.stack[count - 2 - operand]
+  // Consuming the index and pushing one value preserves capacity.
+  self.stack[count - 1] = selected
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_roll(self : Type2Vm) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(3) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let count = self.stack.length()
+  let n = match
+    type2_fixed_exact_int(self.stack[count - 2], "font-cff-type2-roll") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let j = match
+    type2_fixed_exact_int(self.stack[count - 1], "font-cff-type2-roll") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if n <= 0 || n > count - 2 {
+    return Err(type2_data_error("font-cff-type2-roll"))
+  }
+  let start = count - 2 - n
+  let normalized = ((j % n) + n) % n
+  if normalized != 0 {
+    let copy : Array[Type2Fixed] = []
+    for index = start; index < count - 2; index = index + 1 {
+      copy.push(self.stack[index])
+    }
+    for index = 0; index < n; index = index + 1 {
+      self.stack[start + ((index + normalized) % n)] = copy[index]
+    }
+  }
+  ignore(self.stack.pop())
+  ignore(self.stack.pop())
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_escaped(
+  self : Type2Vm,
+  operator : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  match operator {
+    0UL => Ok(()) // dotsection
+    3UL | 4UL | 15UL => self.binary_logic(operator)
+    5UL | 9UL | 14UL | 26UL => self.unary_operator(operator)
+    10UL | 11UL | 12UL | 24UL => self.binary_arithmetic(operator)
+    18UL => {
+      match self.require_stack(1) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      ignore(self.stack.pop())
+      Ok(())
+    }
+    20UL => self.execute_put()
+    21UL => self.execute_get()
+    22UL => self.execute_ifelse()
+    23UL => {
+      match self.require_stack_space(1UL) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      self.stack.push(self.prng.next())
+      Ok(())
+    }
+    27UL => {
+      match self.require_stack(1) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      match self.require_stack_space(1UL) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      self.stack.push(self.stack[self.stack.length() - 1])
+      Ok(())
+    }
+    28UL => {
+      match self.require_stack(2) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      let count = self.stack.length()
+      let top = self.stack[count - 1]
+      self.stack[count - 1] = self.stack[count - 2]
+      self.stack[count - 2] = top
+      Ok(())
+    }
+    29UL => self.execute_index()
+    30UL => self.execute_roll()
+    // Flex operators are geometry and are lowered by Plan 03.
+    34UL | 35UL | 36UL | 37UL => {
+      self.geometry_started = true
+      self.geometry_operators = self.geometry_operators + 1UL
+      self.clear_stack()
+      Ok(())
+    }
+    _ => Err(type2_data_error("font-cff-type2-reserved-operator"))
+  }
+}
+
+///|
+fn Type2Vm::execute_stem(self : Type2Vm) -> Result[Unit, @error.CoreError] {
+  let has_width = !self.width_resolved && self.stack.length() % 2 == 1
+  match self.resolve_width(has_width) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if self.geometry_started ||
+    self.stack.length() < 2 ||
+    self.stack.length() % 2 != 0 {
+    return Err(type2_data_error("font-cff-type2-stem-arity"))
+  }
+  let added = (self.stack.length() / 2).to_uint64()
+  let requested = match @checked.checked_add(self.stems, added) {
+    Err(_) =>
+      return Err(
+        type2_resource_error(
+          "font-cff-type2-stems",
+          self.stems,
+          self.limits.max_stems,
+        ),
+      )
+    Ok(value) => value
+  }
+  if requested > self.limits.max_stems {
+    return Err(
+      type2_resource_error(
+        "font-cff-type2-stems",
+        requested,
+        self.limits.max_stems,
+      ),
+    )
+  }
+  self.stems = requested
+  self.clear_stack()
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_moveto(
+  self : Type2Vm,
+  arity : Int,
+) -> Result[Unit, @error.CoreError] {
+  let has_width = !self.width_resolved && self.stack.length() == arity + 1
+  match self.resolve_width(has_width) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if self.stack.length() != arity {
+    return Err(type2_data_error("font-cff-type2-moveto-arity"))
+  }
+  self.geometry_started = true
+  self.geometry_operators = self.geometry_operators + 1UL
+  self.clear_stack()
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_geometry(
+  self : Type2Vm,
+  operator : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  if !self.width_resolved {
+    return Err(type2_data_error("font-cff-type2-geometry-order"))
+  }
+  let count = self.stack.length()
+  let valid = match operator {
+    5UL => count >= 2 && count % 2 == 0
+    6UL | 7UL => count >= 1
+    8UL => count >= 6 && count % 6 == 0
+    24UL => count >= 8 && (count - 2) % 6 == 0
+    25UL => count >= 8 && (count - 6) % 2 == 0
+    26UL | 27UL => count >= 4
+    30UL | 31UL => count >= 4
+    _ => false
+  }
+  if !valid {
+    return Err(type2_data_error("font-cff-type2-geometry-arity"))
+  }
+  self.geometry_started = true
+  self.geometry_operators = self.geometry_operators + 1UL
+  self.clear_stack()
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_endchar(self : Type2Vm) -> Result[Unit, @error.CoreError] {
+  if !self.width_resolved {
+    if self.stack.length() == 4 || self.stack.length() == 5 {
+      return Err(type2_capability_error("font-cff-type2-seac"))
+    }
+    let has_width = self.stack.length() == 1
+    match self.resolve_width(has_width) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  if self.stack.length() == 4 {
+    return Err(type2_capability_error("font-cff-type2-seac"))
+  }
+  if self.stack.length() != 0 {
+    return Err(type2_data_error("font-cff-type2-endchar-arity"))
+  }
+  Ok(())
+}
+
+///|
+fn type2_number_encoded_width(first : UInt64) -> UInt64 {
+  if first == 28UL {
+    3UL
+  } else if first == 255UL {
+    5UL
+  } else if first >= 247UL && first <= 254UL {
+    2UL
+  } else {
+    1UL
+  }
+}
+
+///|
+fn Type2Vm::new(
+  root : @bytes.ByteView,
+  local_subrs : CffIndex,
+  global_subrs : CffIndex,
+  default_width : Type2Fixed,
+  nominal_width : Type2Fixed,
+  seed : Type2Fixed,
+  limits : Type2Limits,
+) -> Type2Vm {
+  {
+    stack: [],
+    transient: Array::make(limits.max_transient.to_int(), { raw: 0L }),
+    transient_initialized: Array::make(limits.max_transient.to_int(), false),
+    frames: [{ kind: Root, source: root, cursor: 0UL, tail_call: true }],
+    local_subrs,
+    global_subrs,
+    default_width,
+    nominal_width,
+    width: None,
+    width_resolved: false,
+    stems: 0UL,
+    geometry_started: false,
+    geometry_operators: 0UL,
+    prng: Type2Prng::new(seed),
+    limits,
+    ledger: {
+      executed_bytes: 0UL,
+      work: 0UL,
+      calls: 0UL,
+      returns: 0UL,
+      operators: 0UL,
+      numbers: 0UL,
+      mask_bytes: 0UL,
+    },
+  }
+}
+
+///|
+fn type2_execute_program(
+  root : @bytes.ByteView,
+  local_subrs : CffIndex,
+  global_subrs : CffIndex,
+  default_width : Type2Fixed,
+  nominal_width : Type2Fixed,
+  seed : Type2Fixed,
+  limits : Type2Limits,
+  opening_revision : UInt64,
+) -> Result[Type2VmResult, @error.CoreError] {
+  match type2_require_revision(root, opening_revision) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let vm = Type2Vm::new(
+    root,
+    local_subrs,
+    global_subrs,
+    default_width,
+    nominal_width,
+    seed,
+    limits,
+  )
+  while vm.frames.length() > 0 {
+    match type2_require_revision(root, opening_revision) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let frame = vm.frames.pop().unwrap()
+    if frame.cursor >= frame.source.length() {
+      return Err(type2_data_error("font-cff-type2-unexpected-eof"))
+    }
+    let operator_offset = frame.cursor
+    let first = match frame.source.get(operator_offset) {
+      Err(_) => return Err(type2_data_error("font-cff-type2-byte"))
+      Ok(value) => value.to_uint64()
+    }
+    let result : Result[Bool, @error.CoreError] = {
+      match vm.charge_bytes(1UL) {
+        Err(error) => Err(error)
+        Ok(_) =>
+          match vm.charge_work(1UL) {
+            Err(error) => Err(error)
+            Ok(_) => {
+              frame.cursor = frame.cursor + 1UL
+              if first == 28UL ||
+                first == 255UL ||
+                (first >= 32UL && first <= 254UL) {
+                let width = type2_number_encoded_width(first)
+                if width > 1UL {
+                  match vm.charge_bytes(width - 1UL) {
+                    Err(error) => Err(error)
+                    Ok(_) => {
+                      let decoded = match
+                        type2_decode_number(frame.source, operator_offset) {
+                        Err(error) => return Err(error)
+                        Ok(value) => value
+                      }
+                      match vm.push(decoded.0) {
+                        Err(error) => Err(error)
+                        Ok(_) => {
+                          frame.cursor = decoded.1
+                          vm.ledger.numbers = vm.ledger.numbers + 1UL
+                          vm.frames.push(frame)
+                          Ok(false)
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  let decoded = match
+                    type2_decode_number(frame.source, operator_offset) {
+                    Err(error) => return Err(error)
+                    Ok(value) => value
+                  }
+                  match vm.push(decoded.0) {
+                    Err(error) => Err(error)
+                    Ok(_) => {
+                      frame.cursor = decoded.1
+                      vm.ledger.numbers = vm.ledger.numbers + 1UL
+                      vm.frames.push(frame)
+                      Ok(false)
+                    }
+                  }
+                }
+              } else {
+                vm.ledger.operators = vm.ledger.operators + 1UL
+                let operator_result = if first == 12UL {
+                  match vm.charge_bytes(1UL) {
+                    Err(error) => Err(error)
+                    Ok(_) => {
+                      let escaped = match frame.source.get(frame.cursor) {
+                        Err(_) =>
+                          return Err(
+                            type2_data_error("font-cff-type2-escape-truncated"),
+                          )
+                        Ok(value) => value.to_uint64()
+                      }
+                      frame.cursor = frame.cursor + 1UL
+                      vm.execute_escaped(escaped)
+                    }
+                  }
+                } else {
+                  match first {
+                    1UL | 3UL | 18UL | 23UL => vm.execute_stem()
+                    4UL => vm.execute_moveto(1)
+                    21UL => vm.execute_moveto(2)
+                    22UL => vm.execute_moveto(1)
+                    5UL | 6UL | 7UL | 8UL | 24UL | 25UL | 26UL | 27UL
+                    | 30UL | 31UL => vm.execute_geometry(first)
+                    14UL => vm.execute_endchar()
+                    15UL | 16UL =>
+                      Err(
+                        type2_capability_error("font-cff-type2-cff2-operator"),
+                      )
+                    10UL | 11UL | 19UL | 20UL | 29UL =>
+                      Err(type2_data_error("font-cff-type2-operator-pending"))
+                    _ =>
+                      Err(type2_data_error("font-cff-type2-reserved-operator"))
+                  }
+                }
+                match operator_result {
+                  Err(error) => Err(error)
+                  Ok(_) => {
+                    if first == 14UL {
+                      if frame.cursor != frame.source.length() {
+                        Err(type2_data_error("font-cff-type2-trailing-bytes"))
+                      } else {
+                        Ok(true)
+                      }
+                    } else {
+                      vm.frames.push(frame)
+                      Ok(false)
+                    }
+                  }
+                }
+              }
+            }
+          }
+      }
+    }
+    match result {
+      Err(error) => {
+        match type2_require_revision(root, opening_revision) {
+          Err(state) => return Err(state)
+          Ok(_) => return Err(error)
+        }
+      }
+      Ok(true) => {
+        match type2_require_revision(root, opening_revision) {
+          Err(error) => return Err(error)
+          Ok(_) =>
+            return Ok({
+              width: vm.width,
+              stems: vm.stems,
+              terminated: true,
+              ledger: vm.ledger,
+              geometry_operators: vm.geometry_operators,
+            })
+        }
+      }
+      Ok(false) => ()
+    }
+  }
+  Err(type2_data_error("font-cff-type2-unexpected-eof"))
+}
+
+///|
+fn type2_execute_glyph(
+  descriptor : CffGlyphDescriptor,
+  global_subrs : CffIndex,
+  limits : Type2Limits,
+  opening_revision : UInt64,
+) -> Result[Type2VmResult, @error.CoreError] {
+  let default_width = match
+    cff_number_to_type2_fixed(
+      descriptor.environment.private_dict.default_width_x,
+      "font-cff-type2-default-width",
+    ) {
+    Err(_) => return Err(type2_data_error("font-cff-type2-default-width"))
+    Ok(value) => value
+  }
+  let nominal_width = match
+    cff_number_to_type2_fixed(
+      descriptor.environment.private_dict.nominal_width_x,
+      "font-cff-type2-nominal-width",
+    ) {
+    Err(_) => return Err(type2_data_error("font-cff-type2-nominal-width"))
+    Ok(value) => value
+  }
+  type2_execute_program(
+    descriptor.charstring.view,
+    descriptor.environment.local_subrs,
+    global_subrs,
+    default_width,
+    nominal_width,
+    descriptor.environment.private_dict.initial_random_seed,
+    limits,
+    opening_revision,
+  )
+}

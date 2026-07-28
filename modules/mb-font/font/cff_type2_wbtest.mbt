@@ -83,7 +83,7 @@ test "Type 2 scalar operators execute exact stack semantics" {
     (b"\x8b\x0c\x05\x0e", 65536L), // not(false)
     (b"\x95\x9f\x8c\x8d\x0c\x16\x0e", 655360L), // if 1 <= 2 then 10
     (b"\x8e\x8e\x0c\x18\x0e", 589824L), // 3 * 3
-    (b"\x98\x0c\x1a\x0e", 196608L), // sqrt(9)
+    (b"\x94\x0c\x1a\x0e", 196608L), // sqrt(9)
     (b"\x8d\x0c\x1b\x0c\x0a\x0e", 262144L), // dup(2), add
     (b"\x8c\x8d\x0c\x1c\x0c\x0b\x0e", 65536L), // exch, sub
     (b"\x8c\x8d\x8b\x0c\x1d\x0c\x0a\x0c\x0a\x0e", 327680L), // index
@@ -109,7 +109,7 @@ test "Type 2 scalar operators execute exact stack semantics" {
   inspect(random.width.unwrap().raw, content="23206")
 
   let dropped = type2_vm_wb_run(b"\x8c\x0c\x12\x0e").unwrap()
-  inspect(dropped.width is None, content="true")
+  inspect(dropped.width.unwrap().raw, content="0")
 }
 
 ///|
