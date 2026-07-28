@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 30
+open_count: 33
 waived_count: 0
 fixed_count: 3
-total_count: 33
-last_updated: 2026-07-28T19:51:31.058Z
+total_count: 36
+last_updated: 2026-07-28T20:27:42.867Z
 ---
 
 # Broken Windows Ledger
@@ -48,6 +48,9 @@ last_updated: 2026-07-28T19:51:31.058Z
 | 31 | 106 | deviation | modules/mb-font/font/font_test.mbt |  | Reclassified static CFF1 OTTO as supported in legacy capability fixtures | open |  | 2026-07-28T19:31:08.887Z |  |
 | 32 | 106 | deviation | .planning/STATE.md |  | Normalized SDK-generated Phase 106 decision labels and stale execution prose after plan advancement | open |  | 2026-07-28T19:32:15.560Z |  |
 | 33 | 106 | deviation | .planning/STATE.md |  | Normalized stale Plan 01 activity and Plan 02 next-step prose after 106-02 state advancement | open |  | 2026-07-28T19:51:31.058Z |  |
+| 34 | 106 | deviation | modules/mb-font/font/collection_test.mbt |  | Retargeted legacy unsupported-profile assertions after CFF1 became selectable | open |  | 2026-07-28T20:27:41.878Z |  |
+| 35 | 106 | deviation | modules/mb-font/font/font.mbt |  | Preserved the collection capability error boundary for selected CFF1 | open |  | 2026-07-28T20:27:42.376Z |  |
+| 36 | 106 | deviation | .planning/STATE.md |  | Normalized SDK-generated Phase 106 completion metadata | open |  | 2026-07-28T20:27:42.867Z |  |
 
 ````json
 [
@@ -445,6 +448,42 @@ last_updated: 2026-07-28T19:51:31.058Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-28T19:51:31.058Z",
+    "resolved_at": null
+  },
+  {
+    "id": 34,
+    "kind": "deviation",
+    "phase": "106",
+    "file": "modules/mb-font/font/collection_test.mbt",
+    "line": null,
+    "description": "Retargeted legacy unsupported-profile assertions after CFF1 became selectable",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-28T20:27:41.878Z",
+    "resolved_at": null
+  },
+  {
+    "id": 35,
+    "kind": "deviation",
+    "phase": "106",
+    "file": "modules/mb-font/font/font.mbt",
+    "line": null,
+    "description": "Preserved the collection capability error boundary for selected CFF1",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-28T20:27:42.376Z",
+    "resolved_at": null
+  },
+  {
+    "id": 36,
+    "kind": "deviation",
+    "phase": "106",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized SDK-generated Phase 106 completion metadata",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-28T20:27:42.867Z",
     "resolved_at": null
   }
 ]

@@ -21,7 +21,7 @@ Requirements for the CFF Outline Foundation milestone. Each requirement maps to 
 ### Public Font and Collection Integration
 
 - [x] **CFF-04**: A successfully admitted standalone static CFF1 font is returned as the existing opaque `Font`; Unicode mapping, glyph identity, metrics, kerning, and errors remain format-neutral, and outline queries atomically return complete native cubic `Path2` geometry without exposing CFF internals or approximating cubics as quadratics.
-- [ ] **CFF-05**: A supported CFF1 face selected from TTC/OTC uses the same admission and outline implementation as standalone CFF1, preserves root-relative collection and table-local CFF offset authority plus face-local common tables, and leaves all previously qualified static-`glyf` standalone and collection behavior unchanged.
+- [x] **CFF-05**: A supported CFF1 face selected from TTC/OTC uses the same admission and outline implementation as standalone CFF1, preserves root-relative collection and table-local CFF offset authority plus face-local common tables, and leaves all previously qualified static-`glyf` standalone and collection behavior unchanged.
 
 ### Qualification
 
@@ -70,7 +70,7 @@ Populated during roadmap creation.
 | T2-02 | Phase 105 | Complete |
 | CFF-03 | Phase 105 | Complete |
 | CFF-04 | Phase 106 | Complete |
-| CFF-05 | Phase 106 | Pending |
+| CFF-05 | Phase 106 | Complete |
 | CFF-06 | Phase 107 | Pending |
 
 **Coverage:**

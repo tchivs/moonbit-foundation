@@ -4,16 +4,16 @@ milestone: v0.34
 milestone_name: CFF Outline Foundation
 current_phase: 106
 current_phase_name: cubic-path-and-public-ttc-integration
-status: executing
-stopped_at: Completed 106-02-PLAN.md
-last_updated: "2026-07-28T19:51:07.153Z"
+status: verifying
+stopped_at: Completed 106-03-PLAN.md
+last_updated: "2026-07-28T20:27:03.392Z"
 last_activity: 2026-07-29
-last_activity_desc: Completed Phase 106 Plan 02 CFF outline transaction expansion
+last_activity_desc: Completed Phase 106 Plan 03 selected CFF collection integration and compatibility freeze
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 
 ## Current Position
 
-Phase: 106 (cubic-path-and-public-ttc-integration) — EXECUTING
+Phase: 106 (cubic-path-and-public-ttc-integration) — COMPLETE
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-07-29 — Completed Phase 106 Plan 02 CFF outline transaction expansion
+Status: Phase complete — ready for verification
+Last activity: 2026-07-29 — Completed Phase 106 Plan 03 selected CFF collection integration and compatibility freeze
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Milestone Metrics
 
@@ -68,6 +68,9 @@ Progress: [█████████░] 92%
 - [Phase 106]: Keep public CFF outline execution on the no-op wrapper; expose only private pre-commit probes for white-box evidence.
 - [Phase 106]: Run the selected CFF pre-execution probe before resource preflight and immediately guard the outer revision so State outranks Resource, Capability, and Data.
 - [Phase 106]: Reuse the existing Type 2 VM read probe for mid-fetch evidence and add no post-charge seam after the sole CFF Budget commit.
+- [Phase 106]: Selected CFF collection opens reuse shared admission with the collection opening revision as authoritative.
+- [Phase 106]: Selected CFF capability failures preserve the established collection profile error boundary.
+- [Phase 106]: Static-glyf production routing remains unchanged and is frozen by expanded deterministic evidence.
 
 ### Pending Todos
 
@@ -89,17 +92,17 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-28T19:51:07.137Z
-Stopped at: Completed 106-02-PLAN.md
+Last session: 2026-07-28T20:27:03.374Z
+Stopped at: Completed 106-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute Phase 106 Plan 03 to integrate the same selected CFF outline transaction into TTC/OTC face selection.
+- Verify completed Phase 106, then plan Phase 107 hostile, licensed, performance, compatibility, and four-target qualification.
 
 ## Performance Metrics
 
-Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed eleven plans.
+Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed twelve plans.
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -115,3 +118,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 104 P04 | 12min | 1 tasks | 3 files |
 | Phase 106 P01 | 33min | 2 tasks | 15 files |
 | Phase 106 P02 | 17min | 2 tasks | 5 files |
+| Phase 106 P03 | 31min | 2 tasks | 7 files |
