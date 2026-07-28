@@ -223,3 +223,154 @@ test "Type 2 error precedence is State then Resource then Capability then Data" 
   let data = type2_vm_wb_run(b"\x00").unwrap_err()
   inspect(data.category() == @error.ErrorCategory::Data, content="true")
 }
+
+///|
+fn type2_fixture_descriptors(
+  programs : Array[Bytes],
+  seeds : Array[Int64],
+) -> (Array[CffGlyphDescriptor], CffIndex, @bytes.ByteView) {
+  let charstrings = type2_fixture_index(programs)
+  let global_subrs = type2_fixture_index([])
+  let descriptors : Array[CffGlyphDescriptor] = []
+  for gid = 0; gid < programs.length(); gid = gid + 1 {
+    let seed = if gid < seeds.length() { seeds[gid] } else { 0L }
+    descriptors.push({
+      gid: gid.to_uint64(),
+      key_value: gid.to_uint64(),
+      charstring: cff_index_object(
+        charstrings,
+        gid.to_uint64(),
+        "font-cff-type2-fixture",
+      ).unwrap(),
+      environment: {
+        fd: None,
+        private_dict: {
+          local_subrs: None,
+          default_width_x: cff_number_zero(),
+          nominal_width_x: cff_number_zero(),
+          initial_random_seed: type2_fixed_from_raw(seed).unwrap(),
+          dict_units: 0UL,
+        },
+        local_subrs: type2_fixture_index([]),
+        top_font_matrix: cff_default_font_matrix(),
+        fd_font_matrix: None,
+        font_matrix: cff_default_font_matrix(),
+      },
+    })
+  }
+  (descriptors, global_subrs, charstrings.object_data)
+}
+
+///|
+fn type2_fixture_staging_budget() -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=65536UL,
+      allocations=65536UL,
+      allocation_size=65536UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=65536UL,
+    ),
+  )
+}
+
+///|
+test "Type 2 all-GID staging is ascending, exact, and does not commit budget" {
+  let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
+    [
+      b"\x8b\x8b\x15\x8c\x8c\x05\x0e",
+      b"\x8b\x8b\x15\x8c\x8c\x05\x0e",
+    ],
+    [],
+  )
+  let budget = type2_fixture_staging_budget()
+  let before = budget.remaining()
+  let visited : Array[UInt64] = []
+  let staged = type2_stage_all_glyphs_with_probe(
+    descriptors,
+    global_subrs,
+    1000UL,
+    type2_vm_wb_limits(65535UL, 65535UL),
+    budget,
+    authority,
+    authority.mutation_revision(),
+    fn(gid) { visited.push(gid) },
+  ).unwrap()
+  inspect(visited, content="[0, 1]")
+  inspect(staged.bounds.length(), content="2")
+  inspect(staged.charge.bounds_slots, content="2")
+  inspect(staged.charge.executed_bytes, content="14")
+  inspect(staged.charge.points, content="4")
+  inspect(staged.charge.contours, content="2")
+  inspect(staged.charge.commands, content="6")
+  inspect(staged.charge.resource.bytes(), content="48")
+  inspect(staged.charge.resource.allocations(), content="11")
+  inspect(staged.charge.resource.allocation_size(), content="384")
+  inspect(staged.charge.resource.work(), content="24")
+  inspect(budget.remaining().bytes() == before.bytes(), content="true")
+  inspect(
+    budget.remaining().allocations() == before.allocations(),
+    content="true",
+  )
+  inspect(budget.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "Type 2 all-GID staging resets transient state and stops at first failure" {
+  let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
+    [
+      b"\x8c\x8b\x0c\x14\x0e",
+      b"\x8b\x0c\x15\x0c\x12\x0e",
+      b"\x00",
+    ],
+    [],
+  )
+  let budget = type2_fixture_staging_budget()
+  let before = budget.remaining()
+  let visited : Array[UInt64] = []
+  let error = type2_stage_all_glyphs_with_probe(
+    descriptors,
+    global_subrs,
+    1000UL,
+    type2_vm_wb_limits(65535UL, 65535UL),
+    budget,
+    authority,
+    authority.mutation_revision(),
+    fn(gid) { visited.push(gid) },
+  ).unwrap_err()
+  inspect(visited, content="[0, 1]")
+  inspect(
+    error.context() == Some("font-cff-type2-transient-uninitialized"),
+    content="true",
+  )
+  inspect(budget.remaining().bytes() == before.bytes(), content="true")
+  inspect(
+    budget.remaining().allocations() == before.allocations(),
+    content="true",
+  )
+  inspect(budget.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "Type 2 all-GID staging resets PRNG from each selected environment" {
+  let random_shape = b"\x0c\x17\xef\x0c\x18\x16\x8c\x8b\x05\x0e"
+  let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
+    [random_shape, random_shape, random_shape],
+    [65536L, 131072L, 65536L],
+  )
+  let budget = type2_fixture_staging_budget()
+  let staged = type2_stage_all_glyphs(
+    descriptors,
+    global_subrs,
+    1000UL,
+    type2_vm_wb_limits(65535UL, 65535UL),
+    budget,
+    authority,
+    authority.mutation_revision(),
+  ).unwrap()
+  inspect(staged.bounds[0] == staged.bounds[2], content="true")
+  inspect(staged.bounds[0] != staged.bounds[1], content="true")
+}
