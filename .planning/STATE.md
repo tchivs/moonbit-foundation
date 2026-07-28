@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v0.34
 milestone_name: CFF Outline Foundation
 current_phase: 106
-current_phase_name: Cubic Path and Public/TTC Integration
+current_phase_name: cubic-path-and-public-ttc-integration
 status: executing
-stopped_at: Phase 106 context gathered
-last_updated: "2026-07-28T18:52:21.134Z"
+stopped_at: Completed 106-01-PLAN.md
+last_updated: "2026-07-28T19:31:34.209Z"
 last_activity: 2026-07-29
-last_activity_desc: Phase 105 complete, transitioned to Phase 106
+last_activity_desc: Completed Phase 106 Plan 01 standalone CFF cubic path tracer
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -24,16 +24,16 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 105 — Bounded Type 2 Validation and Retained Metrics
+**Current focus:** Phase 106 — cubic-path-and-public-ttc-integration
 
 ## Current Position
 
-Phase: 106 of 107 (Cubic Path and Public/TTC Integration)
-Plan: Not started
+Phase: 106 (cubic-path-and-public-ttc-integration) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-07-29 — Phase 105 complete, transitioned to Phase 106
+Last activity: 2026-07-29 — Completed Phase 106 Plan 01 standalone CFF cubic path tracer
 
-Progress: [██████████] 100%
+Progress: [████████░░] 83%
 
 ## Milestone Metrics
 
@@ -61,6 +61,10 @@ Progress: [██████████] 100%
 - [Phase 104]: Keep the private outline source closed over Glyf or one complete AdmittedCff1 aggregate; public CFF-backed Font promotion remains deferred.
 - [Phase 104]: Treat every decoded zero-magnitude CffNumber as the supported PaintType and StrokeWidth default. — Value-based validation preserves integer, exact-real, and normalized signed-zero equivalence without accepting any non-zero semantics.
 - [Phase 104]: Reduce each completed Top DICT entry before parsing subsequent bytes. — Incremental reduction makes first-encountered capability and data outcomes deterministic while retaining one parser implementation.
+- [Phase 106]: Retain compact CFF bounds plus exact per-GID publishable command counts, never full paths or replay streams.
+- [Phase 106]: Use one Type 2 geometry lifecycle and convert exact rational coordinates only at Point2 construction.
+- [Phase 106]: Keep face-local hmtx and retained CFF bounds as metric authority while Type 2 width remains validation-only.
+- [Phase 106]: Charge CFF outlines once across caller and ancestors after exact path staging and final revision validation.
 
 ### Pending Todos
 
@@ -68,7 +72,6 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 105 planning must freeze fixed-point rounding, deterministic PRNG/reset rules, FontMatrix composition, contour closure, deprecated `endchar` policy, bounds rounding, and resource-ledger units.
 - Phase 107 planning must approve immutable redistributable Latin/CJK assets, licenses/notices, parent and derivative digests, deterministic recipes, and independent pinned oracles.
 
 ## Deferred Items
@@ -83,17 +86,17 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-28T17:43:06.343Z
-Stopped at: Phase 106 context gathered
-Resume file: .planning/phases/106-cubic-path-and-public-ttc-integration/106-CONTEXT.md
+Last session: 2026-07-28T19:31:34.194Z
+Stopped at: Completed 106-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
-- Discuss Phase 105 and freeze deterministic Type 2 arithmetic, random, FontMatrix, bounds, resource, and termination contracts before planning.
+- Execute Phase 106 Plan 02 to freeze the direct format-neutral path-capacity and storage expansion matrix.
 
 ## Performance Metrics
 
-Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed four plans.
+Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed ten plans.
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -107,3 +110,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 104 P02 | 25min | 3 tasks | 5 files |
 | Phase 104 P03 | 27min | 3 tasks | 10 files |
 | Phase 104 P04 | 12min | 1 tasks | 3 files |
+| Phase 106 P01 | 33min | 2 tasks | 15 files |

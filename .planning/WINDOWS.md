@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 26
+open_count: 29
 waived_count: 0
 fixed_count: 3
-total_count: 29
-last_updated: 2026-07-27T15:59:12.307Z
+total_count: 32
+last_updated: 2026-07-28T19:32:15.560Z
 ---
 
 # Broken Windows Ledger
@@ -44,6 +44,9 @@ last_updated: 2026-07-27T15:59:12.307Z
 | 27 | 100 | deviation | .planning/STATE.md |  | Normalized stale machine-readable plan position and Phase 100 decision attribution after SDK advancement. | open |  | 2026-07-27T14:48:26.488Z |  |
 | 28 | 100 | deviation | scripts/fixtures/Generate-FontQualification.ps1 |  | Corrected generated scalar expectations from UInt64 to the public glyph_for_scalar Int input type. | open |  | 2026-07-27T15:59:11.669Z |  |
 | 29 | 100 | deviation | .planning/STATE.md |  | Synchronized final Plan 6 of 6 verification state after stale SDK metadata output. | open |  | 2026-07-27T15:59:12.307Z |  |
+| 30 | 106 | deviation | modules/mb-font/font/cff_admission_wbtest.mbt |  | Updated exact CFF retained-ledger expectations for 32-byte bounds-plus-command slots | open |  | 2026-07-28T19:31:08.387Z |  |
+| 31 | 106 | deviation | modules/mb-font/font/font_test.mbt |  | Reclassified static CFF1 OTTO as supported in legacy capability fixtures | open |  | 2026-07-28T19:31:08.887Z |  |
+| 32 | 106 | deviation | .planning/STATE.md |  | Normalized SDK-generated Phase 106 decision labels and stale execution prose after plan advancement | open |  | 2026-07-28T19:32:15.560Z |  |
 
 ````json
 [
@@ -393,6 +396,42 @@ last_updated: 2026-07-27T15:59:12.307Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-27T15:59:12.307Z",
+    "resolved_at": null
+  },
+  {
+    "id": 30,
+    "kind": "deviation",
+    "phase": "106",
+    "file": "modules/mb-font/font/cff_admission_wbtest.mbt",
+    "line": null,
+    "description": "Updated exact CFF retained-ledger expectations for 32-byte bounds-plus-command slots",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-28T19:31:08.387Z",
+    "resolved_at": null
+  },
+  {
+    "id": 31,
+    "kind": "deviation",
+    "phase": "106",
+    "file": "modules/mb-font/font/font_test.mbt",
+    "line": null,
+    "description": "Reclassified static CFF1 OTTO as supported in legacy capability fixtures",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-28T19:31:08.887Z",
+    "resolved_at": null
+  },
+  {
+    "id": 32,
+    "kind": "deviation",
+    "phase": "106",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized SDK-generated Phase 106 decision labels and stale execution prose after plan advancement",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-28T19:32:15.560Z",
     "resolved_at": null
   }
 ]
