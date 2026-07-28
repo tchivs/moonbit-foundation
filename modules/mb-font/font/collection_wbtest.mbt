@@ -1151,11 +1151,9 @@ test "collection qualification preserves mid-operation mutation atomicity" {
 /// head, and maxp table ranges. The copied standalone directory at `payload`
 /// is deliberately unreachable; it keeps the generated table bytes and
 /// checksums intact while both selected faces exercise root-relative records.
-fn font_collection_wb_shared_cff_ttc() -> Bytes {
-  let standalone = cff_wb_otf(
-    cff_name_wb_table(),
-    num_glyphs=3UL,
-  )
+fn font_collection_wb_shared_cff_ttc_from_standalone(
+  standalone : Bytes,
+) -> Bytes {
   let table_count = 9
   let directory_bytes = 12 + table_count * 16
   let first_directory = 32
@@ -1197,6 +1195,24 @@ fn font_collection_wb_shared_cff_ttc() -> Bytes {
     }
   }
   Bytes::from_array(output)
+}
+
+///|
+fn font_collection_wb_shared_cff_ttc() -> Bytes {
+  font_collection_wb_shared_cff_ttc_from_standalone(
+    cff_wb_otf(cff_name_wb_table(), num_glyphs=3UL),
+  )
+}
+
+///|
+fn font_collection_wb_shared_cff_path_ttc() -> Bytes {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  font_collection_wb_shared_cff_ttc_from_standalone(
+    cff_wb_otf(
+      cff_wb_name_table_with_programs([b"\x0e", cubic, b"\x0e"]),
+      num_glyphs=3UL,
+    ),
+  )
 }
 
 ///|
@@ -1382,4 +1398,323 @@ test "Phase 106 selected CFF1 retains collection root and opening revision autho
     content="true",
   )
   font_collection_wb_assert_budget_unchanged(stale_before, stale_budget)
+}
+
+///|
+fn font_collection_wb_cff_collection_limits(
+  source_length : UInt64,
+) -> FontCollectionLimits {
+  FontCollectionLimits::new(
+    max_source_bytes=source_length,
+    max_faces=2UL,
+    max_tables_per_face=9UL,
+    max_table_records=18UL,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=16384UL,
+    max_work=262144UL,
+  ).unwrap()
+}
+
+///|
+fn font_collection_wb_cff_path_limits(
+  charge : CffPathCharge,
+) -> @budget.ResourceLimits {
+  @budget.ResourceLimits::new(
+    bytes=charge.bytes,
+    allocations=charge.allocations,
+    allocation_size=charge.allocation_size,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    depth=0UL,
+    work=charge.work,
+  )
+}
+
+///|
+test "Phase 106 preserves selected CFF admission outline and mutation authority" {
+  let source = font_collection_wb_shared_cff_path_ttc()
+  let owner = font_collection_wb_owner(source)
+  let direct = match
+    admit_cff1_collection_structure(
+      owner.view(),
+      188UL,
+      9UL,
+      font_wb_limits(),
+      cff_wb_budget(),
+      2UL,
+    ) {
+    Ok(value) => value
+    Err(_) => fail("direct selected CFF admission must succeed")
+  }
+  let collection = match
+    FontCollection::open(
+      owner.view(),
+      font_collection_wb_cff_collection_limits(source.length().to_uint64()),
+      font_collection_wb_selected_budget(),
+    ) {
+    Ok(value) => value
+    Err(_) => fail("shared CFF collection admission must succeed")
+  }
+  let exact_limits = @budget.ResourceLimits::new(
+    bytes=direct.combined_charge.bytes,
+    allocations=direct.combined_charge.allocations,
+    allocation_size=direct.combined_charge.allocation_size,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    depth=0UL,
+    work=direct.combined_charge.work,
+  )
+  let exact = @budget.Budget::new(exact_limits)
+  let selected = match collection.open_face(1UL, font_wb_limits(), exact) {
+    Ok(value) => value
+    Err(_) => fail("selected CFF exact admission must succeed")
+  }
+  inspect(exact.remaining().bytes(), content="0")
+  inspect(exact.remaining().allocations(), content="0")
+  inspect(exact.remaining().work(), content="0")
+
+  let admission_short = [
+    @budget.ResourceLimits::new(
+      bytes=direct.combined_charge.bytes - 1UL,
+      allocations=direct.combined_charge.allocations,
+      allocation_size=direct.combined_charge.allocation_size,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=direct.combined_charge.work,
+    ),
+    @budget.ResourceLimits::new(
+      bytes=direct.combined_charge.bytes,
+      allocations=direct.combined_charge.allocations - 1UL,
+      allocation_size=direct.combined_charge.allocation_size,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=direct.combined_charge.work,
+    ),
+    @budget.ResourceLimits::new(
+      bytes=direct.combined_charge.bytes,
+      allocations=direct.combined_charge.allocations,
+      allocation_size=direct.combined_charge.allocation_size - 1UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=direct.combined_charge.work,
+    ),
+    @budget.ResourceLimits::new(
+      bytes=direct.combined_charge.bytes,
+      allocations=direct.combined_charge.allocations,
+      allocation_size=direct.combined_charge.allocation_size,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=direct.combined_charge.work - 1UL,
+    ),
+  ]
+  for limits in admission_short {
+    let caller = @budget.Budget::new(limits)
+    let caller_before = caller.remaining()
+    let caller_error = collection
+      .open_face(1UL, font_wb_limits(), caller)
+      .unwrap_err()
+    inspect(
+      caller_error.category() == @error.ErrorCategory::Resource,
+      content="true",
+    )
+    font_collection_wb_assert_budget_unchanged(caller_before, caller)
+
+    let ancestor = @budget.Budget::new(limits)
+    let child = ancestor.child(limits).unwrap()
+    let ancestor_before = ancestor.remaining()
+    let child_before = child.remaining()
+    let ancestor_error = collection
+      .open_face(1UL, font_wb_limits(), child)
+      .unwrap_err()
+    inspect(
+      ancestor_error.category() == @error.ErrorCategory::Resource,
+      content="true",
+    )
+    font_collection_wb_assert_budget_unchanged(ancestor_before, ancestor)
+    font_collection_wb_assert_budget_unchanged(child_before, child)
+  }
+  let glyph = selected.glyph_id(1UL).unwrap()
+  let path_charge = font_wb_cff_path_charge(selected, glyph)
+  let path_limits = font_collection_wb_cff_path_limits(path_charge)
+  let path_exact = @budget.Budget::new(path_limits)
+  match selected.outline(glyph, path_exact) {
+    Ok(_) => ()
+    Err(_) => fail("exact selected CFF outline must succeed")
+  }
+  inspect(path_exact.remaining().bytes(), content="0")
+  inspect(path_exact.remaining().allocations(), content="0")
+  inspect(path_exact.remaining().work(), content="0")
+  let path_short = [
+    (
+      "selected CFF bytes one-short must fail",
+      @budget.ResourceLimits::new(
+        bytes=path_charge.bytes - 1UL,
+        allocations=path_charge.allocations,
+        allocation_size=path_charge.allocation_size,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=path_charge.work,
+      ),
+    ),
+    (
+      "selected CFF allocations one-short must fail",
+      @budget.ResourceLimits::new(
+        bytes=path_charge.bytes,
+        allocations=path_charge.allocations - 1UL,
+        allocation_size=path_charge.allocation_size,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=path_charge.work,
+      ),
+    ),
+    (
+      "selected CFF allocation size one-short must fail",
+      @budget.ResourceLimits::new(
+        bytes=path_charge.bytes,
+        allocations=path_charge.allocations,
+        allocation_size=path_charge.allocation_size - 1UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=path_charge.work,
+      ),
+    ),
+    (
+      "selected CFF work one-short must fail",
+      @budget.ResourceLimits::new(
+        bytes=path_charge.bytes,
+        allocations=path_charge.allocations,
+        allocation_size=path_charge.allocation_size,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=path_charge.work - 1UL,
+      ),
+    ),
+  ]
+  for item in path_short {
+    let limits = item.1
+    let caller = @budget.Budget::new(limits)
+    let caller_before = caller.remaining()
+    let caller_error = match selected.outline(glyph, caller) {
+      Err(error) => error
+      Ok(_) => fail(item.0)
+    }
+    inspect(
+      caller_error.category() == @error.ErrorCategory::Resource,
+      content="true",
+    )
+    font_collection_wb_assert_budget_unchanged(caller_before, caller)
+
+    let ancestor = @budget.Budget::new(limits)
+    let child = ancestor.child(limits).unwrap()
+    let ancestor_before = ancestor.remaining()
+    let child_before = child.remaining()
+    let ancestor_error = match selected.outline(glyph, child) {
+      Err(error) => error
+      Ok(_) => fail(item.0)
+    }
+    inspect(
+      ancestor_error.category() == @error.ErrorCategory::Resource,
+      content="true",
+    )
+    font_collection_wb_assert_budget_unchanged(ancestor_before, ancestor)
+    font_collection_wb_assert_budget_unchanged(child_before, child)
+  }
+  let execution_source = font_collection_wb_shared_cff_path_ttc()
+  let execution_owner = font_collection_wb_owner(execution_source)
+  let execution_revision = execution_owner.view().mutation_revision()
+  let execution_budget = @budget.Budget::new(exact_limits)
+  let execution_before = execution_budget.remaining()
+  let execution_error = admit_cff1_structure_at_after_preflight_with_glyph_probe(
+    execution_owner.view(),
+    188UL,
+    Some(9UL),
+    FontChecksumMode::Collection,
+    true,
+    font_wb_limits(),
+    execution_budget,
+    2UL,
+    fn() { () },
+    fn() { () },
+    fn() { () },
+    fn(gid) {
+      if gid == 1UL {
+        font_collection_wb_mutate_restore(execution_owner, 0UL)
+      }
+    },
+    authoritative_opening_revision=execution_revision,
+  ).unwrap_err()
+  inspect(
+    execution_error.category() == @error.ErrorCategory::State,
+    content="true",
+  )
+  font_collection_wb_assert_budget_unchanged(
+    execution_before,
+    execution_budget,
+  )
+
+  let commit_source = font_collection_wb_shared_cff_path_ttc()
+  let commit_owner = font_collection_wb_owner(commit_source)
+  let commit_revision = commit_owner.view().mutation_revision()
+  let commit_budget = @budget.Budget::new(exact_limits)
+  let commit_before = commit_budget.remaining()
+  let mut guards = 0
+  let commit_error = admit_cff1_structure_at_after_preflight(
+    commit_owner.view(),
+    188UL,
+    Some(9UL),
+    FontChecksumMode::Collection,
+    true,
+    font_wb_limits(),
+    commit_budget,
+    2UL,
+    fn() {
+      guards = guards + 1
+      if guards == 2 {
+        font_collection_wb_mutate_restore(commit_owner, 0UL)
+      }
+    },
+    fn() { () },
+    fn() { () },
+    authoritative_opening_revision=commit_revision,
+  ).unwrap_err()
+  inspect(guards, content="2")
+  inspect(
+    commit_error.category() == @error.ErrorCategory::State,
+    content="true",
+  )
+  font_collection_wb_assert_budget_unchanged(commit_before, commit_budget)
+
+  let outline_budget = @budget.Budget::new(path_limits)
+  let outline_before = outline_budget.remaining()
+  let outline_error = selected
+    .outline_after_decode(
+      glyph,
+      outline_budget,
+      fn(_path) { font_collection_wb_mutate_restore(owner, 0UL) },
+    )
+    .unwrap_err()
+  inspect(
+    outline_error.category() == @error.ErrorCategory::State,
+    content="true",
+  )
+  font_collection_wb_assert_budget_unchanged(outline_before, outline_budget)
 }

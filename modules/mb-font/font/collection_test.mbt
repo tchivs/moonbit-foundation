@@ -883,6 +883,30 @@ fn font_collection_test_shared_cff1_ttc(
 }
 
 ///|
+fn font_collection_test_selected_cff1_ttc(standalone : Bytes) -> Bytes {
+  let directory_start = 256
+  let output = Array::make(directory_start + standalone.length(), b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00010000UL)
+  font_collection_test_put_u32(output, 8, 1UL)
+  font_collection_test_put_u32(output, 12, directory_start.to_uint64())
+  for index, byte in standalone {
+    output[directory_start + index] = byte
+  }
+  let table_count = font_collection_test_read_u16(standalone, 4).to_int()
+  for index = 0; index < table_count; index = index + 1 {
+    let record = 12 + index * 16
+    let old_offset = font_collection_test_read_u32(standalone, record + 8)
+    font_collection_test_put_u32(
+      output,
+      directory_start + record + 8,
+      directory_start.to_uint64() + old_offset,
+    )
+  }
+  Bytes::from_array(output)
+}
+
+///|
 test "Phase 106 selected CFF1 shares cubic bytes and retains face local facts" {
   let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
   let programs = [b"\x0e", cubic]
@@ -1001,6 +1025,129 @@ test "Phase 106 selected CFF1 shares cubic bytes and retains face local facts" {
 }
 
 ///|
+test "Phase 106 preserves selected CFF1 edges and standalone ordering" {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  let standalone_source = font_collection_test_cff_face(
+    [b"\x0e", cubic],
+    0x41UL,
+    600UL,
+    20,
+    -25,
+    -10,
+    800,
+  )
+  let standalone = Font::open(
+    font_collection_test_owner(standalone_source).view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+  let source = font_collection_test_selected_cff1_ttc(standalone_source)
+  let collection = FontCollection::open(
+    font_collection_test_owner(source).view(),
+    font_collection_test_selected_collection_limits(
+      source.length().to_uint64(),
+      1UL,
+      10UL,
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  inspect(collection.face_count().unwrap(), content="1")
+  inspect(
+    collection.face_profile(0UL).unwrap() == FontFaceProfile::Cff,
+    content="true",
+  )
+  let selected = collection
+    .open_face(0UL, font_test_limits(), font_test_cff_open_budget())
+    .unwrap()
+  let index_budget = font_test_cff_open_budget()
+  let index_before = index_budget.remaining()
+  let index_error = collection
+    .open_face(1UL, font_test_limits(), index_budget)
+    .unwrap_err()
+  inspect(
+    index_error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(index_error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    index_error.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(
+    index_error.context() == Some("font-collection-face-index"),
+    content="true",
+  )
+  inspect(index_error.requested() == Some(1UL), content="true")
+  inspect(index_error.limit() == Some(1UL), content="true")
+  font_collection_test_assert_budget_unchanged(index_before, index_budget)
+
+  let zero_budget = font_collection_test_budget()
+  let zero_before = zero_budget.remaining()
+  let zero_error = FontCollection::open(
+    font_collection_test_owner(font_collection_test_zero_faces()).view(),
+    font_collection_test_limits(),
+    zero_budget,
+  ).unwrap_err()
+  inspect(zero_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(zero_error.context() == Some("font-collection-face-count"), content="true")
+  font_collection_test_assert_budget_unchanged(zero_before, zero_budget)
+
+  inspect(
+    standalone.units_per_em().unwrap() == selected.units_per_em().unwrap(),
+    content="true",
+  )
+  font_collection_test_assert_bounds_equal(
+    standalone.global_bounds().unwrap(),
+    selected.global_bounds().unwrap(),
+  )
+  font_collection_test_assert_line_metrics_equal(
+    standalone.hhea_line_metrics().unwrap(),
+    selected.hhea_line_metrics().unwrap(),
+  )
+  font_collection_test_assert_line_metrics_equal(
+    standalone.typographic_line_metrics().unwrap(),
+    selected.typographic_line_metrics().unwrap(),
+  )
+  let standalone_glyph = standalone.glyph_for_scalar(0x41).unwrap()
+  let selected_glyph = selected.glyph_for_scalar(0x41).unwrap()
+  inspect(
+    standalone_glyph.value() == selected_glyph.value(),
+    content="true",
+  )
+  let standalone_metrics = standalone
+    .horizontal_metrics(standalone_glyph)
+    .unwrap()
+  let selected_metrics = selected.horizontal_metrics(selected_glyph).unwrap()
+  inspect(
+    standalone_metrics.advance_width() == selected_metrics.advance_width(),
+    content="true",
+  )
+  inspect(
+    standalone_metrics.left_side_bearing() ==
+    selected_metrics.left_side_bearing(),
+    content="true",
+  )
+  inspect(
+    standalone_metrics.right_side_bearing() ==
+    selected_metrics.right_side_bearing(),
+    content="true",
+  )
+  inspect(
+    standalone.kerning(standalone_glyph, standalone_glyph).unwrap() ==
+    selected.kerning(selected_glyph, selected_glyph).unwrap(),
+    content="true",
+  )
+  font_collection_test_assert_path_equal(
+    standalone
+    .outline(standalone_glyph, font_test_cff_outline_budget())
+    .unwrap(),
+    selected
+    .outline(selected_glyph, font_test_cff_outline_budget())
+    .unwrap(),
+  )
+}
+
+///|
 test "TTC-02 opens a cached static face against the retained collection root" {
   let source = font_collection_test_selected_ttc()
   let owner = font_collection_test_owner(source)
@@ -1031,7 +1178,7 @@ test "TTC-02 opens a cached static face against the retained collection root" {
 }
 
 ///|
-test "Phase 105 preserves the public selected static glyf fingerprint" {
+test "Phase 106 preserves the public selected static glyf fingerprint" {
   let source = font_collection_test_selected_ttc()
   let owner = font_collection_test_owner(source)
   let collection_budget = font_collection_test_selected_budget()
@@ -1070,7 +1217,7 @@ test "Phase 105 preserves the public selected static glyf fingerprint" {
 }
 
 ///|
-test "TTC-02 standalone and selected faces are publicly equivalent" {
+test "Phase 106 preserves standalone and selected static glyf ordering" {
   let standalone_source = font_collection_test_equivalence_truetype()
   let head_offset = font_test_table_offset(standalone_source, b"head")
   inspect(
