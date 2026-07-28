@@ -58,11 +58,12 @@
   3. Every admitted CID-keyed GID resolves through checked `ROS`, CID charset, FDArray, FDSelect format 0/3, per-FD Private DICT/local Subrs, and FontMatrix facts; invalid SID, CID, FD, or glyph cardinality fails before facts are published.
   4. Maintainers can reproduce exact and one-short structural outcomes for Header, INDEX, DICT, String, CharStrings, Private DICT, and subroutine data under explicit limits and budgets.
 
-**Plans**: 3/3 plans executed
+**Plans**: 4/4 plans executed
 
 - [x] 104-01-PLAN.md
 - [x] 104-02-PLAN.md
 - [x] 104-03-PLAN.md
+- [x] 104-04-PLAN.md
 
 ### Phase 105: Bounded Type 2 Validation and Retained Metrics
 
@@ -112,7 +113,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 104. CFF1 Profile and Bounded Data Model | 3/3 | In Progress|  |
+| 104. CFF1 Profile and Bounded Data Model | 4/4 | In Progress|  |
 | 105. Bounded Type 2 Validation and Retained Metrics | 0/TBD | Not started | - |
 | 106. Cubic Path and Public/TTC Integration | 0/TBD | Not started | - |
 | 107. Hostile, Licensed, and Four-Target Qualification | 0/TBD | Not started | - |

@@ -9,7 +9,7 @@ Requirements for the CFF Outline Foundation milestone. Each requirement maps to 
 
 ### CFF1 Structure and Keying
 
-- [ ] **CFF-01**: Library authors can admit the exact supported static OpenType CFF1 profile from bounded caller-owned `OTTO` bytes through the existing font boundary, with checked CFF-local Header, INDEX, DICT, String, CharStrings, Private DICT, and global/local subroutine facts and stable explicit rejection of mixed, CFF2, variable, or otherwise unsupported profiles.
+- [x] **CFF-01**: Library authors can admit the exact supported static OpenType CFF1 profile from bounded caller-owned `OTTO` bytes through the existing font boundary, with checked CFF-local Header, INDEX, DICT, String, CharStrings, Private DICT, and global/local subroutine facts and stable explicit rejection of mixed, CFF2, variable, or otherwise unsupported profiles.
 - [ ] **CFF-02**: Every admitted GID resolves to exactly one bounded CharString and execution environment for both name-keyed fonts and CID-keyed fonts, including predefined/custom charset and Encoding data, `ROS`, FDArray, FDSelect formats 0/3, per-FD Private DICT/local Subrs, FontMatrix facts, and checked SID/CID/cardinality rules.
 
 ### Type 2 Execution and Retained Metrics
