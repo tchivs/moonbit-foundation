@@ -48,7 +48,6 @@ fn cff_path_wb_admitted(font : Font) -> AdmittedCff1 {
 
 ///|
 fn cff_path_wb_limits(
-  charge : CffPathCharge,
   bytes : UInt64,
   allocations : UInt64,
   allocation_size : UInt64,
@@ -69,7 +68,6 @@ fn cff_path_wb_limits(
 ///|
 fn cff_path_wb_exact_limits(charge : CffPathCharge) -> @budget.ResourceLimits {
   cff_path_wb_limits(
-    charge,
     charge.bytes,
     charge.allocations,
     charge.allocation_size,
@@ -298,7 +296,6 @@ test "CFF outline exact path charge rejects each one-short window atomically" {
     (
       "bytes",
       cff_path_wb_limits(
-        charge,
         charge.bytes - 1UL,
         charge.allocations,
         charge.allocation_size,
@@ -308,7 +305,6 @@ test "CFF outline exact path charge rejects each one-short window atomically" {
     (
       "allocations",
       cff_path_wb_limits(
-        charge,
         charge.bytes,
         charge.allocations - 1UL,
         charge.allocation_size,
@@ -318,7 +314,6 @@ test "CFF outline exact path charge rejects each one-short window atomically" {
     (
       "allocation_size",
       cff_path_wb_limits(
-        charge,
         charge.bytes,
         charge.allocations,
         charge.allocation_size - 1UL,
@@ -328,7 +323,6 @@ test "CFF outline exact path charge rejects each one-short window atomically" {
     (
       "work",
       cff_path_wb_limits(
-        charge,
         charge.bytes,
         charge.allocations,
         charge.allocation_size,

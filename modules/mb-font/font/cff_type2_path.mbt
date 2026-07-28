@@ -176,6 +176,32 @@ fn cff_decode_outline_atomic(
   budget : @budget.Budget,
   after_stage : (@math.Path2) -> Unit,
 ) -> Result[@math.Path2, @error.CoreError] {
+  cff_decode_outline_atomic_with_probes(
+    source,
+    admitted,
+    glyph,
+    limits,
+    budget,
+    fn() { () },
+    after_stage,
+  )
+}
+
+///|
+/// White-box query probes are restricted to authorized pre-commit seams.
+///
+/// Production callers use `cff_decode_outline_atomic`, which supplies no-op
+/// probes. The complete path remains private until the final revision guard
+/// and the sole budget commit.
+fn cff_decode_outline_atomic_with_probes(
+  source : @bytes.ByteView,
+  admitted : AdmittedCff1,
+  glyph : UInt64,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  before_execute : () -> Unit,
+  after_stage : (@math.Path2) -> Unit,
+) -> Result[@math.Path2, @error.CoreError] {
   if source.mutation_revision() != admitted.opening_revision {
     return Err(font_revision_error("font-outline"))
   }
@@ -208,6 +234,7 @@ fn cff_decode_outline_atomic(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  before_execute()
   let executed = match
     type2_execute_glyph_with_path_capacity(
       admitted.glyphs[index],
