@@ -98,14 +98,14 @@
   3. A supported CFF1 TTC/OTC face uses the same admission and outline behavior as standalone CFF1 while preserving root-relative collection authority, table-local CFF offsets, and face-local common tables.
   4. Previously qualified static-`glyf` standalone and collection metrics, mappings, kerning, paths, errors, and charges remain unchanged.
 
-**Plans**: 1/3 plans executed
+**Plans**: 2/3 plans executed
 **Wave 1**
 
 - [x] 106-01-PLAN.md
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 106-02-PLAN.md
+- [x] 106-02-PLAN.md
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -133,7 +133,7 @@
 |-------|----------------|--------|-----------|
 | 104. CFF1 Profile and Bounded Data Model | 4/4 | Complete    | 2026-07-28 |
 | 105. Bounded Type 2 Validation and Retained Metrics | 5/5 | Complete    | 2026-07-29 |
-| 106. Cubic Path and Public/TTC Integration | 1/3 | In Progress|  |
+| 106. Cubic Path and Public/TTC Integration | 2/3 | In Progress|  |
 | 107. Hostile, Licensed, and Four-Target Qualification | 0/TBD | Not started | - |
 
 ---

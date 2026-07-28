@@ -5,15 +5,15 @@ milestone_name: CFF Outline Foundation
 current_phase: 106
 current_phase_name: cubic-path-and-public-ttc-integration
 status: executing
-stopped_at: Completed 106-01-PLAN.md
-last_updated: "2026-07-28T19:31:34.209Z"
+stopped_at: Completed 106-02-PLAN.md
+last_updated: "2026-07-28T19:51:07.153Z"
 last_activity: 2026-07-29
-last_activity_desc: Completed Phase 106 Plan 01 standalone CFF cubic path tracer
+last_activity_desc: Completed Phase 106 Plan 02 CFF outline transaction expansion
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 ## Current Position
 
 Phase: 106 (cubic-path-and-public-ttc-integration) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-07-29 — Completed Phase 106 Plan 01 standalone CFF cubic path tracer
+Last activity: 2026-07-29 — Completed Phase 106 Plan 02 CFF outline transaction expansion
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 92%
 
 ## Milestone Metrics
 
@@ -65,6 +65,9 @@ Progress: [████████░░] 83%
 - [Phase 106]: Use one Type 2 geometry lifecycle and convert exact rational coordinates only at Point2 construction.
 - [Phase 106]: Keep face-local hmtx and retained CFF bounds as metric authority while Type 2 width remains validation-only.
 - [Phase 106]: Charge CFF outlines once across caller and ancestors after exact path staging and final revision validation.
+- [Phase 106]: Keep public CFF outline execution on the no-op wrapper; expose only private pre-commit probes for white-box evidence.
+- [Phase 106]: Run the selected CFF pre-execution probe before resource preflight and immediately guard the outer revision so State outranks Resource, Capability, and Data.
+- [Phase 106]: Reuse the existing Type 2 VM read probe for mid-fetch evidence and add no post-charge seam after the sole CFF Budget commit.
 
 ### Pending Todos
 
@@ -86,17 +89,17 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-28T19:31:34.194Z
-Stopped at: Completed 106-01-PLAN.md
+Last session: 2026-07-28T19:51:07.137Z
+Stopped at: Completed 106-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute Phase 106 Plan 02 to freeze the direct format-neutral path-capacity and storage expansion matrix.
+- Execute Phase 106 Plan 03 to integrate the same selected CFF outline transaction into TTC/OTC face selection.
 
 ## Performance Metrics
 
-Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed ten plans.
+Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed eleven plans.
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -111,3 +114,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 104 P03 | 27min | 3 tasks | 10 files |
 | Phase 104 P04 | 12min | 1 tasks | 3 files |
 | Phase 106 P01 | 33min | 2 tasks | 15 files |
+| Phase 106 P02 | 17min | 2 tasks | 5 files |

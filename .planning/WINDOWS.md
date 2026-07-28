@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 29
+open_count: 30
 waived_count: 0
 fixed_count: 3
-total_count: 32
-last_updated: 2026-07-28T19:32:15.560Z
+total_count: 33
+last_updated: 2026-07-28T19:51:31.058Z
 ---
 
 # Broken Windows Ledger
@@ -47,6 +47,7 @@ last_updated: 2026-07-28T19:32:15.560Z
 | 30 | 106 | deviation | modules/mb-font/font/cff_admission_wbtest.mbt |  | Updated exact CFF retained-ledger expectations for 32-byte bounds-plus-command slots | open |  | 2026-07-28T19:31:08.387Z |  |
 | 31 | 106 | deviation | modules/mb-font/font/font_test.mbt |  | Reclassified static CFF1 OTTO as supported in legacy capability fixtures | open |  | 2026-07-28T19:31:08.887Z |  |
 | 32 | 106 | deviation | .planning/STATE.md |  | Normalized SDK-generated Phase 106 decision labels and stale execution prose after plan advancement | open |  | 2026-07-28T19:32:15.560Z |  |
+| 33 | 106 | deviation | .planning/STATE.md |  | Normalized stale Plan 01 activity and Plan 02 next-step prose after 106-02 state advancement | open |  | 2026-07-28T19:51:31.058Z |  |
 
 ````json
 [
@@ -432,6 +433,18 @@ last_updated: 2026-07-28T19:32:15.560Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-28T19:32:15.560Z",
+    "resolved_at": null
+  },
+  {
+    "id": 33,
+    "kind": "deviation",
+    "phase": "106",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized stale Plan 01 activity and Plan 02 next-step prose after 106-02 state advancement",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-28T19:51:31.058Z",
     "resolved_at": null
   }
 ]
