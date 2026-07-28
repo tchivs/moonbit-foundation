@@ -423,10 +423,10 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-header-truncated",
+        "context": "font-collection-header",
         "source_offset": null,
-        "requested": null,
-        "limit": null
+        "requested": 4,
+        "limit": 0
       },
       "publication": "none",
       "budget_before": {
@@ -463,8 +463,8 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-signature-invalid",
-        "source_offset": null,
+        "context": "font-collection-signature",
+        "source_offset": 0,
         "requested": null,
         "limit": null
       },
@@ -503,8 +503,8 @@
         "category": "Capability",
         "code": "CapabilityUnavailable",
         "operation": "font-collection-open",
-        "context": "collection-version-unsupported",
-        "source_offset": null,
+        "context": "font-collection-version",
+        "source_offset": 4,
         "requested": null,
         "limit": null
       },
@@ -543,8 +543,8 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-face-count-zero",
-        "source_offset": null,
+        "context": "font-collection-face-count",
+        "source_offset": 8,
         "requested": null,
         "limit": null
       },
@@ -583,10 +583,10 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-offset-array-truncated",
-        "source_offset": null,
-        "requested": null,
-        "limit": null
+        "context": "font-collection-offset-array",
+        "source_offset": 12,
+        "requested": 20,
+        "limit": 15
       },
       "publication": "none",
       "budget_before": {
@@ -623,7 +623,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-face-directory-truncated",
+        "context": "font-collection-directory-range",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -663,7 +663,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-directory-search-facts-invalid",
+        "context": "font-collection-search-facts",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -703,7 +703,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-directory-tags-unordered",
+        "context": "font-collection-table-tag-order",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -743,7 +743,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-table-range-overflow",
+        "context": "font-collection-table-range",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -783,7 +783,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-protected-range-overlap",
+        "context": "font-collection-table-protected-overlap",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -823,7 +823,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-same-face-overlap",
+        "context": "font-collection-same-face-overlap",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -863,7 +863,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-cross-face-partial-overlap",
+        "context": "font-collection-cross-face-overlap",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -903,7 +903,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-shared-range-metadata-conflict",
+        "context": "font-collection-shared-metadata",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -943,7 +943,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-dsig-partial-zero-tuple",
+        "context": "font-collection-dsig-tuple",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -983,7 +983,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-dsig-range-not-at-eof",
+        "context": "font-collection-dsig-range",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -1023,7 +1023,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-dsig-envelope-malformed",
+        "context": "font-collection-dsig-block-length",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -1063,7 +1063,7 @@
         "category": "Capability",
         "code": "CapabilityUnavailable",
         "operation": "font-collection-open",
-        "context": "collection-dsig-version-unsupported",
+        "context": "font-collection-dsig-version",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -1103,7 +1103,7 @@
         "category": "Capability",
         "code": "CapabilityUnavailable",
         "operation": "font-collection-open",
-        "context": "collection-dsig-format-unsupported",
+        "context": "font-collection-dsig-format",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -1143,7 +1143,7 @@
         "category": "Data",
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
-        "context": "collection-dsig-block-overlap",
+        "context": "font-collection-dsig-block-overlap",
         "source_offset": null,
         "requested": null,
         "limit": null
@@ -1175,18 +1175,18 @@
       "fixture_id": "generated-ttc-v2-mixed-profiles",
       "stage": "select",
       "entrypoint": "FontCollection::open_face",
-      "face_index": 2,
+      "face_index": 5,
       "mutation_window": "none",
       "authority": "hostile",
       "boundary": "failure",
       "error": {
         "category": "Input",
-        "code": "InvalidInput",
-        "operation": "font-collection-face",
+        "code": "InvalidRange",
+        "operation": "font-collection-open-face",
         "context": "font-collection-face-index",
         "source_offset": null,
-        "requested": 2,
-        "limit": 2
+        "requested": 5,
+        "limit": 5
       },
       "publication": "none",
       "budget_before": {
@@ -1222,7 +1222,7 @@
       "error": {
         "category": "Capability",
         "code": "CapabilityUnavailable",
-        "operation": "font-collection-face",
+        "operation": "font-collection-open-face",
         "context": "font-collection-face-profile",
         "source_offset": null,
         "requested": null,
@@ -1262,7 +1262,7 @@
       "error": {
         "category": "Capability",
         "code": "CapabilityUnavailable",
-        "operation": "font-collection-face",
+        "operation": "font-collection-open-face",
         "context": "font-collection-face-profile",
         "source_offset": null,
         "requested": null,
@@ -1302,7 +1302,7 @@
       "error": {
         "category": "Capability",
         "code": "CapabilityUnavailable",
-        "operation": "font-collection-face",
+        "operation": "font-collection-open-face",
         "context": "font-collection-face-profile",
         "source_offset": null,
         "requested": null,
@@ -1340,13 +1340,13 @@
       "authority": "hostile",
       "boundary": "failure",
       "error": {
-        "category": "Data",
-        "code": "InvalidEncoding",
+        "category": "Resource",
+        "code": "BudgetExceeded",
         "operation": "font-collection-open",
-        "context": "font-collection-pair-work",
+        "context": "max-work",
         "source_offset": null,
-        "requested": null,
-        "limit": null
+        "requested": 18446744073709551615,
+        "limit": 48
       },
       "publication": "none",
       "budget_before": {
@@ -1384,7 +1384,7 @@
       "error": {
         "category": "State",
         "code": "InvalidRange",
-        "operation": "font-collection-revision",
+        "operation": "font-collection-query",
         "context": "font-collection-source-revision-drift",
         "source_offset": null,
         "requested": null,
@@ -1415,8 +1415,8 @@
     {
       "id": "mutation-collection-mid-open-final-guard",
       "fixture_id": "generated-ttc-v1-exact-sharing",
-      "stage": "inspect",
-      "entrypoint": "FontCollection::face_profile",
+      "stage": "open",
+      "entrypoint": "FontCollection::open",
       "face_index": null,
       "mutation_window": "mutation-collection-mid-open-final-guard",
       "authority": "mutation",
@@ -1424,32 +1424,32 @@
       "error": {
         "category": "State",
         "code": "InvalidRange",
-        "operation": "font-collection-revision",
+        "operation": "font-collection-open",
         "context": "font-collection-source-revision-drift",
         "source_offset": null,
         "requested": null,
         "limit": null
       },
-      "publication": "existing-collection-only",
+      "publication": "none",
       "budget_before": {
-        "bytes": 0,
-        "allocations": 0,
-        "allocation_size": 0,
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
         "width": 0,
         "height": 0,
         "pixels": 0,
         "depth": 0,
-        "work": 0
+        "work": 86
       },
       "budget_after": {
-        "bytes": 0,
-        "allocations": 0,
-        "allocation_size": 0,
+        "bytes": 248,
+        "allocations": 2,
+        "allocation_size": 80,
         "width": 0,
         "height": 0,
         "pixels": 0,
         "depth": 0,
-        "work": 0
+        "work": 86
       }
     },
     {
@@ -1464,7 +1464,7 @@
       "error": {
         "category": "State",
         "code": "InvalidRange",
-        "operation": "font-collection-revision",
+        "operation": "font-collection-open-face",
         "context": "font-collection-source-revision-drift",
         "source_offset": null,
         "requested": null,
@@ -1504,7 +1504,7 @@
       "error": {
         "category": "State",
         "code": "InvalidRange",
-        "operation": "font-collection-revision",
+        "operation": "font-collection-open-face",
         "context": "font-collection-source-revision-drift",
         "source_offset": null,
         "requested": null,
@@ -1512,24 +1512,24 @@
       },
       "publication": "existing-collection-only",
       "budget_before": {
-        "bytes": 0,
-        "allocations": 0,
-        "allocation_size": 0,
+        "bytes": 65536,
+        "allocations": 16,
+        "allocation_size": 65536,
         "width": 0,
         "height": 0,
         "pixels": 0,
         "depth": 0,
-        "work": 0
+        "work": 65536
       },
       "budget_after": {
-        "bytes": 0,
-        "allocations": 0,
-        "allocation_size": 0,
+        "bytes": 65536,
+        "allocations": 16,
+        "allocation_size": 65536,
         "width": 0,
         "height": 0,
         "pixels": 0,
         "depth": 0,
-        "work": 0
+        "work": 65536
       }
     },
     {
@@ -1576,7 +1576,7 @@
       "id": "mutation-glyph-lookup-mid-query",
       "fixture_id": "generated-ttc-v1-exact-sharing",
       "stage": "query",
-      "entrypoint": "Font::query",
+      "entrypoint": "Font::glyph_id",
       "face_index": 0,
       "mutation_window": "mutation-glyph-lookup-mid-query",
       "authority": "mutation",
@@ -1616,7 +1616,7 @@
       "id": "mutation-kerning-mid-query",
       "fixture_id": "generated-ttc-v1-exact-sharing",
       "stage": "query",
-      "entrypoint": "Font::query",
+      "entrypoint": "Font::kerning",
       "face_index": 0,
       "mutation_window": "mutation-kerning-mid-query",
       "authority": "mutation",
@@ -1656,7 +1656,7 @@
       "id": "mutation-simple-outline-mid-query",
       "fixture_id": "generated-ttc-v1-exact-sharing",
       "stage": "query",
-      "entrypoint": "Font::query",
+      "entrypoint": "Font::outline",
       "face_index": 0,
       "mutation_window": "mutation-simple-outline-mid-query",
       "authority": "mutation",
@@ -1664,7 +1664,7 @@
       "error": {
         "category": "State",
         "code": "InvalidRange",
-        "operation": "font-query",
+        "operation": "font-outline",
         "context": "font-source-revision-drift",
         "source_offset": null,
         "requested": null,
@@ -1696,7 +1696,7 @@
       "id": "mutation-composite-outline-mid-query",
       "fixture_id": "generated-ttc-v1-exact-sharing",
       "stage": "query",
-      "entrypoint": "Font::query",
+      "entrypoint": "Font::outline",
       "face_index": 0,
       "mutation_window": "mutation-composite-outline-mid-query",
       "authority": "mutation",
@@ -1704,7 +1704,7 @@
       "error": {
         "category": "State",
         "code": "InvalidRange",
-        "operation": "font-query",
+        "operation": "font-outline",
         "context": "font-source-revision-drift",
         "source_offset": null,
         "requested": null,
@@ -1749,8 +1749,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 88,
+        "limit": 88
       },
       "publication": "collection",
       "budget_before": {
@@ -1789,8 +1789,8 @@
         "operation": "font-collection-open",
         "context": "max-source-bytes",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 88,
+        "limit": 87
       },
       "publication": "none",
       "budget_before": {
@@ -1829,8 +1829,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 5,
+        "limit": 5
       },
       "publication": "collection",
       "budget_before": {
@@ -1869,8 +1869,8 @@
         "operation": "font-collection-open",
         "context": "max-faces",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 5,
+        "limit": 4
       },
       "publication": "none",
       "budget_before": {
@@ -1909,8 +1909,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 3,
+        "limit": 3
       },
       "publication": "collection",
       "budget_before": {
@@ -1949,8 +1949,8 @@
         "operation": "font-collection-open",
         "context": "max-tables-per-face",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 3,
+        "limit": 2
       },
       "publication": "none",
       "budget_before": {
@@ -1989,8 +1989,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 8,
+        "limit": 8
       },
       "publication": "collection",
       "budget_before": {
@@ -2029,8 +2029,8 @@
         "operation": "font-collection-open",
         "context": "max-table-records",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 8,
+        "limit": 7
       },
       "publication": "none",
       "budget_before": {
@@ -2069,8 +2069,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 2,
+        "limit": 2
       },
       "publication": "collection",
       "budget_before": {
@@ -2109,8 +2109,8 @@
         "operation": "font-collection-open",
         "context": "max-dsig-records",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 2,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -2149,8 +2149,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 56,
+        "limit": 56
       },
       "publication": "collection",
       "budget_before": {
@@ -2189,8 +2189,8 @@
         "operation": "font-collection-open",
         "context": "max-dsig-bytes",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 56,
+        "limit": 55
       },
       "publication": "none",
       "budget_before": {
@@ -2229,8 +2229,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 440,
+        "limit": 440
       },
       "publication": "collection",
       "budget_before": {
@@ -2269,8 +2269,8 @@
         "operation": "font-collection-open",
         "context": "max-retained-bookkeeping-bytes",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 440,
+        "limit": 439
       },
       "publication": "none",
       "budget_before": {
@@ -2309,8 +2309,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 252,
+        "limit": 252
       },
       "publication": "collection",
       "budget_before": {
@@ -2349,8 +2349,8 @@
         "operation": "font-collection-open",
         "context": "max-work",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 252,
+        "limit": 251
       },
       "publication": "none",
       "budget_before": {
@@ -2389,8 +2389,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 536,
+        "limit": 536
       },
       "publication": "font",
       "budget_before": {
@@ -2429,8 +2429,8 @@
         "operation": "font-open",
         "context": "max-source-bytes",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 536,
+        "limit": 535
       },
       "publication": "none",
       "budget_before": {
@@ -2469,8 +2469,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 16,
+        "limit": 16
       },
       "publication": "font",
       "budget_before": {
@@ -2509,8 +2509,8 @@
         "operation": "font-open",
         "context": "max-tables",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 16,
+        "limit": 15
       },
       "publication": "none",
       "budget_before": {
@@ -2549,8 +2549,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 1024,
+        "limit": 1024
       },
       "publication": "font",
       "budget_before": {
@@ -2589,8 +2589,8 @@
         "operation": "font-open",
         "context": "max-table-bytes",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 1024,
+        "limit": 1023
       },
       "publication": "none",
       "budget_before": {
@@ -2629,8 +2629,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 16,
+        "limit": 16
       },
       "publication": "font",
       "budget_before": {
@@ -2669,8 +2669,8 @@
         "operation": "font-open",
         "context": "max-glyphs",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 16,
+        "limit": 15
       },
       "publication": "none",
       "budget_before": {
@@ -2709,8 +2709,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 16,
+        "limit": 16
       },
       "publication": "font",
       "budget_before": {
@@ -2749,8 +2749,8 @@
         "operation": "font-open",
         "context": "max-name-records",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 16,
+        "limit": 15
       },
       "publication": "none",
       "budget_before": {
@@ -2789,8 +2789,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 16,
+        "limit": 16
       },
       "publication": "font",
       "budget_before": {
@@ -2829,8 +2829,8 @@
         "operation": "font-open",
         "context": "max-cmap-records",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 16,
+        "limit": 15
       },
       "publication": "none",
       "budget_before": {
@@ -2869,8 +2869,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 16,
+        "limit": 16
       },
       "publication": "font",
       "budget_before": {
@@ -2909,8 +2909,8 @@
         "operation": "font-open",
         "context": "max-kern-subtables",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 16,
+        "limit": 15
       },
       "publication": "none",
       "budget_before": {
@@ -2949,8 +2949,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 256,
+        "limit": 256
       },
       "publication": "font",
       "budget_before": {
@@ -2989,8 +2989,8 @@
         "operation": "font-open",
         "context": "max-kern-pairs",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 256,
+        "limit": 255
       },
       "publication": "none",
       "budget_before": {
@@ -3029,8 +3029,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 4096,
+        "limit": 4096
       },
       "publication": "font",
       "budget_before": {
@@ -3069,8 +3069,8 @@
         "operation": "font-open",
         "context": "max-outline-points",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 4096,
+        "limit": 4095
       },
       "publication": "none",
       "budget_before": {
@@ -3109,8 +3109,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 256,
+        "limit": 256
       },
       "publication": "font",
       "budget_before": {
@@ -3149,8 +3149,8 @@
         "operation": "font-open",
         "context": "max-outline-contours",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 256,
+        "limit": 255
       },
       "publication": "none",
       "budget_before": {
@@ -3189,8 +3189,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 256,
+        "limit": 256
       },
       "publication": "font",
       "budget_before": {
@@ -3229,8 +3229,8 @@
         "operation": "font-open",
         "context": "max-outline-components",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 256,
+        "limit": 255
       },
       "publication": "none",
       "budget_before": {
@@ -3269,8 +3269,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 1024,
+        "limit": 1024
       },
       "publication": "font",
       "budget_before": {
@@ -3309,8 +3309,8 @@
         "operation": "font-open",
         "context": "max-instruction-bytes",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 1024,
+        "limit": 1023
       },
       "publication": "none",
       "budget_before": {
@@ -3349,8 +3349,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 256,
+        "limit": 256
       },
       "publication": "font",
       "budget_before": {
@@ -3389,8 +3389,8 @@
         "operation": "font-open",
         "context": "max-post-name-bytes",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 256,
+        "limit": 255
       },
       "publication": "none",
       "budget_before": {
@@ -3429,8 +3429,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1,
-        "limit": 1
+        "requested": 16384,
+        "limit": 16384
       },
       "publication": "font",
       "budget_before": {
@@ -3469,8 +3469,8 @@
         "operation": "font-open",
         "context": "max-work",
         "source_offset": null,
-        "requested": 1,
-        "limit": 0
+        "requested": 16384,
+        "limit": 16383
       },
       "publication": "none",
       "budget_before": {

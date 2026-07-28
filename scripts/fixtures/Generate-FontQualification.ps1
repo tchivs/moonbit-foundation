@@ -1091,7 +1091,8 @@ function Read-FontCollectionQualificationCases {
       if ($case.stage -cnotin @('open','inspect','select','query') -or
           $case.entrypoint -cnotin @(
             'FontCollection::open','FontCollection::face_profile',
-            'FontCollection::open_face','Font::query'
+            'FontCollection::open_face','Font::query','Font::glyph_id',
+            'Font::kerning','Font::outline'
           ) -or
           $case.boundary -cnotin @('success','failure','exact','one-short') -or
           $case.publication -cnotin @(
@@ -1298,107 +1299,110 @@ function New-FontCollectionQualificationCases {
       -Publication 'font' -BudgetBefore $zero -BudgetAfter $zero))
   }
 
+  # These tables intentionally spell out every runtime-observable field. Do not
+  # derive contexts or numeric boundaries from IDs: the corpus is the executable
+  # contract, not a display-name catalogue.
+  $hostileFacts = @(
+    @('collection-header-truncated','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-header',$null,4UL,0UL),
+    @('collection-signature-invalid','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-signature',0UL,$null,$null),
+    @('collection-version-unsupported','open','FontCollection::open',$null,'Capability','CapabilityUnavailable','font-collection-open','font-collection-version',4UL,$null,$null),
+    @('collection-face-count-zero','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-face-count',8UL,$null,$null),
+    @('collection-offset-array-truncated','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-offset-array',12UL,20UL,15UL),
+    @('collection-face-directory-truncated','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-directory-range',$null,$null,$null),
+    @('collection-directory-search-facts-invalid','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-search-facts',$null,$null,$null),
+    @('collection-directory-tags-unordered','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-tag-order',$null,$null,$null),
+    @('collection-table-range-overflow','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-range',$null,$null,$null),
+    @('collection-protected-range-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-protected-overlap',$null,$null,$null),
+    @('collection-same-face-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-same-face-overlap',$null,$null,$null),
+    @('collection-cross-face-partial-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-cross-face-overlap',$null,$null,$null),
+    @('collection-shared-range-metadata-conflict','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-shared-metadata',$null,$null,$null),
+    @('collection-dsig-partial-zero-tuple','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-tuple',$null,$null,$null),
+    @('collection-dsig-range-not-at-eof','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-range',$null,$null,$null),
+    @('collection-dsig-envelope-malformed','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-block-length',$null,$null,$null),
+    @('collection-dsig-version-unsupported','open','FontCollection::open',$null,'Capability','CapabilityUnavailable','font-collection-open','font-collection-dsig-version',$null,$null,$null),
+    @('collection-dsig-format-unsupported','open','FontCollection::open',$null,'Capability','CapabilityUnavailable','font-collection-open','font-collection-dsig-format',$null,$null,$null),
+    @('collection-dsig-block-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-block-overlap',$null,$null,$null),
+    @('collection-face-index-equal-count','select','FontCollection::open_face',5,'Input','InvalidRange','font-collection-open-face','font-collection-face-index',$null,5UL,5UL),
+    @('collection-select-cff','select','FontCollection::open_face',1,'Capability','CapabilityUnavailable','font-collection-open-face','font-collection-face-profile',$null,$null,$null),
+    @('collection-select-cff2','select','FontCollection::open_face',2,'Capability','CapabilityUnavailable','font-collection-open-face','font-collection-face-profile',$null,$null,$null),
+    @('collection-select-variable','select','FontCollection::open_face',3,'Capability','CapabilityUnavailable','font-collection-open-face','font-collection-face-profile',$null,$null,$null),
+    @('collection-checked-pair-work-overflow','open','FontCollection::open',$null,'Resource','BudgetExceeded','font-collection-open','max-work',$null,[UInt64]::MaxValue,48UL)
+  )
   $hostile = [Collections.Generic.List[object]]::new()
-  foreach ($id in @($expectedIds.hostile_cases)) {
-    $entrypoint = 'FontCollection::open'
-    $stage = 'open'
-    $faceIndex = $null
-    $category = 'Data'
-    $code = 'InvalidEncoding'
-    $operation = 'font-collection-open'
-    $context = $id
-    $sourceOffset = $null
-    $requested = $null
-    $limit = $null
-    if ($id -in @(
-        'collection-version-unsupported','collection-dsig-version-unsupported',
-        'collection-dsig-format-unsupported','collection-select-cff',
-        'collection-select-cff2','collection-select-variable'
-      )) {
-      $category = 'Capability'
-      $code = 'CapabilityUnavailable'
-    }
-    if ($id -eq 'collection-face-index-equal-count') {
-      $entrypoint = 'FontCollection::open_face'
-      $stage = 'select'
-      $faceIndex = 2
-      $category = 'Input'
-      $code = 'InvalidInput'
-      $operation = 'font-collection-face'
-      $context = 'font-collection-face-index'
-      $requested = 2
-      $limit = 2
-    } elseif ($id -in @(
-        'collection-select-cff','collection-select-cff2','collection-select-variable'
-      )) {
-      $entrypoint = 'FontCollection::open_face'
-      $stage = 'select'
-      $faceIndex = switch ($id) {
-        'collection-select-cff' { 1 }
-        'collection-select-cff2' { 2 }
-        default { 3 }
-      }
-      $operation = 'font-collection-face'
-      $context = 'font-collection-face-profile'
-    } elseif ($id -eq 'collection-checked-pair-work-overflow') {
-      $operation = 'font-collection-open'
-      $context = 'font-collection-pair-work'
-    }
+  foreach ($fact in $hostileFacts) {
     $hostile.Add((New-FontCollectionQualificationCase `
-      -Id $id -FixtureId 'generated-ttc-v2-mixed-profiles' -Stage $stage `
-      -Entrypoint $entrypoint -FaceIndex $faceIndex -Authority 'hostile' `
-      -Boundary 'failure' -Category $category -Code $code `
-      -Operation $operation -Context $context -SourceOffset $sourceOffset `
-      -Requested $requested -Limit $limit -Publication 'none' `
+      -Id $fact[0] -FixtureId 'generated-ttc-v2-mixed-profiles' -Stage $fact[1] `
+      -Entrypoint $fact[2] -FaceIndex $fact[3] -Authority 'hostile' `
+      -Boundary 'failure' -Category $fact[4] -Code $fact[5] `
+      -Operation $fact[6] -Context $fact[7] -SourceOffset $fact[8] `
+      -Requested $fact[9] -Limit $fact[10] -Publication 'none' `
       -BudgetBefore $zero -BudgetAfter $zero))
   }
 
+  $mutationFacts = @(
+    @('mutation-collection-after-open-before-query','inspect','FontCollection::face_profile',$null,'font-collection-query','font-collection-source-revision-drift','existing-collection-only',$zero),
+    @('mutation-collection-mid-open-final-guard','open','FontCollection::open',$null,'font-collection-open','font-collection-source-revision-drift','none',(New-FontCollectionQualificationBudgetSnapshot -Bytes 248UL -Allocations 2UL -AllocationSize 80UL -Work 86UL)),
+    @('mutation-selection-before-open-face','select','FontCollection::open_face',0,'font-collection-open-face','font-collection-source-revision-drift','existing-collection-only',$zero),
+    @('mutation-selection-mid-admission-final-guard','select','FontCollection::open_face',0,'font-collection-open-face','font-collection-source-revision-drift','existing-collection-only',(New-FontCollectionQualificationBudgetSnapshot -Bytes 65536UL -Allocations 16UL -AllocationSize 65536UL -Work 65536UL)),
+    @('mutation-selected-font-after-publication','query','Font::query',0,'font-query','font-source-revision-drift','existing-font-only',$zero),
+    @('mutation-glyph-lookup-mid-query','query','Font::glyph_id',0,'font-query','font-source-revision-drift','existing-font-only',$zero),
+    @('mutation-kerning-mid-query','query','Font::kerning',0,'font-query','font-source-revision-drift','existing-font-only',$zero),
+    @('mutation-simple-outline-mid-query','query','Font::outline',0,'font-outline','font-source-revision-drift','existing-font-only',$zero),
+    @('mutation-composite-outline-mid-query','query','Font::outline',0,'font-outline','font-source-revision-drift','existing-font-only',$zero)
+  )
   $mutation = [Collections.Generic.List[object]]::new()
-  foreach ($id in @($expectedIds.mutation_cases)) {
-    $isCollection = $id -like 'mutation-collection-*'
-    $isSelection = $id -like 'mutation-selection-*'
-    $entrypoint = if ($isCollection) {
-      'FontCollection::face_profile'
-    } elseif ($isSelection) {
-      'FontCollection::open_face'
-    } else {
-      'Font::query'
-    }
-    $stage = if ($isCollection) {
-      'inspect'
-    } elseif ($isSelection) {
-      'select'
-    } else {
-      'query'
-    }
-    $publication = if ($isCollection -or $isSelection) {
-      'existing-collection-only'
-    } else {
-      'existing-font-only'
-    }
+  foreach ($fact in $mutationFacts) {
     $mutation.Add((New-FontCollectionQualificationCase `
-      -Id $id -FixtureId 'generated-ttc-v1-exact-sharing' -Stage $stage `
-      -Entrypoint $entrypoint -FaceIndex $(if ($isCollection) { $null } else { 0 }) `
-      -MutationWindow $id -Authority 'mutation' -Boundary 'failure' `
-      -Category 'State' -Code 'InvalidRange' `
-      -Operation $(if ($entrypoint -ceq 'Font::query') { 'font-query' } else { 'font-collection-revision' }) `
-      -Context $(if ($entrypoint -ceq 'Font::query') { 'font-source-revision-drift' } else { 'font-collection-source-revision-drift' }) `
+      -Id $fact[0] -FixtureId 'generated-ttc-v1-exact-sharing' -Stage $fact[1] `
+      -Entrypoint $fact[2] -FaceIndex $fact[3] -MutationWindow $fact[0] `
+      -Authority 'mutation' -Boundary 'failure' -Category 'State' `
+      -Code 'InvalidRange' -Operation $fact[4] -Context $fact[5] `
       -SourceOffset $null -Requested $null -Limit $null `
-      -Publication $publication -BudgetBefore $zero -BudgetAfter $zero))
+      -Publication $fact[6] -BudgetBefore $fact[7] -BudgetAfter $fact[7]))
   }
 
+  $collectionLimitFacts = [ordered]@{
+    'source-bytes' = 88UL
+    'faces' = 5UL
+    'tables-per-face' = 3UL
+    'table-records' = 8UL
+    'dsig-records' = 2UL
+    'dsig-bytes' = 56UL
+    'retained-bookkeeping-bytes' = 440UL
+    'work' = 252UL
+  }
+  # The selected corpus uses a deliberately roomy, deterministic admission
+  # envelope. Each row freezes the exact configured boundary; runtime tests
+  # separately exercise the semantic parser demand for that dimension.
+  $selectedLimitFacts = [ordered]@{
+    'source-bytes' = 536UL
+    'tables' = 16UL
+    'table-bytes' = 1024UL
+    'glyphs' = 16UL
+    'name-records' = 16UL
+    'cmap-records' = 16UL
+    'kern-subtables' = 16UL
+    'kern-pairs' = 256UL
+    'outline-points' = 4096UL
+    'outline-contours' = 256UL
+    'outline-components' = 256UL
+    'instruction-bytes' = 1024UL
+    'post-name-bytes' = 256UL
+    'work' = 16384UL
+  }
   $limits = [Collections.Generic.List[object]]::new()
   foreach ($id in @($expectedIds.limit_cases)) {
     $selected = $id.StartsWith('limit-selected-', [StringComparison]::Ordinal)
     $oneShort = $id.EndsWith('-one-short', [StringComparison]::Ordinal)
     $dimension = $id.Substring($(if ($selected) { 15 } else { 17 }))
-    $dimension = $dimension.Substring(
-      0,
-      $dimension.Length - $(if ($oneShort) { 10 } else { 6 })
-    )
+    $dimension = $dimension.Substring(0, $dimension.Length - $(if ($oneShort) { 10 } else { 6 }))
+    $requested = if ($selected) { $selectedLimitFacts[$dimension] } else { $collectionLimitFacts[$dimension] }
+    if ($null -eq $requested) {
+      throw "No explicit qualification boundary is declared for '$id'."
+    }
+    $declaredLimit = if ($oneShort) { $requested - 1UL } else { $requested }
     $limits.Add((New-FontCollectionQualificationCase `
-      -Id $id `
-      -FixtureId $(if ($selected) { 'generated-ttc-v1-static-selected' } else { 'generated-ttc-v1-exact-sharing' }) `
+      -Id $id -FixtureId $(if ($selected) { 'generated-ttc-v1-static-selected' } else { 'generated-ttc-v1-exact-sharing' }) `
       -Stage $(if ($selected) { 'select' } else { 'open' }) `
       -Entrypoint $(if ($selected) { 'FontCollection::open_face' } else { 'FontCollection::open' }) `
       -FaceIndex $(if ($selected) { 0 } else { $null }) `
@@ -1408,7 +1412,7 @@ function New-FontCollectionQualificationCases {
       -Code $(if ($oneShort) { 'BudgetExceeded' } else { $null }) `
       -Operation $(if ($oneShort) { $(if ($selected) { 'font-open' } else { 'font-collection-open' }) } else { $null }) `
       -Context $(if ($oneShort) { "max-$dimension" } else { $null }) `
-      -SourceOffset $null -Requested 1 -Limit $(if ($oneShort) { 0 } else { 1 }) `
+      -SourceOffset $null -Requested $requested -Limit $declaredLimit `
       -Publication $(if ($oneShort) { 'none' } elseif ($selected) { 'font' } else { 'collection' }) `
       -BudgetBefore $zero -BudgetAfter $zero))
   }
@@ -1900,6 +1904,17 @@ function Update-OrCheckFontCollectionManifest {
   $manifest = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json
   $records = @($manifest.records)
   if ($records.Count -eq 14) {
+    $prefixJson = ConvertTo-StableJson @($records[0..10])
+    $prefixSha256 = Get-FontQualificationSha256 -Bytes $Utf8NoBom.GetBytes($prefixJson)
+    if ($prefixSha256 -cne $PreCollectionManifestRecordsSha256) {
+      throw 'Refusing to update collection records after pre-Phase-103 manifest drift.'
+    }
+    $expectedIds = @((Get-FontCollectionManifestRecords).id)
+    if ((@($records[11..13].id) -join "`0") -cne ($expectedIds -join "`0")) {
+      throw 'Refusing to update reordered font collection manifest records.'
+    }
+    $manifest.records = @($records[0..10]) + @(Get-FontCollectionManifestRecords)
+    [IO.File]::WriteAllText($ManifestPath, (ConvertTo-StableJson $manifest), $Utf8NoBom)
     Assert-FontCollectionManifestContract
     return
   }

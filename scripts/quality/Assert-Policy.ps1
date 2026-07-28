@@ -1163,7 +1163,7 @@ function Assert-FontQualificationFixtureManifest {
       source = 'repository-derived:scripts/fixtures/Generate-FontQualification.ps1'
       author = 'MoonBit Native Foundation project generator'
       retrieval_date = '2026-07-28'
-      sha256 = '699be85f05e8e73b53b066eafe1e89fae5cc56a9dec513c62a48c8089cfc5070'
+      sha256 = '4635b0130fe002cc1702b388db674911aee6334c0a35e8f2426a4ff0bd867738'
       license = 'Apache-2.0'
       redistribution_status = 'not-applicable'
       expected_use = 'Phase 103 closed public, hostile, mutation, limit, caller-budget, and ancestor-budget collection qualification matrix'
@@ -1712,7 +1712,7 @@ function Assert-FontCollectionCorpusContract {
   ).ToLowerInvariant()
   Assert-Condition (
     $semanticDigest -ceq
-      '82c939e3a6818c27224d92d9901f9ee1b9d54f57344a2a0ef929c90ebba457bb'
+      'e90022a4a7f06575956e93b0487943c442819ab2ccfc23d29050896e2f21d897'
   ) 'Font collection corpus exact semantic digest drifted.'
 }
 
