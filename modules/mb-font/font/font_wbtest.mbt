@@ -707,6 +707,91 @@ fn font_wb_kern_format0(pairs : Array[(UInt64, UInt64, Int)]) -> Bytes {
 }
 
 ///|
+fn font_wb_work_budget(work : UInt64) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+test "seeded CFF kern authority rejects cumulative work before pair traversal" {
+  let table = Some(
+    font_wb_kern_table(font_wb_kern_format0([(0UL, 1UL, 10)])),
+  )
+  let caller = font_wb_work_budget(8UL)
+  let ledger = FontAdmissionLedger::new_with_staged_work(
+    caller,
+    FontAdmissionCommitMode::CollectionDeferred,
+    7UL,
+  )
+  let mut caller_pair_visits = 0
+  let caller_error = font_admit_kern_bounded_with_probe(
+    table,
+    2UL,
+    font_wb_limits(),
+    ledger,
+    7UL,
+    0UL,
+    fn() { caller_pair_visits = caller_pair_visits + 1 },
+  ).unwrap_err()
+  inspect(
+    caller_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(caller_error.context() == Some("work"), content="true")
+  inspect(caller_pair_visits, content="0")
+  inspect(caller.remaining().work(), content="8")
+
+  let parent = font_wb_work_budget(9UL)
+  let child = parent.child(parent.remaining()).unwrap()
+  parent
+  .charge(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=1UL,
+    ),
+  )
+  .unwrap()
+  let child_ledger = FontAdmissionLedger::new_with_staged_work(
+    child,
+    FontAdmissionCommitMode::CollectionDeferred,
+    7UL,
+  )
+  let mut ancestor_pair_visits = 0
+  let ancestor_error = font_admit_kern_bounded_with_probe(
+    table,
+    2UL,
+    font_wb_limits(),
+    child_ledger,
+    7UL,
+    0UL,
+    fn() { ancestor_pair_visits = ancestor_pair_visits + 1 },
+  ).unwrap_err()
+  inspect(
+    ancestor_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(ancestor_error.context() == Some("work"), content="true")
+  inspect(ancestor_pair_visits, content="0")
+  inspect(parent.remaining().work(), content="8")
+  inspect(child.remaining().work(), content="9")
+}
+
+///|
 test "glyph_for_scalar rejects post-read revision drift" {
   let owner = font_wb_owner(generated_minimal_truetype())
   let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()

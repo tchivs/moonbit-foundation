@@ -163,6 +163,23 @@ fn font_kern_format0_facts(
   pair_count : UInt64,
   num_glyphs : UInt64,
 ) -> Result[KernFormat0Facts, @error.CoreError] {
+  font_kern_format0_facts_with_probe(
+    table,
+    profile,
+    pair_count,
+    num_glyphs,
+    fn() { () },
+  )
+}
+
+///|
+fn font_kern_format0_facts_with_probe(
+  table : TableWindow,
+  profile : KernClassicProfile,
+  pair_count : UInt64,
+  num_glyphs : UInt64,
+  pair_probe : () -> Unit,
+) -> Result[KernFormat0Facts, @error.CoreError] {
   let pair_bytes = match @checked.checked_mul(pair_count, 6UL) {
     Err(_) => return Err(font_data_error("font-kern-format0"))
     Ok(value) => value
@@ -202,6 +219,7 @@ fn font_kern_format0_facts(
   }
   let mut previous_key : UInt64? = None
   for index = 0UL; index < pair_count; index = index + 1UL {
+    pair_probe()
     let record_offset = match @checked.checked_mul(index, 6UL) {
       Err(_) => return Err(font_data_error("font-kern-format0"))
       Ok(value) => value
@@ -307,6 +325,27 @@ fn font_admit_kern_bounded(
   base_work : UInt64,
   base_budget_work : UInt64,
 ) -> Result[KernAdmissionFacts, @error.CoreError] {
+  font_admit_kern_bounded_with_probe(
+    table,
+    num_glyphs,
+    limits,
+    ledger,
+    base_work,
+    base_budget_work,
+    fn() { () },
+  )
+}
+
+///|
+fn font_admit_kern_bounded_with_probe(
+  table : TableWindow?,
+  num_glyphs : UInt64,
+  limits : FontLimits,
+  ledger : FontAdmissionLedger,
+  base_work : UInt64,
+  base_budget_work : UInt64,
+  pair_probe : () -> Unit,
+) -> Result[KernAdmissionFacts, @error.CoreError] {
   let table = match table {
     None =>
       return Ok({ state: Absent, subtable_work: 0UL, pair_work: 0UL })
@@ -395,7 +434,13 @@ fn font_admit_kern_bounded(
           Ok(_) => ()
         }
         let facts = match
-          font_kern_format0_facts(table, value, pair_count, num_glyphs) {
+          font_kern_format0_facts_with_probe(
+            table,
+            value,
+            pair_count,
+            num_glyphs,
+            pair_probe,
+          ) {
           Err(error) => return Err(error)
           Ok(result) => result
         }

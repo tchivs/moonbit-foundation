@@ -111,6 +111,15 @@ fn FontAdmissionLedger::new(
 }
 
 ///|
+fn FontAdmissionLedger::new_with_staged_work(
+  caller : @budget.Budget,
+  mode : FontAdmissionCommitMode,
+  staged_work : UInt64,
+) -> FontAdmissionLedger {
+  { caller, mode, staged_work }
+}
+
+///|
 fn FontAdmissionLedger::admit_stage(
   self : FontAdmissionLedger,
   max_work : UInt64,

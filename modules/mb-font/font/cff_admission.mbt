@@ -1231,9 +1231,11 @@ fn cff_stage_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let kern_ledger = FontAdmissionLedger::new(
+  let kern_base_work = authority.work
+  let kern_ledger = FontAdmissionLedger::new_with_staged_work(
     budget,
     FontAdmissionCommitMode::CollectionDeferred,
+    kern_base_work,
   )
   let kern = match
     font_admit_kern_bounded(
@@ -1241,7 +1243,7 @@ fn cff_stage_structure_at_after_preflight(
       num_glyphs,
       limits,
       kern_ledger,
-      0UL,
+      kern_base_work,
       0UL,
     ) {
     Err(error) => return Err(error)
