@@ -10,6 +10,37 @@ fn type2_geometry_wb_program(arguments : Array[Int], operator : Byte) -> Bytes {
 }
 
 ///|
+fn type2_flex_wb_program(arguments : Array[Int], escaped : Byte) -> Bytes {
+  let source : Array[Byte] = [b'\x8B', b'\x8B', b'\x15']
+  for argument in arguments {
+    source.push((argument + 139).to_byte())
+  }
+  source.push(b'\x0C')
+  source.push(escaped)
+  source.push(b'\x0E')
+  Bytes::from_array(source)
+}
+
+///|
+fn type2_bounds_wb_run_with_matrix(
+  source : Bytes,
+  matrix : Type2Matrix,
+) -> Result[Type2VmResult, @error.CoreError] {
+  let view = font_wb_view(source)
+  type2_execute_program_with_matrix(
+    view,
+    type2_vm_wb_empty_index(view),
+    type2_vm_wb_empty_index(view),
+    type2_fixed_from_raw(0L).unwrap(),
+    type2_fixed_from_raw(0L).unwrap(),
+    type2_fixed_from_raw(0L).unwrap(),
+    matrix,
+    type2_vm_wb_limits(65535UL, 65535UL),
+    view.mutation_revision(),
+  )
+}
+
+///|
 test "Type 2 ordinary path operators preserve relative current point and charges" {
   let cases : Array[(Array[Int], Byte, Int64, Int64, UInt64, UInt64)] = [
     ([10, 20, -5, 5], b'\x05', 5L, 25L, 3UL, 4UL), // rlineto
@@ -150,4 +181,102 @@ test "Type 2 moveto and endchar close contours with exact geometry limits" {
   inspect(two_contours_exact.geometry.points, content="4")
   inspect(two_contours_exact.geometry.contours, content="2")
   inspect(two_contours_exact.geometry.commands, content="6")
+}
+
+///|
+test "Type 2 flex forms lower to the same two cubics as explicit rrcurveto" {
+  let cases : Array[(Array[Int], Byte, Array[Int])] = [
+    (
+      [1, 2, 3, 4, 5, 6, 7],
+      b'\x22',
+      [1, 0, 2, 3, 4, 0, 5, 0, 6, -3, 7, 0],
+    ), // hflex
+    (
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 50],
+      b'\x23',
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    ), // flex
+    (
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      b'\x24',
+      [1, 2, 3, 4, 5, 0, 6, 0, 7, 8, 9, -14],
+    ), // hflex1
+    (
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      b'\x25',
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, -25, 11],
+    ), // flex1
+  ]
+  for item in cases {
+    let flex = type2_vm_wb_run(type2_flex_wb_program(item.0, item.1)).unwrap()
+    let explicit = type2_vm_wb_run(
+      type2_geometry_wb_program(item.2, b'\x08'),
+    ).unwrap()
+    inspect(
+      flex.geometry.current_x.raw == explicit.geometry.current_x.raw,
+      content="true",
+    )
+    inspect(
+      flex.geometry.current_y.raw == explicit.geometry.current_y.raw,
+      content="true",
+    )
+    inspect(flex.geometry.min_x.raw == explicit.geometry.min_x.raw, content="true")
+    inspect(flex.geometry.min_y.raw == explicit.geometry.min_y.raw, content="true")
+    inspect(flex.geometry.max_x.raw == explicit.geometry.max_x.raw, content="true")
+    inspect(flex.geometry.max_y.raw == explicit.geometry.max_y.raw, content="true")
+    inspect(flex.geometry.points, content="7")
+    inspect(flex.geometry.commands, content="4")
+  }
+}
+
+///|
+test "Type 2 bounds transform every hull point and round outward" {
+  let identity = type2_matrix_compose(type2_wb_matrix(1L, 0L, 0L, 1L, 0L, 0L), None, 1UL).unwrap()
+  let fractional = type2_bounds_wb_run_with_matrix(
+    b"\x8B\x8B\x15\xFF\x00\x01\x80\x00\xFF\xFF\xFE\x80\x00\x05\x0E",
+    identity,
+  ).unwrap().geometry.bounds.unwrap()
+  inspect(fractional.x_min, content="0")
+  inspect(fractional.y_min, content="-2")
+  inspect(fractional.x_max, content="2")
+  inspect(fractional.y_max, content="0")
+
+  let top = type2_wb_matrix(2L, 0L, 0L, 3L, 10L, -10L)
+  let fd = type2_wb_matrix(1L, 0L, 0L, 1L, 5L, 7L)
+  let path = type2_geometry_wb_program([1, 2], b'\x05')
+  let name = type2_bounds_wb_run_with_matrix(
+    path,
+    type2_matrix_compose(top, None, 1UL).unwrap(),
+  ).unwrap().geometry.bounds.unwrap()
+  inspect(name.x_min, content="10")
+  inspect(name.y_min, content="-10")
+  inspect(name.x_max, content="12")
+  inspect(name.y_max, content="-4")
+
+  let cid = type2_bounds_wb_run_with_matrix(
+    path,
+    type2_matrix_compose(top, Some(fd), 1UL).unwrap(),
+  ).unwrap().geometry.bounds.unwrap()
+  inspect(cid.x_min, content="20")
+  inspect(cid.y_min, content="11")
+  inspect(cid.x_max, content="22")
+  inspect(cid.y_max, content="17")
+
+  let omitted_fd = type2_bounds_wb_run_with_matrix(
+    path,
+    type2_matrix_compose(top, None, 1UL).unwrap(),
+  ).unwrap().geometry.bounds.unwrap()
+  inspect(omitted_fd.x_min == name.x_min, content="true")
+  inspect(omitted_fd.y_min == name.y_min, content="true")
+  inspect(omitted_fd.x_max == name.x_max, content="true")
+  inspect(omitted_fd.y_max == name.y_max, content="true")
+}
+
+///|
+test "Type 2 empty and moveto-only glyphs retain no bound" {
+  inspect(type2_vm_wb_run(b"\x0E").unwrap().geometry.bounds is None, content="true")
+  inspect(
+    type2_vm_wb_run(b"\x95\x9F\x15\x0E").unwrap().geometry.bounds is None,
+    content="true",
+  )
 }
