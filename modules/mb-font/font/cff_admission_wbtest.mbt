@@ -183,6 +183,25 @@ fn cff_wb_otf_with_cmap(
 }
 
 ///|
+fn cff_wb_otf_with_hmtx(
+  cff : Bytes,
+  hmtx : Bytes,
+  num_glyphs : UInt64,
+) -> Bytes {
+  cff_wb_otf_tables([
+    font_wb_table(b"CFF ", cff),
+    font_wb_table(b"OS/2", generated_os2_table()),
+    font_wb_table(b"cmap", generated_cmap_table()),
+    font_wb_table(b"head", generated_head_table()),
+    font_wb_table(b"hhea", generated_hhea_table()),
+    font_wb_table(b"hmtx", hmtx),
+    font_wb_table(b"maxp", cff_wb_maxp_table(num_glyphs)),
+    font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
+    font_wb_table(b"post", generated_post_table()),
+  ])
+}
+
+///|
 fn cff_wb_cmap_format4_two_segments() -> Bytes {
   let output : Array[Byte] = []
   font_wb_put_u16(output, 0UL)
@@ -404,6 +423,34 @@ test "CFF1 final revision guard precedes the sole combined commit" {
   inspect(after.bytes() == before.bytes(), content="true")
   inspect(after.allocations() == before.allocations(), content="true")
   inspect(after.work() == before.work(), content="true")
+}
+
+///|
+test "CFF1 Type 2 width mismatch retains hmtx as metric authority" {
+  let source = cff_wb_otf_with_hmtx(
+    cff_wb_name_table_with_programs([
+      b"\xef\x8b\x8b\x15\x0e",
+      b"\xf0\x8b\x8b\x15\x0e",
+      b"\xf1\x8b\x8b\x15\x0e",
+    ]),
+    b"\x01\xf4\xff\xec\x00\x1e\xff\xd8",
+    3UL,
+  )
+  let admitted = admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  ).unwrap()
+  let first = cff_read_hmtx_metric(admitted.metrics, 0UL).unwrap()
+  let second = cff_read_hmtx_metric(admitted.metrics, 1UL).unwrap()
+  let third = cff_read_hmtx_metric(admitted.metrics, 2UL).unwrap()
+  inspect(first.0, content="500")
+  inspect(first.1, content="-20")
+  inspect(second.0, content="500")
+  inspect(second.1, content="30")
+  inspect(third.0, content="500")
+  inspect(third.1, content="-40")
 }
 
 ///|
