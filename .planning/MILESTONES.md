@@ -1,5 +1,35 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.33 TrueType Collection Adapters (Shipped: 2026-07-28)
+
+**Delivered:** A pure-MoonBit bounded TTC/OTC v1/v2 adapter that inspects collections, selects supported static TrueType faces into the existing `Font`, and proves hostile, licensed, standalone-compatible behavior identically on four targets.
+
+**Phases completed:** 101-103 (9 plans, 18 tasks)
+
+**Key accomplishments:**
+
+- Added a closed `FontCollection` contract for bounded face/profile/DSIG inspection with revision-first queries and compact deterministic accounting.
+- Reused the retained collection root through one root-relative selected-face admission path, preserving standalone `Font` metrics, mapping, kerning, glyph, outline, checksum, mutation, limit, and budget behavior.
+- Qualified an exact-sharing 757,428-byte two-face DejaVu TTC derivative through retained licensing/provenance and an independent oracle bound to the standalone font oracle.
+- Executed a closed 97-case hostile/resource/mutation corpus with exact structured outcomes and complete caller/ancestor budget atomicity.
+- Produced managed v2 evidence with fourteen focused gates and 152/152 package tests per target, twenty-nine negative probes, exact pinned toolchain identity, and four semantically equal target records.
+- Preserved the exact 85-line public interface, sole `mb-font -> mb-core` dependency, pure MoonBit implementation, and explicit WOFF/CFF/variable execution boundaries.
+
+**Stats:**
+
+- 88 files changed
+- 34,686 lines added, 1,664 removed (generated fixtures, evidence policy, tests, and planning artifacts included)
+- 3 phases, 9 plans, 18 tasks
+- 1 calendar day from milestone start to ship
+
+**Git range:** `fc240e5e` → `186d6b5f`
+
+**Closeout:** Verified closeout; milestone audit passed 5/5 requirements, 11/11 integration links, and 6/6 end-to-end flows. Phase 103 security closed 21 mitigations plus 3 documented low-risk acceptances with 0 open threats.
+
+**What's next:** Select and plan the next code-first milestone from the validated backlog; WOFF admission, CFF execution, variable instantiation, shaping, hinting, rasterization, and publication remain deliberately uncommitted.
+
+---
+
 ## v0.32 TrueType Font Foundation (Shipped: 2026-07-28)
 
 **Delivered:** A pure-MoonBit, four-target `tchivs/mb-font` foundation for bounded TrueType admission, metrics, Unicode mapping, legacy kerning, transactional simple/composite outlines, and reproducible licensed-font qualification.

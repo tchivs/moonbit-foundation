@@ -16,9 +16,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** Phase 103 passed 16/16 goal must-haves with no gaps or human-verification debt. The final four-target lane passed 14 focused gates and 152/152 package tests per target, 29 evidence-negative probes, exact pinned `moon`/`moonc`/`moonrun` identities, and a closed four-record semantic comparison. The deterministic 757,428-byte two-face DejaVu TTC derivative, independent oracle, hostile 97-case matrix, mutation/resource atomicity, exact 85-line public interface, sole `mb-font -> mb-core` dependency, and WOFF/CFF/variable boundaries are policy-locked. Security verification closes 21 threats and records the three declared low-risk supply-chain assumptions as accepted, with zero open threats.
 
-**Next:** Audit and archive v0.33, then choose the next code-first milestone from the validated backlog.
+**Next:** Choose and plan the next code-first milestone from the validated backlog.
 
-## Current Milestone: v0.33 TrueType Collection Adapters
+## Latest Milestone: v0.33 TrueType Collection Adapters
 
 **Goal:** Let MoonBit library authors select and admit one supported TrueType face from bounded TTC/OTC bytes, then use the existing metrics, mapping, kerning, and outline contracts unchanged.
 
@@ -29,7 +29,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - Reject unsupported CFF/CFF2 faces and malformed or resource-exhausting collections before publishing a partial collection or font.
 - Qualify generated and licensed collection fixtures, hostile cases, standalone-SFNT compatibility, and identical behavior on `js`, `wasm`, `wasm-gc`, and `native`.
 
-## Latest Milestone: v0.32 TrueType Font Foundation
+## Previous Milestone: v0.32 TrueType Font Foundation
 
 **Goal:** Let MoonBit library authors parse bounded TrueType fonts into deterministic Unicode mappings, metrics, and reusable glyph outlines without a foreign font stack.
 
@@ -38,6 +38,12 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - Establish the independently publishable `tchivs/mb-font` module and bounded SFNT/TrueType table-directory model under RFC 0004.
 - Expose checked font metrics, Unicode `cmap` resolution, simple/composite `glyf` outlines, and basic legacy `kern` pair adjustments through a portable MoonBit API.
 - Qualify malformed-input rejection, deterministic public behavior, representative real-font interoperability, and identical execution on `js`, `wasm`, `wasm-gc`, and `native`.
+
+## Next Milestone Goals
+
+- Select one reusable code-first capability with a concrete downstream consumer rather than widening release automation by default.
+- Preserve exact four-target, pure-MoonBit, bounded-resource, dependency, and evidence contracts established through v0.33.
+- Treat WOFF admission, CFF/CFF2 execution, variable-font instantiation, shaping, hinting, rasterization, and publication as separate decisions requiring explicit scope and acceptance criteria.
 
 ## Requirements
 
@@ -258,4 +264,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after completing Phase 103 and the v0.33 implementation roadmap*
+*Last updated: 2026-07-28 after shipping the v0.33 milestone*
