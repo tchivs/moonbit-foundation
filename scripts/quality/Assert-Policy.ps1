@@ -1168,11 +1168,128 @@ function Get-FontExecutableSourceText {
   param([Parameter(Mandatory)][string]$Path)
 
   $text = Get-Content -Raw -LiteralPath $Path
-  $text = [regex]::Replace($text, '(?s)/[*].*?[*]/', ' ')
-  $text = [regex]::Replace($text, '(?m)//.*$', ' ')
-  $text = [regex]::Replace($text, '(?s)(?:b)?"(?:[\\].|[^"\\])*"', '""')
-  $text = [regex]::Replace($text, "(?s)(?:b)?'(?:[\\].|[^'\\])*'", "''")
-  return $text
+  $output = [Text.StringBuilder]::new($text.Length)
+  $state = 'code'
+  $blockDepth = 0
+  $index = 0
+  $slash = [char]47
+  $asterisk = [char]42
+  $backslash = [char]92
+  $doubleQuote = [char]34
+  $singleQuote = [char]39
+  $lineFeed = [char]10
+  $carriageReturn = [char]13
+
+  while ($index -lt $text.Length) {
+    $current = $text[$index]
+    $next = if ($index + 1 -lt $text.Length) { $text[$index + 1] } else { [char]0 }
+
+    switch ($state) {
+      'code' {
+        if ($current -eq $slash -and $next -eq $slash) {
+          [void]$output.Append('  ')
+          $state = 'line-comment'
+          $index += 2
+          continue
+        }
+        if ($current -eq $slash -and $next -eq $asterisk) {
+          [void]$output.Append('  ')
+          $state = 'block-comment'
+          $blockDepth = 1
+          $index += 2
+          continue
+        }
+        if (
+          $current -eq [char]98 -and
+          ($next -eq $doubleQuote -or $next -eq $singleQuote)
+        ) {
+          [void]$output.Append('  ')
+          $state = if ($next -eq $doubleQuote) { 'string' } else { 'character' }
+          $index += 2
+          continue
+        }
+        if ($current -eq $doubleQuote -or $current -eq $singleQuote) {
+          [void]$output.Append(' ')
+          $state = if ($current -eq $doubleQuote) { 'string' } else { 'character' }
+          $index += 1
+          continue
+        }
+        [void]$output.Append($current)
+        $index += 1
+      }
+      'line-comment' {
+        if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          [void]$output.Append($current)
+          $state = 'code'
+        } else {
+          [void]$output.Append(' ')
+        }
+        $index += 1
+      }
+      'block-comment' {
+        if ($current -eq $slash -and $next -eq $asterisk) {
+          [void]$output.Append('  ')
+          $blockDepth += 1
+          $index += 2
+          continue
+        }
+        if ($current -eq $asterisk -and $next -eq $slash) {
+          [void]$output.Append('  ')
+          $blockDepth -= 1
+          $index += 2
+          if ($blockDepth -eq 0) { $state = 'code' }
+          continue
+        }
+        if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          [void]$output.Append($current)
+        } else {
+          [void]$output.Append(' ')
+        }
+        $index += 1
+      }
+      { $_ -eq 'string' -or $_ -eq 'character' } {
+        $terminator = if ($state -eq 'string') { $doubleQuote } else { $singleQuote }
+        if ($current -eq $backslash) {
+          [void]$output.Append(' ')
+          $index += 1
+          if ($index -ge $text.Length) {
+            throw "Font source '$Path' ends inside an escaped $state literal."
+          }
+          $escaped = $text[$index]
+          if ($escaped -eq $lineFeed -or $escaped -eq $carriageReturn) {
+            [void]$output.Append($escaped)
+          } else {
+            [void]$output.Append(' ')
+          }
+          $index += 1
+          continue
+        }
+        if ($current -eq $terminator) {
+          [void]$output.Append(' ')
+          $state = 'code'
+          $index += 1
+          continue
+        }
+        if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          [void]$output.Append($current)
+        } else {
+          [void]$output.Append(' ')
+        }
+        $index += 1
+      }
+      default {
+        throw "Font source lexer entered unknown state '$state' for '$Path'."
+      }
+    }
+  }
+
+  if ($state -eq 'block-comment') {
+    throw "Font source '$Path' ends inside a block comment."
+  }
+  if ($state -eq 'string' -or $state -eq 'character') {
+    throw "Font source '$Path' ends inside a $state literal."
+  }
+  return $output.ToString()
 }
 
 function Assert-FontPortableSourceBoundary {
@@ -2278,10 +2395,43 @@ function Assert-FontQualificationArtifacts {
   } 'count mismatch'
   $negativeSource = Join-Path ([IO.Path]::GetTempPath()) ('mnf-font-boundary-' + [guid]::NewGuid().ToString('N') + '.mbt')
   try {
-    [IO.File]::WriteAllText($negativeSource, "fn forbidden_probe() { rasterize_font() }`n", [Text.UTF8Encoding]::new($false))
-    Confirm-FontQualificationRejected 'forbidden executable source call' {
+    $portableBoundaryProbes = @(
+      [pscustomobject]@{ Name = 'FFI'; Call = 'foreign_call()'; Pattern = 'forbidden FFI or native stub' },
+      [pscustomobject]@{ Name = 'filesystem'; Call = 'open_file()'; Pattern = 'forbidden filesystem or host-font discovery' },
+      [pscustomobject]@{ Name = 'GUI'; Call = 'canvas_draw()'; Pattern = 'forbidden GUI canvas image or color dependency' },
+      [pscustomobject]@{ Name = 'shaping'; Call = 'shape_text()'; Pattern = 'forbidden shaping execution' },
+      [pscustomobject]@{ Name = 'hinting'; Call = 'hint_outline()'; Pattern = 'forbidden hinting execution' },
+      [pscustomobject]@{ Name = 'CFF'; Call = 'cff_decode()'; Pattern = 'forbidden CFF or CFF2 execution' },
+      [pscustomobject]@{ Name = 'rasterization'; Call = 'rasterize_font()'; Pattern = 'forbidden rasterization execution' }
+    )
+    foreach ($probe in $portableBoundaryProbes) {
+      $probeSource = @"
+fn forbidden_probe() {
+  let opening = "/*"
+  $($probe.Call)
+  let closing = "*/"
+}
+"@
+      [IO.File]::WriteAllText($negativeSource, $probeSource, [Text.UTF8Encoding]::new($false))
+      Confirm-FontQualificationRejected "comment delimiters in strings cannot hide $($probe.Name)" {
+        Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
+      } $probe.Pattern
+    }
+    [IO.File]::WriteAllText(
+      $negativeSource,
+      'fn forbidden_probe() { let marker = "//"; rasterize_font() }',
+      [Text.UTF8Encoding]::new($false)
+    )
+    Confirm-FontQualificationRejected 'line-comment delimiter in a string cannot hide executable source' {
       Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
     } 'forbidden rasterization execution'
+
+    [IO.File]::WriteAllText(
+      $negativeSource,
+      "/* quote-like text `" b'c' // remains comment text */`nfn allowed_probe() { let marker = `"/* not a comment */`" }`n",
+      [Text.UTF8Encoding]::new($false)
+    )
+    Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
   } finally {
     if (Test-Path -LiteralPath $negativeSource) { Remove-Item -LiteralPath $negativeSource -Force }
   }
