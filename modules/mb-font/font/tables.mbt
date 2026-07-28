@@ -189,6 +189,31 @@ fn FontAdmissionLedger::admit_stage(
 }
 
 ///|
+/// Preflight a complete deferred transaction under the same staged-work
+/// ledger used by selected static-glyf admission. No caller counter changes
+/// until `commit_atomic` is invoked after the final revision guard.
+fn FontAdmissionLedger::preflight_atomic(
+  self : FontAdmissionLedger,
+  max_work : UInt64,
+  exact_work : UInt64,
+  charge : @budget.ResourceCharge,
+) -> Result[Unit, @error.CoreError] {
+  match self.admit_stage(max_work, exact_work, 0UL, exact_work) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.caller.preflight(charge)
+}
+
+///|
+fn FontAdmissionLedger::commit_atomic(
+  self : FontAdmissionLedger,
+  charge : @budget.ResourceCharge,
+) -> Result[Unit, @error.CoreError] {
+  self.caller.charge(charge)
+}
+
+///|
 fn font_collection_selected_extent_bytes(
   directory : DirectoryFacts,
 ) -> Result[UInt64, @error.CoreError] {

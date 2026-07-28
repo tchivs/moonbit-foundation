@@ -792,17 +792,20 @@ fn font_parse_directory_at(
 }
 
 ///|
-fn font_parse_cff1_directory(
+fn font_parse_cff1_directory_at(
   source : @bytes.ByteView,
+  directory_start : UInt64,
+  expected_table_count : UInt64?,
   limits : FontLimits,
+  checksum_mode : FontChecksumMode,
 ) -> Result[DirectoryFacts, @error.CoreError] {
   let legacy = match
     parse_font_directory_at(
       source,
-      0UL,
-      None,
+      directory_start,
+      expected_table_count,
       limits,
-      FontChecksumMode::Standalone,
+      checksum_mode,
       allow_static_cff1=true,
     ) {
     Err(error) => return Err(error)
@@ -819,6 +822,20 @@ fn font_parse_cff1_directory(
     })
   }
   Ok({ source: legacy.source, tables, work: legacy.work })
+}
+
+///|
+fn font_parse_cff1_directory(
+  source : @bytes.ByteView,
+  limits : FontLimits,
+) -> Result[DirectoryFacts, @error.CoreError] {
+  font_parse_cff1_directory_at(
+    source,
+    0UL,
+    None,
+    limits,
+    FontChecksumMode::Standalone,
+  )
 }
 
 ///|

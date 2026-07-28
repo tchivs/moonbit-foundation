@@ -180,3 +180,75 @@ pub fn FontLimits::max_post_name_bytes(self : FontLimits) -> UInt64 {
 pub fn FontLimits::max_work(self : FontLimits) -> UInt64 {
   self.max_work_value
 }
+
+///|
+/// Private structural ceilings for one static CFF1 admission transaction.
+///
+/// These values are derived only from the already-compatible, non-zero
+/// `FontLimits` contract and closed CFF1 format maxima. They intentionally do
+/// not add a second public limits surface.
+#warnings("-7")
+priv struct CffStructuralLimits {
+  max_index_entries : UInt64
+  max_dict_units : UInt64
+  max_charset_entries : UInt64
+  max_encoding_entries : UInt64
+  max_fd_ranges : UInt64
+  max_sid_cid_lookups : UInt64
+  max_retained_bytes : UInt64
+  max_work : UInt64
+}
+
+///|
+fn cff_structural_limits(
+  limits : FontLimits,
+) -> Result[CffStructuralLimits, @error.CoreError] {
+  let max_index_entries = if limits.max_glyphs() > limits.max_name_records() {
+    limits.max_glyphs()
+  } else {
+    limits.max_name_records()
+  }
+  // One byte code can name at most 256 Encoding entries. Supplements remain
+  // bounded by the glyph/SID domain and are charged as SID lookups.
+  let max_encoding_entries = if limits.max_glyphs() > 256UL {
+    256UL
+  } else {
+    limits.max_glyphs()
+  }
+  let retained_descriptors = match
+    @checked.checked_mul(limits.max_glyphs(), 96UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let retained_ranges = match
+    @checked.checked_mul(limits.max_glyphs(), 64UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let retained_offsets = match
+    @checked.checked_mul(max_index_entries, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let max_retained_bytes = match
+    @checked.checked_add(
+      retained_descriptors,
+      match @checked.checked_add(retained_ranges, retained_offsets) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({
+    max_index_entries,
+    max_dict_units: limits.max_work(),
+    max_charset_entries: limits.max_glyphs(),
+    max_encoding_entries,
+    max_fd_ranges: limits.max_glyphs(),
+    max_sid_cid_lookups: limits.max_work(),
+    max_retained_bytes,
+    max_work: limits.max_work(),
+  })
+}

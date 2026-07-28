@@ -10,6 +10,26 @@ priv struct AdmittedCff1 {
   glyphs : Array[CffGlyphDescriptor]
   glyph : CffGlyphDescriptor
   num_glyphs : UInt64
+  charge : CffStructuralCharge
+  directory_start : UInt64
+  cff_table_offset : UInt64
+}
+
+///|
+/// Exact retained and caller-authority facts for one CFF1 structural
+/// transaction. Keeping the dimensions beside the opaque ResourceCharge lets
+/// white-box qualification prove every exact/one-less boundary independently.
+#warnings("-7")
+priv struct CffStructuralCharge {
+  resource : @budget.ResourceCharge
+  bytes : UInt64
+  allocations : UInt64
+  allocation_size : UInt64
+  retained_bytes : UInt64
+  index_offsets : UInt64
+  descriptors : UInt64
+  fd_environments : UInt64
+  work : UInt64
 }
 
 ///|
@@ -32,19 +52,30 @@ fn cff_empty_index(
 ///|
 fn cff_preclassify_static_profile(
   source : @bytes.ByteView,
+  directory_start : UInt64,
 ) -> Result[Unit, @error.CoreError] {
-  match cff_require_window(source, 0UL, 12UL, "font-cff-sfnt-header") {
+  match
+    cff_require_window(
+      source,
+      directory_start,
+      12UL,
+      "font-cff-sfnt-header",
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let signature = match read_u32(source, 0UL) {
+  let signature = match read_u32(source, directory_start) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   if signature != 0x4F54544FUL {
     return Err(cff_capability_error("font-cff-profile"))
   }
-  let table_count = match read_u16(source, 4UL) {
+  let count_offset = match @checked.checked_add(directory_start, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let table_count = match read_u16(source, count_offset) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -55,8 +86,17 @@ fn cff_preclassify_static_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let records_start = match @checked.checked_add(directory_start, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   match
-    cff_require_window(source, 12UL, record_bytes, "font-cff-directory-range") {
+    cff_require_window(
+      source,
+      records_start,
+      record_bytes,
+      "font-cff-directory-range",
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -68,7 +108,7 @@ fn cff_preclassify_static_profile(
   let mut has_maxp = false
   let mut index = 0UL
   while index < table_count {
-    let record = 12UL + index * 16UL
+    let record = records_start + index * 16UL
     let tag = match read_u32(source, record) {
       Err(error) => return Err(error)
       Ok(value) => value
@@ -179,14 +219,18 @@ fn cff_table_subview(
 
 ///|
 fn cff_admission_charge(
-  source : @bytes.ByteView,
+  charge_bytes : UInt64,
   directory : DirectoryFacts,
   cff : TableWindow,
   indexes : Array[CffIndex],
   descriptor_count : UInt64,
   fd_count : UInt64,
   limits : FontLimits,
-) -> Result[@budget.ResourceCharge, @error.CoreError] {
+) -> Result[CffStructuralCharge, @error.CoreError] {
+  let structural_limits = match cff_structural_limits(limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let mut retained_offsets = 0UL
   for index in indexes {
     retained_offsets = match
@@ -194,6 +238,15 @@ fn cff_admission_charge(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+  }
+  if retained_offsets > structural_limits.max_index_entries {
+    return Err(
+      font_limit_error(
+        "max-cff-index-entries",
+        retained_offsets,
+        structural_limits.max_index_entries,
+      ),
+    )
   }
   let offset_bytes = match @checked.checked_mul(retained_offsets, 8UL) {
     Err(error) => return Err(error)
@@ -216,6 +269,15 @@ fn cff_admission_charge(
   let retained_bytes = match @checked.checked_add(structural_bytes, fd_bytes) {
     Err(error) => return Err(error)
     Ok(value) => value
+  }
+  if retained_bytes > structural_limits.max_retained_bytes {
+    return Err(
+      font_limit_error(
+        "max-cff-retained-bytes",
+        retained_bytes,
+        structural_limits.max_retained_bytes,
+      ),
+    )
   }
   let allocation_size = match
     @checked.checked_add(cff.length_value, retained_bytes) {
@@ -241,29 +303,44 @@ fn cff_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  if work > limits.max_work() {
-    return Err(font_limit_error("max-work", work, limits.max_work()))
+  if work > structural_limits.max_work {
+    return Err(font_limit_error("max-work", work, structural_limits.max_work))
   }
-  Ok(
-    @budget.ResourceCharge::new(
-      bytes=source.length(),
+  let allocations = 12UL + indexes.length().to_uint64()
+  let resource = @budget.ResourceCharge::new(
+      bytes=charge_bytes,
       allocations=12UL + indexes.length().to_uint64(),
       allocation_size~,
       width=0UL,
       height=0UL,
       pixels=0UL,
       work~,
-    ),
-  )
+    )
+  Ok({
+    resource,
+    bytes: charge_bytes,
+    allocations,
+    allocation_size,
+    retained_bytes,
+    index_offsets: retained_offsets,
+    descriptors: descriptor_count,
+    fd_environments: fd_count,
+    work,
+  })
 }
 
 ///|
 #warnings("-1")
-fn admit_cff1_structure(
+fn admit_cff1_structure_at_after_preflight(
   source : @bytes.ByteView,
+  directory_start : UInt64,
+  expected_table_count : UInt64?,
+  checksum_mode : FontChecksumMode,
+  collection_charge : Bool,
   limits : FontLimits,
   budget : @budget.Budget,
   gid : UInt64,
+  before_final_guard : () -> Unit,
 ) -> Result[AdmittedCff1, @error.CoreError] {
   let opening_revision = source.mutation_revision()
   if source.length() > limits.max_source_bytes() {
@@ -275,15 +352,22 @@ fn admit_cff1_structure(
       ),
     )
   }
-  match cff_preclassify_static_profile(source) {
+  match cff_preclassify_static_profile(source, directory_start) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let directory = match font_parse_cff1_directory(source, limits) {
+  let directory = match
+    font_parse_cff1_directory_at(
+      source,
+      directory_start,
+      expected_table_count,
+      limits,
+      checksum_mode,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match font_validate_checksums(directory) {
+  match font_validate_checksums_with_mode(directory, checksum_mode) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -412,9 +496,17 @@ fn admit_cff1_structure(
   for index in keying.retained_indexes {
     indexes.push(index)
   }
+  let charge_bytes = if collection_charge {
+    match font_collection_selected_extent_bytes(directory) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  } else {
+    source.length()
+  }
   let charge = match
     cff_admission_charge(
-      source,
+      charge_bytes,
       directory,
       cff,
       indexes,
@@ -425,14 +517,31 @@ fn admit_cff1_structure(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match budget.preflight(charge) {
+  let ledger = FontAdmissionLedger::new(
+    budget,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  match
+    ledger.preflight_atomic(
+      limits.max_work(),
+      charge.work,
+      charge.resource,
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  before_final_guard()
   if source.mutation_revision() != opening_revision {
-    return Err(font_revision_error("font-cff-admit"))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::State,
+        @error.ErrorCode::InvalidRange,
+        operation="font-cff-admit",
+        context="font-cff-source-revision-drift",
+      ),
+    )
   }
-  match budget.charge(charge) {
+  match ledger.commit_atomic(charge.resource) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -446,5 +555,71 @@ fn admit_cff1_structure(
     glyphs: keying.glyphs,
     glyph: keying.glyphs[gid.to_int()],
     num_glyphs,
+    charge,
+    directory_start,
+    cff_table_offset: cff.offset,
   })
+}
+
+///|
+fn admit_cff1_structure(
+  source : @bytes.ByteView,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  gid : UInt64,
+) -> Result[AdmittedCff1, @error.CoreError] {
+  admit_cff1_structure_at_after_preflight(
+    source,
+    0UL,
+    None,
+    FontChecksumMode::Standalone,
+    false,
+    limits,
+    budget,
+    gid,
+    fn() { () },
+  )
+}
+
+///|
+fn admit_cff1_collection_structure_after_preflight(
+  source : @bytes.ByteView,
+  directory_start : UInt64,
+  expected_table_count : UInt64,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  gid : UInt64,
+  before_final_guard : () -> Unit,
+) -> Result[AdmittedCff1, @error.CoreError] {
+  admit_cff1_structure_at_after_preflight(
+    source,
+    directory_start,
+    Some(expected_table_count),
+    FontChecksumMode::Collection,
+    true,
+    limits,
+    budget,
+    gid,
+    before_final_guard,
+  )
+}
+
+///|
+fn admit_cff1_collection_structure(
+  source : @bytes.ByteView,
+  directory_start : UInt64,
+  expected_table_count : UInt64,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  gid : UInt64,
+) -> Result[AdmittedCff1, @error.CoreError] {
+  admit_cff1_collection_structure_after_preflight(
+    source,
+    directory_start,
+    expected_table_count,
+    limits,
+    budget,
+    gid,
+    fn() { () },
+  )
 }
