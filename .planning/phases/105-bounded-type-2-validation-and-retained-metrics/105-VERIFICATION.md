@@ -1,63 +1,38 @@
 ---
 phase: 105-bounded-type-2-validation-and-retained-metrics
-verified: 2026-07-28T16:19:18Z
-status: gaps_found
-score: 1/4 must-haves verified
+verified: 2026-07-28T16:39:29Z
+status: passed
+score: 4/4 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
-requirement_score: 0/3 satisfied
+requirement_score: 3/3 satisfied
 requirements:
   - id: T2-01
-    status: blocked
-    reason: "The production xorshift32 output uses the low 16 state bits, contradicting the locked project-owned high16(state)+1 mapping; the golden test currently freezes the wrong sequence."
+    status: satisfied
+    reason: "The sole pure-MoonBit Type 2 VM now uses the locked high16(state)+1 xorshift32 mapping, with corrected golden and operator-integration evidence."
   - id: T2-02
-    status: blocked
-    reason: "Several decode/fetch/EOF failures return directly from the VM loop instead of passing through the final revision-preference guard, so mutation is not guaranteed to dominate every simultaneous non-State error."
+    status: satisfied
+    reason: "Exact hint/subroutine/resource behavior remains passing, and every VM non-State failure now receives final source-revision preference, including deterministic mid-fetch mutation cases."
   - id: CFF-03
-    status: blocked
-    reason: "The bounds sink omits a later contour's moveto/start point once an earlier contour has emitted a segment, allowing retained bounds to under-bound valid multi-contour geometry."
-gaps:
-  - truth: "Supported Type 2 behavior, including project-owned random, produces the locked deterministic fixed-point results."
-    status: failed
-    reason: "Type2Prng::next emits (low16(state) + 1), while Phase 105 D-04 requires (high16(state) + 1). For seed 0x12345678 the first state is 0x87985AA5: required output 34713, implemented/tested output 23206."
-    artifacts:
-      - path: "modules/mb-font/font/cff_type2_fixed.mbt"
-        issue: "Line 228 selects state & 0xFFFF instead of state >> 16."
-      - path: "modules/mb-font/font/cff_type2_fixed_wbtest.mbt"
-        issue: "Lines 98-115 freeze low-bit outputs [23206, 9380, 62661, 44185], so the passing test is misleading evidence."
-    missing:
-      - "Implement the locked high16(state)+1 output mapping."
-      - "Replace the low-bit golden sequence and retain reset/order-independence coverage."
-  - truth: "CFF admission retains one truthful conservative integer bound per GID."
-    status: failed
-    reason: "After the first contour has segments, a subsequent contour start is never included in the hull. A later moveto can be the glyph extreme while its first line/curve returns inward, producing a retained bound that is not conservative."
-    artifacts:
-      - path: "modules/mb-font/font/cff_type2_bounds.mbt"
-        issue: "move_relative records the contour start but does not include it; line_relative_unchecked/cubic_relative_unchecked include a segment start only when global has_segments is false."
-      - path: "modules/mb-font/font/cff_type2_bounds_wbtest.mbt"
-        issue: "The two-contour test asserts only point/contour/command counts and never checks a later contour-start extreme."
-    missing:
-      - "Track whether the current contour has emitted its first segment and include that contour start in the hull without making moveto-only glyphs non-empty."
-      - "Add a multi-contour regression whose second moveto is outside all subsequent endpoints/control points."
-  - truth: "Mutation and multi-fault outcomes preserve State before Resource before Capability before Data on every VM error exit."
-    status: failed
-    reason: "The main VM loop has direct error returns after its entry revision check. A mutation racing a byte/number/escape read can be converted to Data and returned without type2_error_with_revision, contrary to the common exit and D-23 contract."
-    artifacts:
-      - path: "modules/mb-font/font/cff_type2.mbt"
-        issue: "Direct returns around lines 1425-1431, 1450-1467, and 1496-1500 bypass the guarded result exit at lines 1548-1550."
-      - path: "modules/mb-font/font/cff_type2_fixture_wbtest.mbt"
-        issue: "The State precedence test mutates before VM entry; it does not exercise mutation between a loop guard and a failing fetch/decode."
-    missing:
-      - "Route every non-State VM error through one final revision-preference seam."
-      - "Add a deterministic mutation hook covering a failing number or escaped-operator fetch after the loop-entry guard."
+    status: satisfied
+    reason: "Ascending all-glyph admission remains atomic, every non-empty contour contributes its transformed start to conservative bounds, and retained hmtx facts remain metric authority."
+re_verification:
+  previous_status: gaps_found
+  previous_score: 1/4
+  gaps_closed:
+    - "Type2Prng::next now emits unsigned high16(state)+1; seed 0x12345678 begins with raw 34713 and the old low-bit golden was removed."
+    - "The bounds sink now tracks segment emission per contour and includes each line-first or cubic-first contour start through the normal transformed hull path."
+    - "EOF, byte, number, escape, operator, and dispatch failures now receive final revision preference; mid-fetch mutation tests return State while stable twins retain Data."
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 105: Bounded Type 2 Validation and Retained Metrics Verification Report
 
 **Phase Goal:** Maintainers can validate every Type 2 glyph deterministically and retain truthful compact bounds before any CFF-backed font is published.
-**Verified:** 2026-07-28T16:19:18Z
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-07-28T16:39:29Z
+**Status:** passed
+**Re-verification:** Yes — after gap-closure Plan 105-05
 
 ## Goal Achievement
 
@@ -65,62 +40,63 @@ gaps:
 
 | # | Roadmap success criterion | Status | Evidence |
 |---|---|---|---|
-| 1 | Supported Type 2 number, stack, transient, arithmetic, logical, storage, width, line, curve, flex, subroutine, termination, and project-owned `random` behavior produces target-identical fixed-point results. | ✗ FAILED | The integer/fixed VM is substantive and wired, but `Type2Prng::next` uses low16 rather than the locked high16 mapping. The existing native test passes because it freezes the same wrong outputs. `moon check --target all` proves compilation, not equal runtime semantic records. |
-| 2 | Hint/stem framing is exact and every named authority, including mutation, fails deterministically without host recursion or partial execution state. | ✗ FAILED | Hint masks, explicit subroutine frames, depth limits, termination, and common resource paths have passing focused tests. However, several VM-loop fetch/decode/EOF failures return directly and bypass the final revision-preference guard, so the required mutation precedence is not universal. |
-| 3 | Admission executes every glyph through one interpreter, retains truthful conservative bounds per GID, and keeps `hmtx` authoritative. | ✗ FAILED | Ascending all-GID staging and retained face-local `hmtx` facts are wired and tested. Bounds are not always conservative because a later contour's start point is omitted from the hull once any earlier contour has a segment. |
-| 4 | Any structural, program, numeric, resource, or mutation failure publishes no `Font`, no bounds, and no committed admission charge. | ✓ VERIFIED | `cff_stage_structure_at_after_preflight` and `type2_stage_all_glyphs_with_probe` return staged facts only; combined preflight and the final revision guard precede the sole `commit_atomic`. Focused malformed-later-glyph, mutation, caller-boundary, and multi-fault tests pass. |
+| 1 | Supported Type 2 number, stack, transient, arithmetic, logical, storage, width, line, curve, flex, subroutine, termination, and project-owned `random` behavior produces target-identical fixed-point results. | ✓ VERIFIED | The existing sole integer/fixed VM and operator tests remain intact. `Type2Prng::next` now returns `(state >> 16) + 1`; the hand-derived seed `0x12345678` sequence `[34713, 5468, 18465, 33204]` is frozen in the fixed-kernel test and the VM integration assertion now expects `34713`. |
+| 2 | Hint/stem framing is exact and every named authority, including mutation, fails deterministically without host recursion or partial execution state. | ✓ VERIFIED | Existing exact masks, explicit local/global frames, depth/termination/resource tests remain in the passing native suite. All previously direct EOF/byte/number/escape failures now call `type2_error_with_revision`; the new read-probe regression mutates after the loop guard and proves State wins truncated number and escape Data outcomes. |
+| 3 | Admission executes every glyph through one interpreter, retains truthful conservative bounds per GID, and keeps `hmtx` authoritative. | ✓ VERIFIED | Ascending all-GID execution and `hmtx` retention are unchanged. `contour_has_segments` resets on every moveto, and the first line/cubic includes the saved contour start through `include_point`; transformed later-contour extrema are now directly asserted while moveto-only glyphs remain `None`. |
+| 4 | Any structural, program, numeric, resource, or mutation failure publishes no `Font`, no bounds, and no committed admission charge. | ✓ VERIFIED | Quick regression review confirms the previously verified staged structure → all-glyph VM → combined preflight → final revision guard → sole `commit_atomic` path is unchanged. The 1247-test native result includes the existing malformed, resource, mutation, and atomic-publication regressions. |
 
-**Score:** 1/4 roadmap truths verified
+**Score:** 4/4 roadmap truths verified
 
-The PLAN frontmatter details were merged into these four non-duplicated roadmap truths: fixed arithmetic/random and all operator families support truth 1; hint/subroutine/limit/error rules support truth 2; matrices/geometry/all-GID/hmtx support truth 3; and combined staging/commit supports truth 4.
+The PLAN frontmatter details remain merged into the four roadmap truths: fixed arithmetic/random and all operator families support truth 1; hint/subroutine/limits/error ordering support truth 2; matrices/geometry/all-GID/hmtx support truth 3; and combined staging/commit supports truth 4.
+
+## Gap Closure Verification
+
+| Previous gap | Implementation evidence | Behavioral evidence | Status |
+|---|---|---|---|
+| PRNG used low16 instead of locked high16 | `cff_type2_fixed.mbt:228` now uses `(state >> 16) + 1`; transition, seed normalization, and per-GID reset are unchanged. | Focused high16 golden test: 1 passed. Fixed test expects `[34713, 5468, 18465, 33204]`; VM integration expects `34713`. | ✓ CLOSED |
+| Later contour start omitted from bounds hull | `cff_type2_bounds.mbt` adds `contour_has_segments`, resets it on moveto, and calls `include_contour_start` before the first line/cubic hull update. | Focused line-first and cubic-first transformed later-contour test: 1 passed; existing moveto-only `None` regression remains in the full suite. | ✓ CLOSED |
+| Direct VM errors bypassed final revision preference | `cff_type2.mbt` wraps root/subr EOF, raw-byte fetch, number decode, escape fetch, common dispatch errors, and exhausted-frame EOF with `type2_error_with_revision`. | Focused stable-Data/mid-fetch-mutation-State test: 1 passed for both truncated number and escape cases. | ✓ CLOSED |
 
 ## Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |---|---|---|---|
-| `modules/mb-font/font/cff_type2_fixed.mbt` | Checked Q16.16, PRNG, matrices, outward rounding | ✗ DEFECTIVE | Substantive and wired, but PRNG selects the wrong half of the xorshift state. |
-| `modules/mb-font/font/cff_type2.mbt` | Sole iterative VM, explicit frames, limits, all-GID staging | ✗ DEFECTIVE | Substantive and production-wired; some direct error returns bypass revision-preference handling. |
-| `modules/mb-font/font/cff_type2_bounds.mbt` | Conservative transformed per-GID bounds | ✗ DEFECTIVE | Substantive and wired; later contour starts can be omitted from the hull. |
-| `modules/mb-font/font/cff_dict.mbt`, `cff_keying.mbt`, `limits.mbt` | Retained seed, Top/optional-FD facts, private limits | ✓ VERIFIED | Seed and matrix facts feed `type2_execute_glyph`; no duplicate name-keyed FD matrix is consumed by the VM. |
-| `modules/mb-font/font/cff_admission.mbt` | One structural + all-glyph transaction and one commit | ✓ VERIFIED | Stages structure and VM results, combines charges, preflights, revision-checks, commits once, then constructs `AdmittedCff1`. |
-| `modules/mb-font/font/metrics.mbt` | Face-local `hmtx` metric authority | ✓ VERIFIED | `CffMetricFacts` retains the actual `hmtx` window; `cff_read_hmtx_metric` delegates to the existing checked `hmtx` reader. Type 2 width is not used as metric authority. |
-| Phase 105 white-box/public tests | Behavioral and regression evidence | ⚠️ PARTIAL | Broad coverage passes, but PRNG golden data confirms the wrong mapping and no test covers a later-contour-start bound extreme or a mid-fetch mutation/error race. |
+| `modules/mb-font/font/cff_type2_fixed.mbt` | Checked Q16.16, locked PRNG, exact matrices and rounding | ✓ VERIFIED | Substantive, wired, and corrected to high16 output. |
+| `modules/mb-font/font/cff_type2.mbt` | Sole iterative VM, explicit frames, all-GID staging, universal error guard | ✓ VERIFIED | Production wrappers use the no-op probe; the private probe only enables precise white-box mutation placement. All non-State loop failures receive final revision preference. |
+| `modules/mb-font/font/cff_type2_bounds.mbt` | Conservative transformed optional bounds | ✓ VERIFIED | Each non-empty contour start, endpoints, and cubic controls enter the same transformed hull; moveto-only glyphs stay empty. |
+| `modules/mb-font/font/cff_dict.mbt`, `cff_keying.mbt`, `limits.mbt` | Retained seed, Top/optional-FD matrices, private limits | ✓ VERIFIED | Quick regression: required facts still feed `type2_execute_glyph` without duplicated name-keyed transforms. |
+| `modules/mb-font/font/cff_admission.mbt`, `metrics.mbt` | Atomic all-glyph publication and `hmtx` authority | ✓ VERIFIED | Quick regression: combined charge/commit wiring and real `hmtx` data flow are unchanged. |
+| Plan 105-05 white-box tests | Direct regression for all three previous blockers | ✓ VERIFIED | Tests first appeared in RED commits `d29d0686`, `9ec2f92a`, and `2de81b09`; fixes landed in `923af312`, `3aa19297`, and `c91c3657`. |
 
 ## Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| Private DICT `initialRandomSeed` | per-glyph PRNG | `descriptor.environment.private_dict.initial_random_seed` passed to `type2_execute_program_with_matrix` | ⚠️ PARTIAL | Link exists; output mapping is wrong. |
-| Per-GID descriptor | sole VM | `type2_stage_all_glyphs_with_probe` → `type2_execute_glyph` | ✓ WIRED | Ascending GID check, fresh `Type2Vm::new`, selected local Subrs, matrix, seed, and global Subrs are all used. |
-| Sole VM operator switch | bounds sink | moveto/geometry/flex dispatch into `Type2BoundsSink` | ⚠️ PARTIAL | All operator families reach one sink, but later contour-start geometry is lost from the hull. |
-| Structural stage + Type 2 stage | final budget transaction | `cff_combine_staged_charge` → `preflight_atomic` → revision guard → `commit_atomic` | ✓ WIRED | No earlier structural commit remains on this path. |
-| Admitted CFF facts | `hmtx` reader | retained `CffMetricFacts.hmtx` → `cff_read_hmtx_metric` | ✓ WIRED | Width-mismatch and shared-CFF face-local metric tests pass. |
-| VM errors | revision precedence | guarded `result` exit through `type2_error_with_revision` | ✗ PARTIAL | Common exit exists, but direct fetch/decode/EOF returns bypass it. |
+| Private DICT seed | random operator stack result | `initial_random_seed` → `Type2Prng::new` → high16 `next()` | ✓ WIRED | Exact locked output now reaches the same VM operator switch. |
+| moveto/contour start | transformed retained hull | first line/cubic → `include_contour_start` → `include_point` → matrix application | ✓ WIRED | Line-first and cubic-first later contours are both covered. |
+| every VM non-State failure | State precedence | `type2_error_with_revision(root, opening_revision, error)` | ✓ WIRED | Original bypassing direct returns were audited and wrapped; common result errors already use the same seam. |
+| per-GID descriptors | sole VM and bounds sink | ascending `type2_stage_all_glyphs_with_probe` → `type2_execute_glyph` | ✓ WIRED | Fresh per-glyph VM state and selected environment remain unchanged. |
+| structure + Type 2 facts | sole admission commit | combine → atomic preflight → final revision guard → `commit_atomic` | ✓ WIRED | No regression in the previously verified transaction. |
+| retained CFF metric facts | face-local `hmtx` values | `CffMetricFacts.hmtx` → checked hmtx reader | ✓ WIRED | Type 2 width remains validation-only. |
 
 ## Data-Flow Trace (Level 4)
 
 | Artifact | Data variable | Source | Produces real data | Status |
 |---|---|---|---|---|
-| `cff_type2.mbt` | ordered descriptors | Phase 104 `keying.glyphs` | Yes; each actual CharString and selected environment is executed | ✓ FLOWING |
-| `cff_type2_bounds.mbt` | `GlyphBoundsFacts?` | transformed VM geometry endpoints/control points | Incomplete for later contour starts | ✗ HOLLOW |
-| `cff_admission.mbt` | `AdmittedCff1.bounds` | complete `Type2AllGlyphResult.bounds` | Only published after total success and commit, but may contain an under-bound value | ✗ DEFECTIVE |
+| `cff_type2_fixed.mbt` | random Q16.16 raw value | selected Private DICT seed and xorshift32 state | Yes, locked high16 mapping | ✓ FLOWING |
+| `cff_type2_bounds.mbt` | `GlyphBoundsFacts?` | every non-empty contour start plus transformed endpoints/control points | Yes, conservative hull with outward rounding | ✓ FLOWING |
+| `cff_admission.mbt` | ordered retained bounds | complete all-GID VM result | Yes, only after total success and one commit | ✓ FLOWING |
 | `metrics.mbt` | advance/LSB | actual admitted `hmtx` table window | Yes | ✓ FLOWING |
 
 ## Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| Existing PRNG golden | `moon test modules/mb-font/font --target native -j 2 -f "Type 2 xorshift stream is repeatable, resettable, and strictly positive"` | 1 passed; confirms implemented low-bit sequence | ⚠️ MISLEADING PASS |
-| Exact hint mask framing | focused named native test | 1 passed | ✓ PASS |
-| Tail-only subroutine termination | focused named native test | 1 passed | ✓ PASS |
-| Existing transformed bounds vectors | focused named native test | 1 passed; no later-contour-start extreme | ⚠️ PARTIAL |
-| Ascending all-GID staging without commit | focused named native test | 1 passed | ✓ PASS |
-| Complete all-glyph admission and combined commit | focused named native test | 1 passed | ✓ PASS |
-| Type 2 width versus `hmtx` authority | focused named native test | 1 passed | ✓ PASS |
-| Mutation during GID traversal | focused named native test | 1 passed; mutation occurs at a GID boundary | ⚠️ PARTIAL |
-| State/Resource/Capability/Data fixture | focused named native test | 1 passed; does not cover guarded-read race | ⚠️ PARTIAL |
-| Complete native regression | `moon test --target native -j 2` | 1245 passed, 0 failed | ✓ PASS |
-| Four-target compilation | `moon check --target all` | 0 errors; 31 non-fatal warnings | ✓ PASS |
+| Locked high16 random sequence | `moon test modules/mb-font/font --target native -j 2 -f "Type 2 xorshift stream is repeatable, resettable, and strictly positive"` | 1 passed | ✓ PASS |
+| Later line/cubic contour-start extrema | `moon test modules/mb-font/font --target native -j 2 -f "Type 2 bounds include each non-empty contour start"` | 1 passed | ✓ PASS |
+| Mid-fetch mutation versus stable Data | `moon test modules/mb-font/font --target native -j 2 -f "Type 2 mid-fetch mutation wins truncated number and escape errors"` | 1 passed | ✓ PASS |
+| Complete native regression | `moon test --target native -j 2` | 1247 passed, 0 failed (main/execution evidence supplied for re-verification) | ✓ PASS |
+| Four-target compilation | `moon check --target all` | 0 errors on all configured targets; 31 non-fatal warnings (main/execution evidence supplied) | ✓ PASS |
 
 ## Probe Execution
 
@@ -130,35 +106,25 @@ No phase probe scripts or deferred `<human-check>` blocks are declared. Probe ex
 
 | Requirement | Source plans | Status | Evidence |
 |---|---|---|---|
-| T2-01 | 105-01, 105-02, 105-03, 105-04 | ✗ BLOCKED | One pure-MoonBit VM and fixed arithmetic exist, but project-owned `random` violates the locked high16 output mapping. |
-| T2-02 | 105-01, 105-02, 105-03, 105-04 | ✗ BLOCKED | Hints, masks, frames, depth, termination, and many resource limits are implemented, but not every non-State error passes through the mutation precedence guard. |
-| CFF-03 | 105-01, 105-03, 105-04 | ✗ BLOCKED | All glyphs are staged atomically and `hmtx` remains authoritative, but retained multi-contour bounds can be non-conservative. |
+| T2-01 | 105-01 through 105-05 | ✓ SATISFIED | Sole pure-MoonBit fixed VM plus corrected high16 deterministic random golden and integration tests. |
+| T2-02 | 105-01 through 105-05 | ✓ SATISFIED | Existing exact hint/frame/resource behavior plus universal final revision preference and deterministic mid-fetch mutation coverage. |
+| CFF-03 | 105-01, 105-03, 105-04, 105-05 | ✓ SATISFIED | Ascending atomic all-glyph admission, corrected conservative per-contour bounds, retained real `hmtx` authority, and zero-publication/zero-charge failures. |
 
-**Requirement score:** 0/3 satisfied. No Phase 105 requirement is orphaned.
+**Requirement score:** 3/3 satisfied. No Phase 105 requirement is orphaned.
 
 ## Anti-Patterns Found
 
-| File | Line | Pattern | Severity | Impact |
-|---|---|---|---|---|
-| `cff_type2_fixed_wbtest.mbt` | 102-114 | Test encodes implementation's low-bit PRNG output rather than the locked contract | 🛑 Blocker | A passing test masks the T2-01 semantic defect. |
-| `cff_type2_bounds_wbtest.mbt` | 157-183 | Multi-contour test asserts counters only | ⚠️ Warning | The conservative-bounds hole is untested. |
-| `cff_type2.mbt` | 1425-1500 | Direct error returns bypass common revision exit | 🛑 Blocker | Mutation precedence is incomplete. |
-
-No unreferenced `TBD`, `FIXME`, or `XXX` markers were found in the Phase 105 implementation/test scope. The all-target check reports 31 unused-field/function and deprecated-debug warnings; these do not independently block the phase.
+No `TBD`, `FIXME`, `XXX`, `TODO`, `HACK`, placeholder, or unimplemented marker was found in the Plan 105-05 implementation/test scope. The private read probe defaults to a production no-op and does not alter the public API. The all-target evidence retains 31 non-fatal unused/deprecated-debug warnings; none blocks the verified contracts.
 
 ## Human Verification Required
 
-None. The phase outcomes are deterministic private parser/VM/data facts and the blocking failures are directly observable in code.
-
-## Deferred-Item Filter
-
-Phase 107 explicitly owns isolated four-target semantic records and broad qualification, but it does not defer or excuse the wrong Phase 105 PRNG mapping, non-conservative retained bounds, or incomplete Phase 105 mutation precedence. Phase 106 consumes these facts and therefore cannot safely proceed with the gaps open.
+None. All Phase 105 outcomes are deterministic private VM, bounds, resource, and admission facts with direct automated evidence.
 
 ## Gaps Summary
 
-The phase goal is not achieved despite 1245 passing native tests and successful all-target compilation. T2-01 is blocked by the wrong deterministic random mapping, T2-02 is blocked by error exits that bypass the required final mutation guard, and CFF-03 is blocked by an under-bounding multi-contour geometry path. The atomic combined admission transaction itself is correctly wired and verified.
+All three previous gaps are closed with production changes and focused passing regressions. No regressions remain, all four roadmap success criteria are verified, and T2-01, T2-02, and CFF-03 are satisfied. Phase 105 achieves its goal and is ready for Phase 106.
 
 ---
 
-_Verified: 2026-07-28T16:19:18Z_
+_Verified: 2026-07-28T16:39:29Z_
 _Verifier: the agent (gsd-verifier)_
