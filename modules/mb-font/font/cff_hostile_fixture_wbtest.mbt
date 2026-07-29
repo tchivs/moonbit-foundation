@@ -279,16 +279,83 @@ fn cff_qualification_standard_hostile_budget(
 }
 
 ///|
-fn cff_qualification_emit_type2_observation(
+fn cff_qualification_stage_type2_program(
+  root : Bytes,
+  local_objects : Array[Bytes],
+  global_objects : Array[Bytes],
+  limits : Type2Limits,
+  budget : @budget.Budget,
+  default_width? : CffNumber = cff_number_zero(),
+  nominal_width? : CffNumber = cff_number_zero(),
+  seed? : Int64 = 0L,
+  read_probe? : () -> Unit = fn() { () },
+) -> Result[Type2AllGlyphResult, @error.CoreError] {
+  let charstrings = type2_fixture_index([root])
+  let global_subrs = type2_fixture_index(global_objects)
+  let authority = charstrings.object_data
+  let descriptor : CffGlyphDescriptor = {
+    gid: 0UL,
+    key_value: 0UL,
+    charstring: cff_index_object(
+      charstrings,
+      0UL,
+      "font-cff-type2-qualification",
+    ).unwrap(),
+    environment: {
+      fd: None,
+      private_dict: {
+        local_subrs: None,
+        default_width_x: default_width,
+        nominal_width_x: nominal_width,
+        initial_random_seed: type2_fixed_from_raw(seed).unwrap(),
+        dict_units: 0UL,
+      },
+      local_subrs: type2_fixture_index(local_objects),
+      top_font_matrix: cff_default_font_matrix(),
+      fd_font_matrix: None,
+      font_matrix: cff_default_font_matrix(),
+    },
+  }
+  type2_stage_all_glyphs_with_probe(
+    [descriptor],
+    global_subrs,
+    1000UL,
+    limits,
+    budget,
+    authority,
+    authority.mutation_revision(),
+    fn(_) { () },
+    read_probe~,
+  )
+}
+
+///|
+fn cff_qualification_observe_type2_program(
   id : String,
-  result : Result[Type2VmResult, @error.CoreError],
+  root : Bytes,
+  local_objects : Array[Bytes],
+  global_objects : Array[Bytes],
+  limits : Type2Limits,
   requested : UInt64?,
   limit : UInt64?,
   gid : UInt64,
+  default_width? : CffNumber = cff_number_zero(),
+  nominal_width? : CffNumber = cff_number_zero(),
+  seed? : Int64 = 0L,
 ) -> Unit raise {
   let (ancestor, caller) = cff_qualification_standard_hostile_budget()
   let caller_before = caller.remaining()
   let ancestor_before = ancestor.remaining()
+  let result = cff_qualification_stage_type2_program(
+    root,
+    local_objects,
+    global_objects,
+    limits,
+    caller,
+    default_width~,
+    nominal_width~,
+    seed~,
+  )
   let (error, publication) = match result {
     Ok(_) => (None, "staged-glyph")
     Err(error) => (Some(error), "none")
@@ -364,53 +431,126 @@ fn cff_qualification_depth_programs(
 fn cff_qualification_observe_type2_row(
   id : String,
 ) -> Unit raise {
-  let result = match id {
-    "type2-number-stack-arity" => type2_vm_wb_run(b"\x0c\x09\x0e")
-    "type2-arithmetic-logical-storage" =>
-      type2_vm_wb_run(b"\x8c\x8b\x0c\x0c\x0e")
-    "type2-random-width-state" =>
-      type2_vm_wb_run_with(
-        b"\x8b\x8b\x01\x8c\x8b\x8b\x15\x0e",
-        32768000L,
-        6553600L,
-        0L,
+  let (
+    root,
+    local_objects,
+    global_objects,
+    limits,
+    requested,
+    limit,
+    gid,
+    default_width,
+    nominal_width,
+  ) = match id {
+    "type2-number-stack-arity" =>
+      (
+        b"\x0c\x09\x0e",
+        [],
+        [],
         type2_vm_wb_limits(65535UL, 65535UL),
+        None,
+        None,
+        0UL,
+        cff_number_zero(),
+        cff_number_zero(),
+      )
+    "type2-arithmetic-logical-storage" =>
+      (
+        b"\x8c\x8b\x0c\x0c\x0e",
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
+        Some(0UL),
+        Some(0UL),
+        1UL,
+        cff_number_zero(),
+        cff_number_zero(),
+      )
+    "type2-random-width-state" =>
+      (
+        b"\x8b\x8b\x01\x8c\x8b\x8b\x15\x0e",
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
+        None,
+        None,
+        0UL,
+        { negative: false, magnitude: 500UL, denominator: 1UL },
+        { negative: false, magnitude: 100UL, denominator: 1UL },
       )
     "type2-path-flex-geometry" =>
-      type2_vm_wb_run(type2_geometry_wb_program([1], b'\x05'))
+      (
+        type2_geometry_wb_program([1], b'\x05'),
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
+        None,
+        None,
+        0UL,
+        cff_number_zero(),
+        cff_number_zero(),
+      )
     "type2-stem-mask" =>
-      type2_vm_wb_run(cff_qualification_stem_program(97))
+      (
+        cff_qualification_stem_program(97),
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
+        Some(97UL),
+        Some(96UL),
+        0UL,
+        cff_number_zero(),
+        cff_number_zero(),
+      )
     "type2-subroutine-frame" =>
-      type2_fixture_run(
+      (
         b"\x20\x0a\x0e",
         [b"\x20\x0a\x0b"],
         [],
         type2_vm_wb_limits(65535UL, 65535UL),
+        Some(11UL),
+        Some(10UL),
+        0UL,
+        cff_number_zero(),
+        cff_number_zero(),
       )
     "type2-operator-capability" =>
-      type2_vm_wb_run(b"\x8b\x8b\x8b\x8b\x0e")
+      (
+        b"\x8b\x8b\x8b\x8b\x0e",
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
+        None,
+        None,
+        1UL,
+        cff_number_zero(),
+        cff_number_zero(),
+      )
     "type2-termination" =>
-      type2_fixture_run(
+      (
         b"\x20\x0a\x8b\x0c\x12\x0e",
         [b"\x0e"],
         [],
         type2_vm_wb_limits(65535UL, 65535UL),
+        None,
+        None,
+        0UL,
+        cff_number_zero(),
+        cff_number_zero(),
       )
     _ => fail("unknown Type 2 hostile row: " + id)
   }
-  let (requested, limit, gid) = match id {
-    "type2-arithmetic-logical-storage" => (Some(0UL), Some(0UL), 1UL)
-    "type2-stem-mask" => (Some(97UL), Some(96UL), 0UL)
-    "type2-subroutine-frame" => (Some(11UL), Some(10UL), 0UL)
-    "type2-operator-capability" => (None, None, 1UL)
-    _ => (None, None, 0UL)
-  }
-  cff_qualification_emit_type2_observation(
+  cff_qualification_observe_type2_program(
     id,
-    result,
+    root,
+    local_objects,
+    global_objects,
+    limits,
     requested,
     limit,
     gid,
+    default_width~,
+    nominal_width~,
   )
 }
 
@@ -420,115 +560,111 @@ fn cff_qualification_observe_semantic_row(
 ) -> Unit raise {
   match id {
     "semantic-stack-48-exact" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_vm_wb_run(cff_qualification_stack_program(48, true)),
+        cff_qualification_stack_program(48, true),
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
         Some(48UL),
         Some(48UL),
         0UL,
       )
     "semantic-stack-49-one-short" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_vm_wb_run(cff_qualification_stack_program(49, false)),
+        cff_qualification_stack_program(49, false),
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
         Some(49UL),
         Some(48UL),
         0UL,
       )
     "semantic-stem-96-exact" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_vm_wb_run(cff_qualification_stem_program(96)),
+        cff_qualification_stem_program(96),
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
         Some(96UL),
         Some(96UL),
         0UL,
       )
     "semantic-stem-97-one-short" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_vm_wb_run(cff_qualification_stem_program(97)),
+        cff_qualification_stem_program(97),
+        [],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
         Some(97UL),
         Some(96UL),
         0UL,
       )
     "semantic-frame-depth-exact" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_fixture_run(
-          b"\x20\x0a\x0e",
-          cff_qualification_depth_programs(10),
-          [],
-          type2_vm_wb_limits(65535UL, 65535UL),
-        ),
+        b"\x20\x0a\x0e",
+        cff_qualification_depth_programs(10),
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
         Some(10UL),
         Some(10UL),
         0UL,
       )
     "semantic-frame-depth-one-short" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_fixture_run(
-          b"\x20\x0a\x0e",
-          cff_qualification_depth_programs(11),
-          [],
-          type2_vm_wb_limits(65535UL, 65535UL),
-        ),
+        b"\x20\x0a\x0e",
+        cff_qualification_depth_programs(11),
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
         Some(11UL),
         Some(10UL),
         0UL,
       )
     "semantic-outline-points-exact" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_vm_wb_run_with(
-          type2_geometry_wb_program([10, 20], b'\x05'),
-          0L,
-          0L,
-          0L,
-          type2_vm_wb_geometry_limits(2UL, 1UL, 65535UL, 65535UL),
-        ),
+        type2_geometry_wb_program([10, 20], b'\x05'),
+        [],
+        [],
+        type2_vm_wb_geometry_limits(2UL, 1UL, 65535UL, 65535UL),
         Some(2UL),
         Some(2UL),
         0UL,
       )
     "semantic-outline-points-one-short" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_vm_wb_run_with(
-          type2_geometry_wb_program([10, 20], b'\x05'),
-          0L,
-          0L,
-          0L,
-          type2_vm_wb_geometry_limits(1UL, 1UL, 65535UL, 65535UL),
-        ),
+        type2_geometry_wb_program([10, 20], b'\x05'),
+        [],
+        [],
+        type2_vm_wb_geometry_limits(1UL, 1UL, 65535UL, 65535UL),
         Some(2UL),
         Some(1UL),
         0UL,
       )
     "semantic-outline-contours-exact" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_vm_wb_run_with(
-          b"\x8B\x8B\x15\x8C\x8C\x05\x8B\x8B\x15\x8C\x8C\x05\x0E",
-          0L,
-          0L,
-          0L,
-          type2_vm_wb_geometry_limits(4UL, 2UL, 65535UL, 65535UL),
-        ),
+        b"\x8B\x8B\x15\x8C\x8C\x05\x8B\x8B\x15\x8C\x8C\x05\x0E",
+        [],
+        [],
+        type2_vm_wb_geometry_limits(4UL, 2UL, 65535UL, 65535UL),
         Some(2UL),
         Some(2UL),
         0UL,
       )
     "semantic-outline-contours-one-short" =>
-      cff_qualification_emit_type2_observation(
+      cff_qualification_observe_type2_program(
         id,
-        type2_vm_wb_run_with(
-          b"\x8B\x8B\x15\x8C\x8C\x05\x8B\x8B\x15\x8C\x8C\x05\x0E",
-          0L,
-          0L,
-          0L,
-          type2_vm_wb_geometry_limits(8UL, 1UL, 65535UL, 65535UL),
-        ),
+        b"\x8B\x8B\x15\x8C\x8C\x05\x8B\x8B\x15\x8C\x8C\x05\x0E",
+        [],
+        [],
+        type2_vm_wb_geometry_limits(8UL, 1UL, 65535UL, 65535UL),
         Some(2UL),
         Some(1UL),
         0UL,
@@ -772,19 +908,37 @@ fn cff_qualification_observe_mutation_row(
       let (ancestor, caller) = cff_qualification_standard_hostile_budget()
       let caller_before = caller.remaining()
       let ancestor_before = ancestor.remaining()
+      let empty_subrs = type2_vm_wb_empty_index(view)
+      let descriptor : CffGlyphDescriptor = {
+        gid: 0UL,
+        key_value: 0UL,
+        charstring: { offset: 0UL, length: view.length(), view },
+        environment: {
+          fd: None,
+          private_dict: {
+            local_subrs: None,
+            default_width_x: cff_number_zero(),
+            nominal_width_x: cff_number_zero(),
+            initial_random_seed: type2_fixed_from_raw(0L).unwrap(),
+            dict_units: 0UL,
+          },
+          local_subrs: empty_subrs,
+          top_font_matrix: cff_default_font_matrix(),
+          fd_font_matrix: None,
+          font_matrix: cff_default_font_matrix(),
+        },
+      }
       let mut probes = 0
-      let result = type2_execute_program_with_matrix_and_read_probe(
-        view,
-        type2_vm_wb_empty_index(view),
-        type2_vm_wb_empty_index(view),
-        type2_fixed_from_raw(0L).unwrap(),
-        type2_fixed_from_raw(0L).unwrap(),
-        type2_fixed_from_raw(0L).unwrap(),
-        cff_path_wb_identity_matrix(),
+      let result = type2_stage_all_glyphs_with_probe(
+        [descriptor],
+        empty_subrs,
+        1000UL,
         type2_vm_wb_limits(65535UL, 65535UL),
+        caller,
+        view,
         view.mutation_revision(),
-        false,
-        fn() {
+        fn(_) { () },
+        read_probe=fn() {
           probes = probes + 1
           if probes == 1 {
             font_collection_wb_mutate_restore(owner, 0UL)
@@ -1653,25 +1807,25 @@ test "font-cff1-v3 private mutation windows and atomic budgets" {
 }
 
 // font-cff1-v3 private hostile:begin
-// hostile {"group":"structural","row":{"id":"structural-header-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":4,"limit":3},"context":"font-cff-header","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"source-bytes","applicable":false,"reason":"truncated CFF framing is Data, not an adjustable resource ceiling"}}}
-// hostile {"group":"structural","row":{"id":"structural-name-index-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-name-index-terminal-extent","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"Name INDEX terminal extent is structural Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-top-index-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-top-index-terminal-extent","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"Top INDEX terminal extent is structural Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-string-index-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-string-index","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"String INDEX framing is structural Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-global-subrs-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-global-subrs-index","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"Global Subrs INDEX framing is structural Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-charstrings-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-charstrings-index-terminal-extent","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"CharStrings INDEX terminal extent is structural Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-private-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-private-range","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"private-framing","applicable":false,"reason":"Private DICT byte truncation is Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-local-subrs-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-local-subrs-index","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"private-framing","applicable":false,"reason":"local Subrs INDEX truncation is Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-dict-arity","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":3,"limit":0},"context":"font-cff-top-dict-arity","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"dict-arity","applicable":false,"reason":"typed DICT cardinality is Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-encoding-supplement","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-encoding-supplement","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"encoding-framing","applicable":false,"reason":"Encoding supplement truncation is Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-fd-select-fd","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":2,"limit":1},"context":"font-cff-fd-select-fd","gid":2,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"fdselect","applicable":false,"reason":"FDSelect FD index range is structural Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-fd-select-sentinel","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":3,"limit":2},"context":"font-cff-fd-select-sentinel","gid":2,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"fdselect","applicable":false,"reason":"FDSelect format-3 sentinel is structural Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-fd-private-range","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-fd-private-range","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"fdarray","applicable":false,"reason":"every FD Private range is checked as structural Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-font-matrix-arity","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":6,"limit":5},"context":"font-cff-font-matrix-arity","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"font-matrix","applicable":false,"reason":"FontMatrix arity is Data"}}}
-// hostile {"group":"structural","row":{"id":"structural-cid-charset","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-cid-charset","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"cid-charset","applicable":false,"reason":"CID fonts require a non-predefined charset"}}}
-// hostile {"group":"structural","row":{"id":"structural-cid-encoding","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-cid-encoding","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"cid-encoding","applicable":false,"reason":"CID fonts cannot carry a name-keyed Encoding"}}}
+// hostile {"group":"structural","row":{"id":"structural-header-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":4,"limit":3},"context":"font-cff-header","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"source-bytes","applicable":false,"reason":"truncated CFF framing is Data, not an adjustable resource ceiling"}}}
+// hostile {"group":"structural","row":{"id":"structural-name-index-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":4,"limit":12},"context":"font-cff-name-index-terminal-extent","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"Name INDEX terminal extent is structural Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-top-index-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":5,"limit":22},"context":"font-cff-top-index-terminal-extent","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"Top INDEX terminal extent is structural Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-string-index-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":2,"limit":24},"context":"font-cff-string-index","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"String INDEX framing is structural Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-global-subrs-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":2,"limit":26},"context":"font-cff-global-subrs-index","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"Global Subrs INDEX framing is structural Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-charstrings-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":1,"limit":32},"context":"font-cff-charstrings-index-terminal-extent","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"index-framing","applicable":false,"reason":"CharStrings INDEX terminal extent is structural Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-private-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":2,"limit":34},"context":"font-cff-private-range","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"private-framing","applicable":false,"reason":"Private DICT byte truncation is Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-local-subrs-one-short","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":2,"limit":36},"context":"font-cff-local-subrs-index","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"private-framing","applicable":false,"reason":"local Subrs INDEX truncation is Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-dict-arity","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-top-dict-arity","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"dict-arity","applicable":false,"reason":"typed DICT cardinality is Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-encoding-supplement","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":3,"limit":86},"context":"font-cff-encoding-supplement","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"encoding-framing","applicable":false,"reason":"Encoding supplement truncation is Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-fd-select-fd","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":2,"limit":2},"context":"font-cff-fd-select-fd","gid":2,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"fdselect","applicable":false,"reason":"FDSelect FD index range is structural Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-fd-select-sentinel","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":2,"limit":3},"context":"font-cff-fd-select-sentinel","gid":2,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"fdselect","applicable":false,"reason":"FDSelect format-3 sentinel is structural Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-fd-private-range","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":2,"limit":151},"context":"font-cff-fd-private-range","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"fdarray","applicable":false,"reason":"every FD Private range is checked as structural Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-font-matrix-arity","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":5,"limit":6},"context":"font-cff-font-matrix-arity","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"font-matrix","applicable":false,"reason":"FontMatrix arity is Data"}}}
+// hostile {"group":"structural","row":{"id":"structural-cid-charset","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-cid-charset","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"cid-charset","applicable":false,"reason":"CID fonts require a non-predefined charset"}}}
+// hostile {"group":"structural","row":{"id":"structural-cid-encoding","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1222:cff_structural_exact_and_one_short_cases","category":"Data","code":"InvalidEncoding","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-cid-encoding","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"cid-encoding","applicable":false,"reason":"CID fonts cannot carry a name-keyed Encoding"}}}
 // hostile {"group":"type2-program","row":{"id":"type2-number-stack-arity","source":"modules/mb-font/font/cff_type2_wbtest.mbt:126:Type 2 operators reject arity type and numeric faults","category":"Data","code":"InvalidEncoding","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-stack-underflow","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"operand-framing","applicable":false,"reason":"number stack underflow and operator arity faults are malformed program Data"}}}
-// hostile {"group":"type2-program","row":{"id":"type2-arithmetic-logical-storage","source":"modules/mb-font/font/cff_type2_wbtest.mbt:83:Type 2 scalar operators execute exact stack semantics","category":"Data","code":"InvalidEncoding","operation":"font-cff-type2","payload":{"requested":0,"limit":0},"context":"font-cff-type2-division-by-zero","gid":1,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"numeric-semantics","applicable":false,"reason":"arithmetic logical storage and transient semantic faults are Data"}}}
-// hostile {"group":"type2-program","row":{"id":"type2-random-width-state","source":"modules/mb-font/font/cff_type2_wbtest.mbt:191:Type 2 width is accepted only in the first legal width position","category":"Data","code":"InvalidEncoding","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-width-duplicate","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"width-position","applicable":false,"reason":"random/transient rollback and duplicate width are Data invariants"}}}
+// hostile {"group":"type2-program","row":{"id":"type2-arithmetic-logical-storage","source":"modules/mb-font/font/cff_type2_wbtest.mbt:83:Type 2 scalar operators execute exact stack semantics","category":"Data","code":"InvalidEncoding","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-division-by-zero","gid":1,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"numeric-semantics","applicable":false,"reason":"arithmetic logical storage and transient semantic faults are Data"}}}
+// hostile {"group":"type2-program","row":{"id":"type2-random-width-state","source":"modules/mb-font/font/cff_type2_wbtest.mbt:191:Type 2 width is accepted only in the first legal width position","category":"Data","code":"InvalidEncoding","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-moveto-arity","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"width-position","applicable":false,"reason":"random/transient rollback and duplicate width are Data invariants"}}}
 // hostile {"group":"type2-program","row":{"id":"type2-path-flex-geometry","source":"modules/mb-font/font/cff_type2_bounds_wbtest.mbt:107:Type 2 every ordinary path operator rejects invalid residual arity","category":"Data","code":"InvalidEncoding","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-geometry-arity","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"path-arity","applicable":false,"reason":"moveto line curve flex and contour ordering faults are Data"}}}
 // hostile {"group":"type2-program","row":{"id":"type2-stem-mask","source":"modules/mb-font/font/cff_type2_wbtest.mbt:284:Type 2 stem ceiling accepts 96 and rejects 97 before clearing operands","category":"Resource","code":"BudgetExceeded","operation":"font-cff-type2","payload":{"requested":97,"limit":96},"context":"font-cff-type2-stems","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":"stem-limit","kind":"covered-by","dimension":"stems","applicable":true,"reason":"the adjacent exact and one-short pair is owned by semantic-limit"}}}
 // hostile {"group":"type2-program","row":{"id":"type2-subroutine-frame","source":"modules/mb-font/font/cff_type2_fixture_wbtest.mbt:79:Type 2 invalid subr and recursive frame exhaustion are deterministic","category":"Resource","code":"BudgetExceeded","operation":"font-cff-type2","payload":{"requested":11,"limit":10},"context":"font-cff-type2-frame-depth","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":"frame-depth","kind":"covered-by","dimension":"depth","applicable":true,"reason":"the adjacent exact and one-short pair is owned by semantic-limit"}}}
@@ -1687,23 +1841,23 @@ test "font-cff1-v3 private mutation windows and atomic budgets" {
 // hostile {"group":"semantic-limit","row":{"id":"semantic-outline-points-one-short","source":"modules/mb-font/font/cff_type2_bounds_wbtest.mbt:131:Type 2 moveto and endchar close contours with exact geometry limits","category":"Resource","code":"BudgetExceeded","operation":"font-cff-type2","payload":{"requested":2,"limit":1},"context":"font-cff-type2-points","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":"outline-points","kind":"one-short","dimension":"points","applicable":true,"reason":"max_outline_points is independently adjustable"}}}
 // hostile {"group":"semantic-limit","row":{"id":"semantic-outline-contours-exact","source":"modules/mb-font/font/cff_type2_bounds_wbtest.mbt:131:Type 2 moveto and endchar close contours with exact geometry limits","category":null,"code":null,"operation":"font-cff-type2","payload":{"requested":2,"limit":2},"context":null,"gid":0,"publication":"staged-glyph","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":"outline-contours","kind":"exact","dimension":"contours","applicable":true,"reason":"max_outline_contours is independently adjustable"}}}
 // hostile {"group":"semantic-limit","row":{"id":"semantic-outline-contours-one-short","source":"modules/mb-font/font/cff_type2_bounds_wbtest.mbt:131:Type 2 moveto and endchar close contours with exact geometry limits","category":"Resource","code":"BudgetExceeded","operation":"font-cff-type2","payload":{"requested":2,"limit":1},"context":"font-cff-type2-contours","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":"outline-contours","kind":"one-short","dimension":"contours","applicable":true,"reason":"max_outline_contours is independently adjustable"}}}
-// hostile {"group":"semantic-limit","row":{"id":"semantic-retained-allocation-exact","source":"modules/mb-font/font/cff_type2_fixture_wbtest.mbt:479:Type 2 retained arrays use the maximum single allocation","category":null,"code":null,"operation":"budget_charge","payload":{"requested":384,"limit":384},"context":null,"gid":0,"publication":"staged-glyph","caller_before":[400,43,384,0,0,0,0,10],"caller_after":[0,0,384,0,0,0,0,0],"ancestor_before":[400,43,384,0,0,0,0,10],"ancestor_after":[0,0,384,0,0,0,0,0],"boundary":{"pair_id":"retained-allocation","kind":"exact","dimension":"allocation_size","applicable":true,"reason":"retained bounds/path arrays use an independently adjustable maximum allocation"}}}
+// hostile {"group":"semantic-limit","row":{"id":"semantic-retained-allocation-exact","source":"modules/mb-font/font/cff_type2_fixture_wbtest.mbt:479:Type 2 retained arrays use the maximum single allocation","category":null,"code":null,"operation":"budget_charge","payload":{"requested":384,"limit":384},"context":null,"gid":0,"publication":"staged-glyph","caller_before":[400,43,384,0,0,0,0,10],"caller_after":[400,43,384,0,0,0,0,10],"ancestor_before":[400,43,384,0,0,0,0,10],"ancestor_after":[400,43,384,0,0,0,0,10],"boundary":{"pair_id":"retained-allocation","kind":"exact","dimension":"allocation_size","applicable":true,"reason":"retained bounds/path arrays use an independently adjustable maximum allocation"}}}
 // hostile {"group":"semantic-limit","row":{"id":"semantic-geometry-and-retained-arrays","source":"modules/mb-font/font/cff_type2_fixture_wbtest.mbt:479:Type 2 retained arrays use the maximum single allocation","category":"Resource","code":"BudgetExceeded","operation":"budget_charge","payload":{"requested":384,"limit":383},"context":"allocation_size","gid":0,"publication":"none","caller_before":[400,43,383,0,0,0,0,10],"caller_after":[400,43,383,0,0,0,0,10],"ancestor_before":[400,43,383,0,0,0,0,10],"ancestor_after":[400,43,383,0,0,0,0,10],"boundary":{"pair_id":"retained-allocation","kind":"one-short","dimension":"allocation_size","applicable":true,"reason":"retained bounds/path arrays use an independently adjustable maximum allocation"}}}
 // hostile {"group":"resource","row":{"id":"outline-bytes-exact","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:246:CFF outline exact path charge covers caller and ancestor dimensions","category":null,"code":null,"operation":"budget_charge","payload":{"requested":192,"limit":192},"context":null,"gid":1,"publication":"path","caller_before":[192,5,384,0,0,0,0,19],"caller_after":[0,0,384,0,0,0,0,0],"ancestor_before":[192,5,384,0,0,0,0,19],"ancestor_after":[0,0,384,0,0,0,0,0],"boundary":{"pair_id":"outline-bytes","kind":"exact","dimension":"bytes","applicable":true,"reason":"caller and ancestor bytes ceilings are independently adjustable"}}}
-// hostile {"group":"resource","row":{"id":"outline-bytes-one-short","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:290:CFF outline exact path charge rejects each one-short window atomically","category":"Resource","code":"BudgetExceeded","operation":"budget_charge","payload":{"requested":192,"limit":191},"context":"bytes","gid":1,"publication":"existing-font-only","caller_before":[191,5,384,0,0,0,0,19],"caller_after":[191,5,384,0,0,0,0,19],"ancestor_before":[191,5,384,0,0,0,0,19],"ancestor_after":[191,5,384,0,0,0,0,19],"boundary":{"pair_id":"outline-bytes","kind":"one-short","dimension":"bytes","applicable":true,"reason":"caller and ancestor bytes ceilings are independently adjustable"}}}
+// hostile {"group":"resource","row":{"id":"outline-bytes-one-short","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:290:CFF outline exact path charge rejects each one-short window atomically","category":"Resource","code":"BudgetExceeded","operation":"font-outline","payload":{"requested":192,"limit":191},"context":"bytes","gid":1,"publication":"existing-font-only","caller_before":[191,5,384,0,0,0,0,19],"caller_after":[191,5,384,0,0,0,0,19],"ancestor_before":[191,5,384,0,0,0,0,19],"ancestor_after":[191,5,384,0,0,0,0,19],"boundary":{"pair_id":"outline-bytes","kind":"one-short","dimension":"bytes","applicable":true,"reason":"caller and ancestor bytes ceilings are independently adjustable"}}}
 // hostile {"group":"resource","row":{"id":"outline-allocations-exact","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:246:CFF outline exact path charge covers caller and ancestor dimensions","category":null,"code":null,"operation":"budget_charge","payload":{"requested":5,"limit":5},"context":null,"gid":1,"publication":"path","caller_before":[192,5,384,0,0,0,0,19],"caller_after":[0,0,384,0,0,0,0,0],"ancestor_before":[192,5,384,0,0,0,0,19],"ancestor_after":[0,0,384,0,0,0,0,0],"boundary":{"pair_id":"outline-allocations","kind":"exact","dimension":"allocations","applicable":true,"reason":"caller and ancestor allocation counts are independently adjustable"}}}
-// hostile {"group":"resource","row":{"id":"outline-allocations-one-short","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:290:CFF outline exact path charge rejects each one-short window atomically","category":"Resource","code":"BudgetExceeded","operation":"budget_charge","payload":{"requested":5,"limit":4},"context":"allocations","gid":1,"publication":"existing-font-only","caller_before":[192,4,384,0,0,0,0,19],"caller_after":[192,4,384,0,0,0,0,19],"ancestor_before":[192,4,384,0,0,0,0,19],"ancestor_after":[192,4,384,0,0,0,0,19],"boundary":{"pair_id":"outline-allocations","kind":"one-short","dimension":"allocations","applicable":true,"reason":"caller and ancestor allocation counts are independently adjustable"}}}
+// hostile {"group":"resource","row":{"id":"outline-allocations-one-short","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:290:CFF outline exact path charge rejects each one-short window atomically","category":"Resource","code":"BudgetExceeded","operation":"font-outline","payload":{"requested":5,"limit":4},"context":"allocations","gid":1,"publication":"existing-font-only","caller_before":[192,4,384,0,0,0,0,19],"caller_after":[192,4,384,0,0,0,0,19],"ancestor_before":[192,4,384,0,0,0,0,19],"ancestor_after":[192,4,384,0,0,0,0,19],"boundary":{"pair_id":"outline-allocations","kind":"one-short","dimension":"allocations","applicable":true,"reason":"caller and ancestor allocation counts are independently adjustable"}}}
 // hostile {"group":"resource","row":{"id":"outline-allocation-size-exact","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:246:CFF outline exact path charge covers caller and ancestor dimensions","category":null,"code":null,"operation":"budget_charge","payload":{"requested":384,"limit":384},"context":null,"gid":1,"publication":"path","caller_before":[192,5,384,0,0,0,0,19],"caller_after":[0,0,384,0,0,0,0,0],"ancestor_before":[192,5,384,0,0,0,0,19],"ancestor_after":[0,0,384,0,0,0,0,0],"boundary":{"pair_id":"outline-allocation-size","kind":"exact","dimension":"allocation_size","applicable":true,"reason":"caller and ancestor allocation-size ceilings are independently adjustable"}}}
-// hostile {"group":"resource","row":{"id":"outline-allocation-size-one-short","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:290:CFF outline exact path charge rejects each one-short window atomically","category":"Resource","code":"BudgetExceeded","operation":"budget_charge","payload":{"requested":384,"limit":383},"context":"allocation_size","gid":1,"publication":"existing-font-only","caller_before":[192,5,383,0,0,0,0,19],"caller_after":[192,5,383,0,0,0,0,19],"ancestor_before":[192,5,383,0,0,0,0,19],"ancestor_after":[192,5,383,0,0,0,0,19],"boundary":{"pair_id":"outline-allocation-size","kind":"one-short","dimension":"allocation_size","applicable":true,"reason":"caller and ancestor allocation-size ceilings are independently adjustable"}}}
+// hostile {"group":"resource","row":{"id":"outline-allocation-size-one-short","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:290:CFF outline exact path charge rejects each one-short window atomically","category":"Resource","code":"BudgetExceeded","operation":"font-outline","payload":{"requested":384,"limit":383},"context":"allocation_size","gid":1,"publication":"existing-font-only","caller_before":[192,5,383,0,0,0,0,19],"caller_after":[192,5,383,0,0,0,0,19],"ancestor_before":[192,5,383,0,0,0,0,19],"ancestor_after":[192,5,383,0,0,0,0,19],"boundary":{"pair_id":"outline-allocation-size","kind":"one-short","dimension":"allocation_size","applicable":true,"reason":"caller and ancestor allocation-size ceilings are independently adjustable"}}}
 // hostile {"group":"resource","row":{"id":"outline-work-exact","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:246:CFF outline exact path charge covers caller and ancestor dimensions","category":null,"code":null,"operation":"budget_charge","payload":{"requested":19,"limit":19},"context":null,"gid":1,"publication":"path","caller_before":[192,5,384,0,0,0,0,19],"caller_after":[0,0,384,0,0,0,0,0],"ancestor_before":[192,5,384,0,0,0,0,19],"ancestor_after":[0,0,384,0,0,0,0,0],"boundary":{"pair_id":"outline-work","kind":"exact","dimension":"work","applicable":true,"reason":"caller and ancestor work ceilings are independently adjustable"}}}
-// hostile {"group":"resource","row":{"id":"outline-work-one-short","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:350:CFF outline work preflight prevents caller and ancestor VM execution","category":"Resource","code":"BudgetExceeded","operation":"budget_charge","payload":{"requested":19,"limit":18},"context":"work","gid":1,"publication":"existing-font-only","caller_before":[192,5,384,0,0,0,0,18],"caller_after":[192,5,384,0,0,0,0,18],"ancestor_before":[192,5,384,0,0,0,0,18],"ancestor_after":[192,5,384,0,0,0,0,18],"boundary":{"pair_id":"outline-work","kind":"one-short","dimension":"work","applicable":true,"reason":"caller and ancestor work ceilings are independently adjustable"}}}
-// hostile {"group":"mutation","row":{"id":"mutation-admission-opening","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:377:CFF multi-fault precedence is state resource capability then data","category":"State","code":"InvalidRange","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-source-revision-drift","gid":null,"publication":"none","caller_before":[1,1,1,0,0,0,0,1],"caller_after":[1,1,1,0,0,0,0,1],"ancestor_before":[1,1,1,0,0,0,0,1],"ancestor_after":[1,1,1,0,0,0,0,1],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"revision","applicable":false,"reason":"revision drift is State authority, not Resource"}}}
+// hostile {"group":"resource","row":{"id":"outline-work-one-short","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:350:CFF outline work preflight prevents caller and ancestor VM execution","category":"Resource","code":"BudgetExceeded","operation":"font-outline","payload":{"requested":19,"limit":18},"context":"work","gid":1,"publication":"existing-font-only","caller_before":[192,5,384,0,0,0,0,18],"caller_after":[192,5,384,0,0,0,0,18],"ancestor_before":[192,5,384,0,0,0,0,18],"ancestor_after":[192,5,384,0,0,0,0,18],"boundary":{"pair_id":"outline-work","kind":"one-short","dimension":"work","applicable":true,"reason":"caller and ancestor work ceilings are independently adjustable"}}}
+// hostile {"group":"mutation","row":{"id":"mutation-admission-opening","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1522:CFF multi-fault precedence is state resource capability then data","category":"State","code":"InvalidRange","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-source-revision-drift","gid":null,"publication":"none","caller_before":[1,1,1,0,0,0,0,1],"caller_after":[1,1,1,0,0,0,0,1],"ancestor_before":[1,1,1,0,0,0,0,1],"ancestor_after":[1,1,1,0,0,0,0,1],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"revision","applicable":false,"reason":"revision drift is State authority, not Resource"}}}
 // hostile {"group":"mutation","row":{"id":"mutation-selected-face","source":"modules/mb-font/font/cff_type2_fixture_wbtest.mbt:542:Type 2 all-GID staging is ascending, exact, and does not commit budget","category":"State","code":"InvalidRange","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-source-revision-drift","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"selected-face-revision","applicable":false,"reason":"selected-face root authority drift is State"}}}
 // hostile {"group":"mutation","row":{"id":"mutation-type2-fetch","source":"modules/mb-font/font/cff_type2_fixture_wbtest.mbt:286:Type 2 mid-fetch mutation wins truncated number and escape errors","category":"State","code":"InvalidRange","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-source-revision-drift","gid":0,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"fetch-revision","applicable":false,"reason":"mid-fetch mutation has State precedence"}}}
 // hostile {"group":"mutation","row":{"id":"mutation-staged-path","source":"modules/mb-font/font/cff_type2_path_wbtest.mbt:508:CFF outline atomic mid-fetch mutation publishes no staged path","category":"State","code":"InvalidRange","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-source-revision-drift","gid":1,"publication":"existing-font-only","caller_before":[192,5,384,0,0,0,0,19],"caller_after":[192,5,384,0,0,0,0,19],"ancestor_before":[192,5,384,0,0,0,0,19],"ancestor_after":[192,5,384,0,0,0,0,19],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"staged-path-revision","applicable":false,"reason":"staged path is discarded on State drift"}}}
 // hostile {"group":"mutation","row":{"id":"mutation-final-commit","source":"modules/mb-font/font/cff_type2_fixture_wbtest.mbt:542:Type 2 all-GID staging is ascending, exact, and does not commit budget","category":"State","code":"InvalidRange","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-source-revision-drift","gid":2,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"commit-revision","applicable":false,"reason":"final revision guard precedes atomic commit"}}}
-// hostile {"group":"multi-fault-precedence","row":{"id":"precedence-state-over-resource","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:377:CFF multi-fault precedence is state resource capability then data","category":"State","code":"InvalidRange","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-source-revision-drift","gid":null,"publication":"none","caller_before":[1,1,1,0,0,0,0,1],"caller_after":[1,1,1,0,0,0,0,1],"ancestor_before":[1,1,1,0,0,0,0,1],"ancestor_after":[1,1,1,0,0,0,0,1],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"precedence","applicable":false,"reason":"State wins before Resource Capability and Data"}}}
-// hostile {"group":"multi-fault-precedence","row":{"id":"precedence-resource-over-data","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:377:CFF multi-fault precedence is state resource capability then data","category":"Resource","code":"BudgetExceeded","operation":"budget_charge","payload":{"requested":257,"limit":256},"context":"bytes","gid":null,"publication":"none","caller_before":[256,32,4096,0,0,0,0,16384],"caller_after":[256,32,4096,0,0,0,0,16384],"ancestor_before":[256,32,4096,0,0,0,0,16384],"ancestor_after":[256,32,4096,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"precedence","applicable":false,"reason":"Resource preflight wins malformed header Data"}}}
-// hostile {"group":"multi-fault-precedence","row":{"id":"precedence-capability-over-data","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:377:CFF multi-fault precedence is state resource capability then data","category":"Capability","code":"CapabilityUnavailable","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-profile","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"precedence","applicable":false,"reason":"recognized mixed profile Capability wins malformed CFF Data"}}}
-// hostile {"group":"multi-fault-precedence","row":{"id":"precedence-smallest-failing-gid","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:181:CFF all-glyph capability data and smallest-failing-GID outcomes are atomic","category":"Data","code":"InvalidEncoding","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-reserved-operator","gid":1,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"gid-order","applicable":false,"reason":"ascending validation reports the smallest failing GID literally"}}}
+// hostile {"group":"multi-fault-precedence","row":{"id":"precedence-state-over-resource","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1522:CFF multi-fault precedence is state resource capability then data","category":"State","code":"InvalidRange","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-source-revision-drift","gid":null,"publication":"none","caller_before":[1,1,1,0,0,0,0,1],"caller_after":[1,1,1,0,0,0,0,1],"ancestor_before":[1,1,1,0,0,0,0,1],"ancestor_after":[1,1,1,0,0,0,0,1],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"precedence","applicable":false,"reason":"State wins before Resource Capability and Data"}}}
+// hostile {"group":"multi-fault-precedence","row":{"id":"precedence-resource-over-data","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1522:CFF multi-fault precedence is state resource capability then data","category":"Resource","code":"BudgetExceeded","operation":"budget_charge","payload":{"requested":420,"limit":419},"context":"bytes","gid":null,"publication":"none","caller_before":[419,32,4096,0,0,0,0,16384],"caller_after":[419,32,4096,0,0,0,0,16384],"ancestor_before":[419,32,4096,0,0,0,0,16384],"ancestor_after":[419,32,4096,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"precedence","applicable":false,"reason":"Resource preflight wins malformed header Data"}}}
+// hostile {"group":"multi-fault-precedence","row":{"id":"precedence-capability-over-data","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1522:CFF multi-fault precedence is state resource capability then data","category":"Capability","code":"CapabilityUnavailable","operation":"font-cff-admit","payload":{"requested":null,"limit":null},"context":"font-cff-profile","gid":null,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"precedence","applicable":false,"reason":"recognized mixed profile Capability wins malformed CFF Data"}}}
+// hostile {"group":"multi-fault-precedence","row":{"id":"precedence-smallest-failing-gid","source":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1326:CFF all-glyph capability data and smallest-failing-GID outcomes are atomic","category":"Data","code":"InvalidEncoding","operation":"font-cff-type2","payload":{"requested":null,"limit":null},"context":"font-cff-type2-reserved-operator","gid":1,"publication":"none","caller_before":[4096,32,16384,0,0,0,0,16384],"caller_after":[4096,32,16384,0,0,0,0,16384],"ancestor_before":[4096,32,16384,0,0,0,0,16384],"ancestor_after":[4096,32,16384,0,0,0,0,16384],"boundary":{"pair_id":null,"kind":"not-applicable","dimension":"gid-order","applicable":false,"reason":"ascending validation reports the smallest failing GID literally"}}}
 // font-cff1-v3 private hostile:end
