@@ -3,11 +3,11 @@ Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot 'Invoke-FontQualification.ps1') -ImportOnly
 
-if ($EvidenceMarkerSchema -cne 'mnf-font-qualification-evidence/v2') {
-  throw "Evidence marker schema must be v2; received '$EvidenceMarkerSchema'."
+if ($EvidenceMarkerSchema -cne 'mnf-font-qualification-evidence/v3') {
+  throw "Evidence marker schema must be v3; received '$EvidenceMarkerSchema'."
 }
-if ($EvidenceWorkflowId -cne 'font-complete-public-v2') {
-  throw "Evidence workflow must be v2; received '$EvidenceWorkflowId'."
+if ($EvidenceWorkflowId -cne 'font-complete-public-v3') {
+  throw "Evidence workflow must be v3; received '$EvidenceWorkflowId'."
 }
 $expectedRecordKeys = @(
   'schema_version',
@@ -15,28 +15,68 @@ $expectedRecordKeys = @(
   'target',
   'toolchain',
   'fixtures',
-  'standalone_baseline',
-  'generated_collection_facts',
-  'licensed_derivative_facts',
-  'collection_hostile_outcomes',
+  'oracle_facts',
+  'generated_cff_facts',
+  'licensed_cff_facts',
+  'public_workflow_facts',
+  'cff_hostile_outcomes',
   'mutation_atomicity_facts',
+  'glyf_compatibility_facts',
+  'benchmark_correctness_facts',
   'boundary_facts',
   'dependency_facts',
-  'focused_assertions',
   'source_identities',
+  'focused_assertions',
   'runner',
   'pass'
 )
-if ((Compare-Object -CaseSensitive $expectedRecordKeys $RecordKeys)) {
-  throw 'Target evidence record keys must match the closed v2 schema.'
+if (($expectedRecordKeys -join "`0") -cne ($RecordKeys -join "`0")) {
+  throw 'Target evidence record keys must match the closed ordered v3 schema.'
 }
-$defaultEvidenceDirectory = (
-  Get-Command Invoke-FontQualification
-).Parameters['EvidenceDirectory'].Attributes |
+$expectedProducts = @(
+  'js.json',
+  'wasm.json',
+  'wasm-gc.json',
+  'native.json',
+  'comparison.json'
+)
+if (($expectedProducts -join "`0") -cne ($EvidenceProductNames -join "`0")) {
+  throw 'Evidence cleanup must own exactly five ordered v3 products.'
+}
+if ((@('target', 'runner') -join "`0") -cne
+    ($NormalizationRemoved -join "`0")) {
+  throw 'Semantic normalization must remove only top-level target and runner.'
+}
+$expectedPublicAssertions = @(
+  'font-cff1-v3 carrier-public generated-name standalone and selected tracer',
+  'font-cff1-v3 carrier-public every standalone and selected workflow',
+  'font-cff1-v3 carrier-public caller mutation is exact and atomic',
+  'font-cff1-v3 carrier-public timing-free correctness workloads'
+)
+if (($expectedPublicAssertions -join "`0") -cne
+    (@($PublicEvidenceAssertions.name) -join "`0")) {
+  throw 'Public CFF evidence assertion identities or order drifted.'
+}
+$expectedPrivateAssertions = @(
+  'font-cff1-v3 private fd oracle',
+  'font-cff1-v3 private hostile outcomes',
+  'font-cff1-v3 private mutation windows and atomic budgets'
+)
+if (($expectedPrivateAssertions -join "`0") -cne
+    (@($PrivateFocusedAssertions.name) -join "`0")) {
+  throw 'Private CFF assertion identities or order drifted.'
+}
+$runnerCommand = Get-Command Invoke-FontQualification
+$defaultEvidenceDirectory = $runnerCommand.Parameters['EvidenceDirectory'].Attributes |
   Where-Object { $_ -is [Management.Automation.ParameterAttribute] } |
   Select-Object -First 1
 if ($null -eq $defaultEvidenceDirectory) {
   throw 'Import-only runner seam is missing EvidenceDirectory.'
+}
+foreach ($parameter in @('ContractOnly', 'Target', 'TracerOnly')) {
+  if (-not $runnerCommand.Parameters.ContainsKey($parameter)) {
+    throw "Import-only runner seam is missing $parameter."
+  }
 }
 
 $temporaryBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
@@ -109,6 +149,8 @@ try {
     -ManagedRoot $managedRoot
   $ownedKnown = Join-Path $owned 'js.json'
   $ownedUnrelated = Join-Path $owned 'notes.json'
+  $markerPath = Join-Path $owned $EvidenceMarkerName
+  $markerBytes = [IO.File]::ReadAllBytes($markerPath)
   [IO.File]::WriteAllText($ownedKnown, 'stale evidence')
   [IO.File]::WriteAllText($ownedUnrelated, 'preserve me')
   Clear-FontQualificationEvidenceFiles `
@@ -120,22 +162,32 @@ try {
   if ([IO.File]::ReadAllText($ownedUnrelated) -cne 'preserve me') {
     throw 'Cleanup mutated an unrelated file in an owned directory.'
   }
+  if (([Convert]::ToHexString([IO.File]::ReadAllBytes($markerPath))) -cne
+      ([Convert]::ToHexString($markerBytes))) {
+    throw 'Cleanup rewrote the exact v3 ownership marker.'
+  }
+  Assert-Rejected {
+    Write-FontQualificationEvidenceJson `
+      -Directory $owned `
+      -ManagedRoot $managedRoot `
+      -FileName 'notes.json' `
+      -Value ([pscustomobject][ordered]@{ probe = $true })
+  } 'not a managed qualification record'
 
-  $markerPath = Join-Path $owned $EvidenceMarkerName
   Write-FontQualificationJson `
     -Path $markerPath `
     -Value ([pscustomobject][ordered]@{
-      schema = 'mnf-font-qualification-evidence/v1'
-      workflow_id = 'font-complete-public-v1'
+      schema = 'mnf-font-qualification-evidence/v2'
+      workflow_id = 'font-complete-public-v2'
     })
-  [IO.File]::WriteAllText($ownedKnown, 'preserve after version 1 marker')
+  [IO.File]::WriteAllText($ownedKnown, 'preserve after version 2 marker')
   Assert-Rejected {
     Clear-FontQualificationEvidenceFiles `
       -Directory $owned `
       -ManagedRoot $managedRoot
   } 'marker is invalid'
-  if ([IO.File]::ReadAllText($ownedKnown) -cne 'preserve after version 1 marker') {
-    throw 'Version 1 marker authorized version 2 cleanup.'
+  if ([IO.File]::ReadAllText($ownedKnown) -cne 'preserve after version 2 marker') {
+    throw 'Version 2 marker authorized version 3 cleanup.'
   }
 
   [IO.File]::WriteAllText($markerPath, '{"schema":"wrong","workflow_id":"wrong"}')
