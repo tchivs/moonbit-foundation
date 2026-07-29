@@ -1,37 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.34
-milestone_name: CFF Outline Foundation
-status: Awaiting next milestone
-stopped_at: Completed 107-06-PLAN.md
-last_updated: "2026-07-29T18:47:11.975Z"
+milestone: v0.35
+milestone_name: Text Shaping Foundation
+status: defining requirements
+stopped_at: Initializing v0.35 milestone research
+last_updated: "2026-07-30T02:55:00+08:00"
 last_activity: 2026-07-30
-last_activity_desc: Milestone v0.34 completed and archived
+last_activity_desc: Started v0.35 Text Shaping Foundation
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 18
-  completed_plans: 18
-current_phase: 107
-current_phase_name: hostile-licensed-and-four-target-qualification
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+current_phase:
+current_phase_name:
 ---
 
 # Project State
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
+See `.planning/PROJECT.md` (updated 2026-07-30 for v0.35).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 107 — hostile-licensed-and-four-target-qualification
+**Current focus:** v0.35 Text Shaping Foundation requirements and roadmap
 
 ## Current Position
 
-Phase: Milestone v0.34 complete
+Phase: Not started
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-30 — Milestone v0.34 completed and archived
+Status: Defining v0.35 requirements
+Last activity: 2026-07-30 — Started v0.35 Text Shaping Foundation
 
 ## Milestone Metrics
 

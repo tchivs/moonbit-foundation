@@ -18,7 +18,18 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Next:** Audit and archive v0.34, then begin v0.35 with a bounded, deterministic horizontal text-shaping slice over the validated font foundation.
 
-## Current Milestone: v0.34 CFF Outline Foundation
+## Current Milestone: v0.35 Text Shaping Foundation
+
+**Goal:** Let MoonBit library authors turn bounded single-font horizontal Unicode text with explicit script, language, direction, and feature choices into deterministic positioned glyph runs on every supported target.
+
+**Target features:**
+
+- Establish a bounded, format-neutral shaping input/run model that consumes the existing opaque `Font`, Unicode scalars, and explicit caller options without ambient locale, font discovery, or fallback.
+- Add a minimal OpenType layout seam for single substitutions, standard/required ligatures, legacy `kern`, and basic pair positioning with deterministic cluster and advance/offset semantics.
+- Preserve exact limits, mutation guards, budget authority, atomic publication, and structured errors for malformed or resource-exhausting layout data.
+- Qualify generated and licensed `glyf`/CFF1 fonts, feature toggles, hostile cases, compatibility, and identical `js`, `wasm`, `wasm-gc`, and `native` behavior.
+
+## Latest Milestone: v0.34 CFF Outline Foundation
 
 **Goal:** Let MoonBit library authors open bounded static OpenType CFF1 fonts and query reusable cubic `Path2` outlines through the existing opaque `Font` contract without a foreign font stack.
 
@@ -28,7 +39,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - Execute bounded Type 2 charstrings into the shared cubic `Path2` model while treating hints as validated non-rendering data and preserving atomic publication under malformed input, mutation, recursion, stack, subroutine, path, and work limits.
 - Integrate static CFF1 outline selection with existing `Font` metrics, Unicode mapping, glyph identity, kerning boundaries, TTC/OTC selection, and four-target generated/licensed qualification without changing existing static `glyf` behavior.
 
-## Latest Milestone: v0.33 TrueType Collection Adapters
+## Previous Milestone: v0.33 TrueType Collection Adapters
 
 **Goal:** Let MoonBit library authors select and admit one supported TrueType face from bounded TTC/OTC bytes, then use the existing metrics, mapping, kerning, and outline contracts unchanged.
 
@@ -39,7 +50,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - Reject unsupported CFF/CFF2 faces and malformed or resource-exhausting collections before publishing a partial collection or font.
 - Qualify generated and licensed collection fixtures, hostile cases, standalone-SFNT compatibility, and identical behavior on `js`, `wasm`, `wasm-gc`, and `native`.
 
-## Previous Milestone: v0.32 TrueType Font Foundation
+## Earlier Milestone: v0.32 TrueType Font Foundation
 
 **Goal:** Let MoonBit library authors parse bounded TrueType fonts into deterministic Unicode mappings, metrics, and reusable glyph outlines without a foreign font stack.
 
@@ -49,23 +60,29 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - Expose checked font metrics, Unicode `cmap` resolution, simple/composite `glyf` outlines, and basic legacy `kern` pair adjustments through a portable MoonBit API.
 - Qualify malformed-input rejection, deterministic public behavior, representative real-font interoperability, and identical execution on `js`, `wasm`, `wasm-gc`, and `native`.
 
-## v0.34 Scope Boundaries
+## v0.35 Scope Boundaries
 
-- Static CFF1 outline admission is the vertical slice; CFF2 `blend`/variation-store execution remains deferred with variable-font instantiation.
-- WOFF1/WOFF2 admission remains deferred because it requires a reusable zlib/DEFLATE extraction or Brotli/transformed-table boundary independent from CFF semantics.
-- Shaping, bidi, hint execution, rasterization, color/bitmap glyphs, subsetting, authoring, discovery, host-font lookup, publication, and stability promotion remain out of scope.
-- Exact four-target, pure-MoonBit, bounded-resource, dependency, API, fixture, and evidence contracts from v0.33 remain mandatory compatibility baselines.
+- Single-font horizontal shaping is the vertical slice; font fallback, discovery, system font lookup, and multi-font run merging remain deferred.
+- Callers provide normalized Unicode scalars plus explicit script, language, direction, and feature choices; normalization, bidi paragraph analysis, line breaking, justification, rich text, and vertical layout remain out of scope.
+- The first layout profile covers bounded table parsing and a deliberately small substitution/positioning subset sufficient for Latin-style ligatures and pair adjustment; full contextual Arabic, Indic, Khmer, cursive, mark, and reordering engines remain deferred.
+- Rasterization, hint execution, color/bitmap glyphs, variable-font instantiation, WOFF, authoring, and FFI/foreign shaping engines remain out of scope.
+- Exact four-target, pure-MoonBit, bounded-resource, atomicity, compatibility, fixture, and evidence contracts from v0.34 remain mandatory baselines.
 
 ## Requirements
 
 ### Active
 
-- [x] Library authors can open bounded static OpenType CFF1 fonts and receive the existing opaque `Font` with reusable cubic `Path2` outlines. — Validated in Phases 104-106.
-- [x] Malformed or resource-exhausting CFF/Type 2 programs fail deterministically before publishing partial font state or geometry or charging an uncommitted transaction. — Validated in Phases 104-107.
-- [x] Maintainers can reproduce generated, licensed, hostile, existing-`glyf`, collection, and four-target CFF qualification evidence. — Validated in Phase 107.
+- [ ] Library authors can shape bounded single-font horizontal Unicode text through an explicit deterministic API.
+- [ ] Callers receive stable glyph IDs, source clusters, advances, and offsets without exposing OpenType layout internals.
+- [ ] Standard/required ligature and pair-adjustment behavior is feature-selectable, bounded, and compatible with legacy kerning.
+- [ ] Malformed, mutated, or resource-exhausting layout data fails atomically with structured outcomes.
+- [ ] Maintainers can reproduce generated, licensed, hostile, compatibility, and equal four-target shaping evidence.
 
 ### Validated
 
+- [x] Library authors can open bounded static OpenType CFF1 fonts and receive the existing opaque `Font` with reusable cubic `Path2` outlines. — Validated in v0.34 Phases 104-106.
+- [x] Malformed or resource-exhausting CFF/Type 2 programs fail deterministically before publishing partial font state or geometry or charging an uncommitted transaction. — Validated in v0.34 Phases 104-107.
+- [x] Maintainers can reproduce generated, licensed, hostile, existing-`glyf`, collection, and four-target CFF qualification evidence. — Validated in v0.34 Phase 107.
 - [x] Static CFF1 faces admit through one bounded atomic standalone or selected-collection transaction and retain complete name-keyed or CID-keyed per-GID execution facts behind a closed private outline-source boundary. — Validated in Phase 104.
 - [x] Malformed collections, unsupported face profiles, mutation, exhausted limits, and exhausted budgets fail atomically with structured outcomes. — Validated in Phase 103.
 - [x] Maintainers can reproduce standalone and collection behavior with generated, licensed, hostile, and four-target evidence. — Validated in Phase 103.
