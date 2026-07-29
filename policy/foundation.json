@@ -2470,7 +2470,9 @@
           {"path":"benchmarks/font-cff/moon.mod.json","length":262,"sha256":"4103bc450bb8dec7708823d8dd60644d08fdd35a0850d826fce82342c940d018"},
           {"path":"benchmarks/font-cff/moon.pkg","length":256,"sha256":"a22026ab3a2d0a6cea938f029f56a511495234bb57fb62ba3fe2ad32d87b9218"},
           {"path":"benchmarks/font-cff/generated_cff_evidence.mbt","length":26432203,"sha256":"48bec8cf25263521ca93ca0acda49f48f78ab43bbce48968ead9cd2856903135"},
-          {"path":"benchmarks/font-cff/cff_qualification_wbtest.mbt","length":14169,"sha256":"a7d5fd4310c8332adb0fccb72d607a362d6e312b5f1aae6334e50d21b08ace6e"}
+          {"path":"benchmarks/font-cff/cff_qualification_wbtest.mbt","length":14169,"sha256":"a7d5fd4310c8332adb0fccb72d607a362d6e312b5f1aae6334e50d21b08ace6e"},
+          {"path":"benchmarks/moon.work","length":139,"sha256":"2562fdf6d4dba04d48b32b207764edb6076c1772d0e53ef1e1712e82ebf93895"},
+          {"path":"benchmarks/font-cff/cff_bench.mbt","length":6881,"sha256":"11f57939dac0d327c65d7128fc2c0158803d3a36cad4ec40d8ebe9f8b0086ef8"}
         ],
         "fixture_sources": [
           {"path":"fixtures/manifest.json","length":14222,"sha256":"fb30c43d25d425977f514149392c63f30e21352d6b8067d472dd004865ef7a74"},
@@ -2493,19 +2495,37 @@
         ],
         "qualification_tool_sources": [
           {"path":"scripts/fixtures/Generate-FontQualification.ps1","length":246872,"sha256":"b401a8e76f35041843a66d516521b937ff783b47a88a0580614b90c035930781"},
-          {"path":"scripts/quality/Assert-Policy.ps1","length":228392,"sha256":"a62585bd40ad4489581a5eb1d57209e8604cedf71f226d77269a31c1a1ad6f5f"},
+          {"path":"scripts/quality/Assert-Policy.ps1","length":230803,"sha256":"bea98304003e31fe98b283efd23b3b587c15a63ec2ea833664fe94fb001fb21c"},
           {"path":"scripts/quality/Invoke-FontQualification.ps1","length":55092,"sha256":"8ab53d7915c9e780531989ed319f2373789095f9f39baa5e4fdc7a8d5d5f766d"},
-          {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":10454,"sha256":"953e13afc353ad40a15282e1e6439876e4fbb0d1b51dcee7a4d5752a4f65eff4"}
+          {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":10454,"sha256":"953e13afc353ad40a15282e1e6439876e4fbb0d1b51dcee7a4d5752a4f65eff4"},
+          {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":61140,"sha256":"fe8bb8ef74e3603355dfdbb7f193975653333e298a5601055e5dc1c9107ce0e6"},
+          {"path":"scripts/quality/Test-BenchmarkQualification.ps1","length":8102,"sha256":"204901288f0b1691fe1ea0efd3e3ad3165c6349e094a20c3ffb26bbae14ffbec"}
         ],
-        "wave6_refresh": {
-          "status": "required-before-final-v3-seal",
-          "required_paths": [
-            "benchmarks/moon.work",
-            "benchmarks/font-cff/cff_bench.mbt",
-            "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1",
-            "scripts/quality/Test-BenchmarkQualification.ps1",
-            "docs/benchmarks/mb-font-cff-native-release-baseline.md"
-          ]
+        "native_benchmark_baseline": {
+          "status": "pending-clean-record",
+          "path": "docs/benchmarks/mb-font-cff-native-release-baseline.md",
+          "length": null,
+          "sha256": null,
+          "schema_version": "mnf-mb-font-cff-native-baseline/1.0.0",
+          "claim": "observation_only",
+          "command": "moon -C benchmarks bench font-cff/cff_bench.mbt --release --target native --frozen",
+          "workload_order": [
+            "latin-full-admission",
+            "cjk-full-admission",
+            "latin-fixed-outline-batch",
+            "cjk-high-gid-multi-fd-outline-batch"
+          ],
+          "warmup_count": 1,
+          "retained_capture_count": 7,
+          "statistics": [
+            "mean_ms",
+            "median_ms",
+            "sample_standard_deviation_ms",
+            "minimum_ms",
+            "maximum_ms",
+            "coefficient_of_variation"
+          ],
+          "audit_owner": "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1"
         }
       }
     }

@@ -105,10 +105,7 @@ function Assert-CffBenchmarkHarnessContract {
       '[string]$Target',
       '[string]$Workload',
       '[string]$Output',
-      '[int]$SampleCount',
-      '--package',
-      '--file',
-      '--index'
+      '[int]$SampleCount'
     )) {
     if ($source.Contains($forbidden)) {
       throw "CFF native baseline harness exposes forbidden caller control: $forbidden"

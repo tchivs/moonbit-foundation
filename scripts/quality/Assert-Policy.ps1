@@ -3058,7 +3058,7 @@ function Assert-FontQualificationV3PolicyContract {
       'fixture_sources',
       'oracle_tool_sources',
       'qualification_tool_sources',
-      'wave6_refresh'
+      'native_benchmark_baseline'
     )
   Assert-Condition (
     $Qualification.schema_version -ceq '3.0.0' -and
@@ -3137,7 +3137,9 @@ function Assert-FontQualificationV3PolicyContract {
       'benchmarks/font-cff/moon.mod.json',
       'benchmarks/font-cff/moon.pkg',
       'benchmarks/font-cff/generated_cff_evidence.mbt',
-      'benchmarks/font-cff/cff_qualification_wbtest.mbt'
+      'benchmarks/font-cff/cff_qualification_wbtest.mbt',
+      'benchmarks/moon.work',
+      'benchmarks/font-cff/cff_bench.mbt'
     )
     fixture_sources = @(
       'fixtures/manifest.json',
@@ -3162,7 +3164,9 @@ function Assert-FontQualificationV3PolicyContract {
       'scripts/fixtures/Generate-FontQualification.ps1',
       'scripts/quality/Assert-Policy.ps1',
       'scripts/quality/Invoke-FontQualification.ps1',
-      'scripts/quality/Test-FontQualificationEvidenceBoundary.ps1'
+      'scripts/quality/Test-FontQualificationEvidenceBoundary.ps1',
+      'scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1',
+      'scripts/quality/Test-BenchmarkQualification.ps1'
     )
   }
   foreach ($inventory in $inventories.GetEnumerator()) {
@@ -3173,22 +3177,75 @@ function Assert-FontQualificationV3PolicyContract {
       -Label "Font v3 $($inventory.Key)"
   }
 
-  Assert-ExactSequence 'Font v3 Wave 6 refresh schema' `
-    @($Qualification.wave6_refresh.PSObject.Properties.Name) `
-    @('status', 'required_paths')
-  Assert-Condition (
-    $Qualification.wave6_refresh.status -ceq
-      'required-before-final-v3-seal'
-  ) 'Font v3 Wave 6 refresh status drifted.'
-  Assert-ExactSequence 'Font v3 Wave 6 refresh paths' `
-    @($Qualification.wave6_refresh.required_paths) `
+  $baseline = $Qualification.native_benchmark_baseline
+  Assert-ExactSequence 'Font CFF native baseline policy schema' `
+    @($baseline.PSObject.Properties.Name) `
     @(
-      'benchmarks/moon.work',
-      'benchmarks/font-cff/cff_bench.mbt',
-      'scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1',
-      'scripts/quality/Test-BenchmarkQualification.ps1',
-      'docs/benchmarks/mb-font-cff-native-release-baseline.md'
+      'status',
+      'path',
+      'length',
+      'sha256',
+      'schema_version',
+      'claim',
+      'command',
+      'workload_order',
+      'warmup_count',
+      'retained_capture_count',
+      'statistics',
+      'audit_owner'
     )
+  Assert-Condition (
+    $baseline.path -ceq
+      'docs/benchmarks/mb-font-cff-native-release-baseline.md' -and
+    $baseline.schema_version -ceq
+      'mnf-mb-font-cff-native-baseline/1.0.0' -and
+    $baseline.claim -ceq 'observation_only' -and
+    $baseline.command -ceq
+      'moon -C benchmarks bench font-cff/cff_bench.mbt --release --target native --frozen' -and
+    [int]$baseline.warmup_count -eq 1 -and
+    [int]$baseline.retained_capture_count -eq 7 -and
+    $baseline.audit_owner -ceq
+      'scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1'
+  ) 'Font CFF native baseline identity drifted.'
+  Assert-ExactSequence 'Font CFF native baseline workload order' `
+    @($baseline.workload_order) @(
+      'latin-full-admission',
+      'cjk-full-admission',
+      'latin-fixed-outline-batch',
+      'cjk-high-gid-multi-fd-outline-batch'
+    )
+  Assert-ExactSequence 'Font CFF native baseline statistics' `
+    @($baseline.statistics) @(
+      'mean_ms',
+      'median_ms',
+      'sample_standard_deviation_ms',
+      'minimum_ms',
+      'maximum_ms',
+      'coefficient_of_variation'
+    )
+  $baselinePath = Join-Path $RepositoryRoot $baseline.path
+  if ($baseline.status -ceq 'pending-clean-record') {
+    Assert-Condition (
+      $null -eq $baseline.length -and
+      $null -eq $baseline.sha256 -and
+      -not (Test-Path -LiteralPath $baselinePath)
+    ) 'Pending Font CFF native baseline must have no file identity.'
+  } elseif ($baseline.status -ceq 'recorded-observation-only') {
+    Assert-Condition (
+      [int64]$baseline.length -gt 0 -and
+      [string]$baseline.sha256 -cmatch '^[0-9a-f]{64}$' -and
+      (Test-Path -LiteralPath $baselinePath -PathType Leaf)
+    ) 'Recorded Font CFF native baseline file identity is incomplete.'
+    $baselineItem = Get-Item -LiteralPath $baselinePath
+    Assert-Condition (
+      [int64]$baseline.length -eq [int64]$baselineItem.Length -and
+      [string]$baseline.sha256 -ceq
+        (Get-FileHash -LiteralPath $baselinePath -Algorithm SHA256).
+          Hash.ToLowerInvariant()
+    ) 'Recorded Font CFF native baseline file identity drifted.'
+  } else {
+    throw 'Font CFF native baseline status drifted.'
+  }
 }
 
 function Assert-FontQualificationPinnedPolicyToolchain {
@@ -3293,9 +3350,20 @@ function Assert-FontQualificationArtifacts {
       Mutate = { param($copy) $copy.qualification_tool_sources[0].sha256 = ('0' * 64) }
     },
     [pscustomobject]@{
-      Name = 'v3 Wave 6 seal claim'
-      Pattern = 'Wave 6 refresh status drifted'
-      Mutate = { param($copy) $copy.wave6_refresh.status = 'sealed' }
+      Name = 'v3 native baseline claim substitution'
+      Pattern = 'baseline status drifted'
+      Mutate = {
+        param($copy)
+        $copy.native_benchmark_baseline.status = 'performance-verdict'
+      }
+    },
+    [pscustomobject]@{
+      Name = 'v3 native baseline workload reorder'
+      Pattern = 'baseline workload order'
+      Mutate = {
+        param($copy)
+        [Array]::Reverse($copy.native_benchmark_baseline.workload_order)
+      }
     }
   )
   foreach ($probe in $qualificationPolicyNegativeProbes) {
