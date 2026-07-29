@@ -411,6 +411,42 @@ the five public categories distinct:
   the caller's query `Budget`;
 - `State` for retained-source revision drift before publication.
 
+## Glyph ownership and the shaping transaction seam
+
+Every opaque `GlyphId` is privately bound to the physical `Font` that issued
+it. Aliases of that same `Font` accept the value; a distinct admitted font
+rejects it with `InvalidInput`/`InvalidRange` and context
+`font-glyph-owner` before range, table, outline, or budget work. The numeric
+`GlyphId::value` contract and every v0.34 public query signature remain
+unchanged.
+
+The additive cross-module seam is exactly:
+
+```moonbit
+pub fn[T] Font::with_shape_transaction(
+  self : Font,
+  budget : @budget.Budget,
+  body : (FontShapeScope) ->
+    Result[(T, @budget.ResourceCharge), @error.CoreError],
+) -> Result[T, @error.CoreError]
+```
+
+`FontShapeScope` is public-abstract: it has no public constructor, source/table
+accessor, mutation probe, charge method, or commit operation. The callback
+stages one value and one immutable text-side charge. `mb-font` combines that
+charge with its private font-side charge, preflights the complete caller and
+ancestor hierarchy, performs the final retained-source guard, and invokes the
+only `Budget::charge` before publishing `T`.
+
+MoonBit's generic `T` can nominally carry a captured or returned scope, so this
+contract does not claim static lifetime enforcement. All aliases share runtime
+scope state that closes on every callback exit. A later scope operation fails
+exactly with category `State`, code `InvalidRange`, operation
+`font-shape-scope`, and context `font-shape-scope-closed`. The seam is
+synchronous and request-scoped; it creates no persistent cache and makes no
+concurrent-mutation guarantee when one retained `Font` or `Budget` authority is
+shared.
+
 ## Retained-source validity
 
 Every public `Font` query checks the retained root view's mutation revision.

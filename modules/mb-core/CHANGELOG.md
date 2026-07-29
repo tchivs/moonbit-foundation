@@ -27,6 +27,9 @@ namespace without changing `0.1.0`; no migration note or SemVer bump is required
   unrecoverable physical runtime OOM.
 - Exact Apache-2.0, repository, description, four-target, and zero-dependency
   candidate manifest metadata plus runnable literate documentation.
+- Checked immutable `ResourceCharge` composition for one authoritative
+  multi-stage budget commit, plus portable checked signed `Int64` addition,
+  negation, and `UInt64` narrowing used by positioned text runs.
 
 ### Removed
 

@@ -92,6 +92,13 @@ Owned storage retains validated zero-copy immutable views. Mutable access is a
 callback-scoped runtime lease; checked splitting consumes the parent and creates
 only disjoint child leases.
 
+`ResourceCharge::checked_add` composes immutable staged charges without
+spending a budget: `bytes`, `allocations`, `pixels`, and `work` use checked
+addition, while `allocation_size`, `width`, and `height` retain the larger
+per-operation ceiling. The signed helpers `checked_add_int64`,
+`checked_neg_int64`, and `checked_uint64_to_int64` reject overflow before
+MoonBit arithmetic or representation conversion can wrap.
+
 ```mbt check
 ///|
 fn example_limits(bytes : UInt64) -> @budget.ResourceLimits {
@@ -123,6 +130,60 @@ impl @bytes.Allocator for ReadmeRejectingAllocator with fn approve(
       requested~,
     ),
   )
+}
+
+///|
+test "checked signed helpers and charge composition keep exact boundaries" {
+  match @checked.checked_add_int64(9223372036854775806L, 1L) {
+    Ok(value) => inspect(value, content="9223372036854775807")
+    Err(_) => fail("exact signed maximum must be accepted")
+  }
+  inspect(
+    @checked.checked_neg_int64(-9223372036854775807L - 1L) is Err(_),
+    content="true",
+  )
+  match @checked.checked_uint64_to_int64(9223372036854775807UL) {
+    Ok(value) => inspect(value, content="9223372036854775807")
+    Err(_) => fail("exact UInt64-to-Int64 maximum must be accepted")
+  }
+
+  let left = @budget.ResourceCharge::new(
+    bytes=2UL,
+    allocations=1UL,
+    allocation_size=4UL,
+    width=3UL,
+    height=2UL,
+    pixels=6UL,
+    work=5UL,
+  )
+  let right = @budget.ResourceCharge::new(
+    bytes=3UL,
+    allocations=2UL,
+    allocation_size=8UL,
+    width=2UL,
+    height=4UL,
+    pixels=8UL,
+    work=7UL,
+  )
+  let combined = match left.checked_add(right) {
+    Ok(value) => value
+    Err(_) => fail("exact charge composition must succeed")
+  }
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=5UL,
+      allocations=3UL,
+      allocation_size=8UL,
+      width=3UL,
+      height=4UL,
+      pixels=14UL,
+      depth=0UL,
+      work=12UL,
+    ),
+  )
+  budget.charge(combined).unwrap()
+  inspect(budget.remaining().bytes(), content="0")
+  inspect(budget.remaining().work(), content="0")
 }
 
 ///|
