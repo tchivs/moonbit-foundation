@@ -605,7 +605,15 @@ function Get-CffBenchmarkHostFacts {
       )
     }
     active_power_scheme = Get-CffBenchmarkProbe 'powercfg /GETACTIVESCHEME' {
-      & powercfg /GETACTIVESCHEME
+      $powerOutput = (& powercfg /GETACTIVESCHEME | Out-String)
+      $powerGuid = [regex]::Match(
+        $powerOutput,
+        '(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b'
+      )
+      if (-not $powerGuid.Success) {
+        throw 'Active power-scheme GUID was unavailable.'
+      }
+      $powerGuid.Value.ToLowerInvariant()
     }
     native_compiler = [ordered]@{
       executable = [IO.Path]::GetFileName($compiler.Source)
@@ -1238,6 +1246,11 @@ function Assert-CffBenchmarkEvidence(
       throw "CFF host fact is empty: $name"
     }
   }
+  if ($Data.host.active_power_scheme.value -ne 'unavailable' -and
+      $Data.host.active_power_scheme.value -cnotmatch
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
+    throw 'CFF active power-scheme identity must be its locale-independent GUID.'
+  }
   if ($Data.runs.Count -ne 8) {
     throw 'CFF baseline requires one excluded warmup and seven retained captures.'
   }
@@ -1486,7 +1499,7 @@ function New-CffBenchmarkContractEvidence {
         attempted = 'test-memory-probe'
       }
       active_power_scheme = [ordered]@{
-        value = 'test-power'
+        value = '381b4222-f694-41f0-9685-ff5bb260df2e'
         attempted = 'test-power-probe'
       }
       native_compiler = [ordered]@{
