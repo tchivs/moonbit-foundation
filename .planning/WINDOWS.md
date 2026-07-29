@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 39
+open_count: 45
 waived_count: 0
 fixed_count: 3
-total_count: 42
-last_updated: 2026-07-29T03:08:14.152Z
+total_count: 48
+last_updated: 2026-07-29T05:32:44.798Z
 ---
 
 # Broken Windows Ledger
@@ -57,6 +57,12 @@ last_updated: 2026-07-29T03:08:14.152Z
 | 40 | 107 | deviation | scripts/fixtures/Generate-FontQualification.ps1 |  | Source Sans 3.052R retained license comes from the exact official tag URL because the OTF release ZIP omits LICENSE.md | open |  | 2026-07-29T03:08:12.959Z |  |
 | 41 | 107 | deviation | .gitattributes |  | Path-specific -text rule preserves the exact upstream CRLF Source Sans license bytes | open |  | 2026-07-29T03:08:13.551Z |  |
 | 42 | 107 | deviation | scripts/quality/Assert-Policy.ps1 |  | Fixture policy synchronized to six new licensed qualification records and the live Phase 106 collection digest | open |  | 2026-07-29T03:08:14.152Z |  |
+| 43 | 107 | deviation | modules/mb-font/font/cff_type2.mbt |  | Corrected Type 2 hint substitution after path start for licensed CFF outlines | open |  | 2026-07-29T05:31:38.613Z |  |
+| 44 | 107 | deviation | modules/mb-font/font/cmap.mbt |  | Accepted recognized cmap companion records used by licensed qualification fonts | open |  | 2026-07-29T05:31:39.122Z |  |
+| 45 | 107 | deviation | fixtures/font/cff-qualification-cases.json |  | Reconciled canonical nonempty GIDs and source locators with executable evidence | open |  | 2026-07-29T05:31:39.655Z |  |
+| 46 | 107 | deviation | scripts/fixtures/Generate-FontQualification.ps1 |  | Added exact one-shot materializers for planned private evidence regions | open |  | 2026-07-29T05:31:40.166Z |  |
+| 47 | 107 | deviation | modules/mb-font/font/cff_type2_fixture_wbtest.mbt |  | Replaced backend-specific Array capacity lock with portable live-frame semantics | open |  | 2026-07-29T05:31:40.662Z |  |
+| 48 | 107 | deviation | .planning/STATE.md |  | Normalized stale SDK-generated Phase 107 Plan 04 execution metadata | open |  | 2026-07-29T05:32:44.798Z |  |
 
 ````json
 [
@@ -562,6 +568,78 @@ last_updated: 2026-07-29T03:08:14.152Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-29T03:08:14.152Z",
+    "resolved_at": null
+  },
+  {
+    "id": 43,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "modules/mb-font/font/cff_type2.mbt",
+    "line": null,
+    "description": "Corrected Type 2 hint substitution after path start for licensed CFF outlines",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T05:31:38.613Z",
+    "resolved_at": null
+  },
+  {
+    "id": 44,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "modules/mb-font/font/cmap.mbt",
+    "line": null,
+    "description": "Accepted recognized cmap companion records used by licensed qualification fonts",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T05:31:39.122Z",
+    "resolved_at": null
+  },
+  {
+    "id": 45,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "fixtures/font/cff-qualification-cases.json",
+    "line": null,
+    "description": "Reconciled canonical nonempty GIDs and source locators with executable evidence",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T05:31:39.655Z",
+    "resolved_at": null
+  },
+  {
+    "id": 46,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/fixtures/Generate-FontQualification.ps1",
+    "line": null,
+    "description": "Added exact one-shot materializers for planned private evidence regions",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T05:31:40.166Z",
+    "resolved_at": null
+  },
+  {
+    "id": 47,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "modules/mb-font/font/cff_type2_fixture_wbtest.mbt",
+    "line": null,
+    "description": "Replaced backend-specific Array capacity lock with portable live-frame semantics",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T05:31:40.662Z",
+    "resolved_at": null
+  },
+  {
+    "id": 48,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized stale SDK-generated Phase 107 Plan 04 execution metadata",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T05:32:44.798Z",
     "resolved_at": null
   }
 ]

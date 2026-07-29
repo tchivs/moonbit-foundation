@@ -5,15 +5,15 @@ milestone_name: CFF Outline Foundation
 current_phase: 107
 current_phase_name: hostile-licensed-and-four-target-qualification
 status: executing
-stopped_at: Completed 107-03-PLAN.md
-last_updated: "2026-07-29T03:36:43.888Z"
+stopped_at: Completed 107-04-PLAN.md
+last_updated: "2026-07-29T05:32:04.363Z"
 last_activity: 2026-07-29
-last_activity_desc: Phase 107 execution started
+last_activity_desc: Completed Phase 107 Plan 04 public/private CFF qualification
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 18
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 ## Current Position
 
 Phase: 107 (hostile-licensed-and-four-target-qualification) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
-Last activity: 2026-07-29 — Phase 107 execution started
+Last activity: 2026-07-29 — Completed Phase 107 Plan 04 public/private CFF qualification
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 89%
 
 ## Milestone Metrics
 
@@ -82,6 +82,9 @@ Progress: [████████░░] 83%
 - [Phase 107]: Each licensed CFF payload has exactly one package-private MoonBit literal owner, and every carrier accessor reuses that owner.
 - [Phase 107]: Wave 4 private regions remain generator-owned: absent markers are untouched in Plan 107-03, while present regions must byte-match canonical rendering.
 - [Phase 107]: Compatibility and workload facts are closed producer data, including workflow IDs, static-glyf locks, B8 ordering, targets, workloads, and precedence.
+- [Phase 107]: Public CFF evidence remains package-private and is qualified exclusively through public Font and FontCollection observations.
+- [Phase 107]: Portable Type 2 depth evidence locks live frame state plus exact call/return depth, never backend-specific Array capacity.
+- [Phase 107]: The closed 53-row private hostile corpus is materialized once and thereafter enforced by exact generator mirror checks.
 
 ### Pending Todos
 
@@ -89,7 +92,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 107 planning must approve immutable redistributable Latin/CJK assets, licenses/notices, parent and derivative digests, deterministic recipes, and independent pinned oracles.
+None.
 
 ## Deferred Items
 
@@ -103,17 +106,17 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-29T03:36:43.870Z
-Stopped at: Completed 107-03-PLAN.md
+Last session: 2026-07-29T05:32:04.345Z
+Stopped at: Completed 107-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Verify completed Phase 106, then plan Phase 107 hostile, licensed, performance, compatibility, and four-target qualification.
+- Execute Phase 107 Plan 05 exact evidence serialization and policy integration.
 
 ## Performance Metrics
 
-Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed twelve plans.
+Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed sixteen plans.
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -134,3 +137,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 107 P01 | 58min | 3 tasks | 9 files |
 | Phase 107 P02 | 13min | 3 tasks | 10 files |
 | Phase 107 P03 | 24min | 2 tasks | 5 files |
+| Phase 107 P04 | 111min | 3 tasks | 15 files |
