@@ -164,12 +164,17 @@ fn generated_cluster(
 
 ///|
 fn project_generated_run(
+  font : @font.Font,
   logical : Array[GeneratedLogicalGlyph],
   units_per_em : UInt64,
   direction : Direction,
 ) -> Result[ShapedRun, @error.CoreError] {
   let logical_records : Array[PositionedGlyph] = []
   for fact in logical {
+    match font.horizontal_metrics(fact.glyph) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
     let adjusted = match
       @checked.checked_add_int64(fact.base_advance, fact.adjustment) {
       Err(error) => return Err(text_shape_project_error(error, "advance"))
@@ -266,7 +271,7 @@ fn generated_shape_contract(
       Ok(_) => ()
     }
     let run = match
-      project_generated_run(logical, units_per_em, options.direction()) {
+      project_generated_run(font, logical, units_per_em, options.direction()) {
       Err(error) => return Err(error)
       Ok(value) => value
     }

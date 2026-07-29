@@ -428,6 +428,42 @@ test "generated logical records publish exact immutable LTR and RTL runs" {
 }
 
 ///|
+test "generated projection rejects foreign same-range glyph before publication or charge" {
+  let (_active_owner, active_font) = text_wb_font()
+  let (_foreign_owner, foreign_font) = text_wb_font()
+  let budget = text_wb_resource_budget(1UL)
+  let error = generated_shape_contract(
+    active_font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    budget,
+    [
+      generated_logical_glyph(
+        foreign_font.glyph_id(0UL).unwrap(),
+        [0UL],
+        500L,
+        0L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    error.operation() == Some("font-horizontal-metrics"),
+    content="true",
+  )
+  inspect(error.context() == Some("font-glyph-owner"), content="true")
+  inspect(budget.remaining().work(), content="1")
+}
+
+///|
 test "equal adjacent records stay distinct and ligatures keep minimum scalar cluster" {
   let (_owner, font) = text_wb_font()
   let equal = generated_shape_contract(
