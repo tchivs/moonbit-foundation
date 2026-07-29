@@ -2502,10 +2502,10 @@
           {"path":"scripts/quality/Test-BenchmarkQualification.ps1","length":8102,"sha256":"204901288f0b1691fe1ea0efd3e3ad3165c6349e094a20c3ffb26bbae14ffbec"}
         ],
         "native_benchmark_baseline": {
-          "status": "pending-clean-record",
+          "status": "recorded-observation-only",
           "path": "docs/benchmarks/mb-font-cff-native-release-baseline.md",
-          "length": null,
-          "sha256": null,
+          "length": 63473,
+          "sha256": "f624f37bef0d27898b17a19ffa1d7267509094b1651fc621af32193641912ef1",
           "schema_version": "mnf-mb-font-cff-native-baseline/1.0.0",
           "claim": "observation_only",
           "command": "moon -C benchmarks bench font-cff/cff_bench.mbt --release --target native --frozen",
