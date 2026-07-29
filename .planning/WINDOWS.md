@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 50
+open_count: 57
 waived_count: 0
 fixed_count: 3
-total_count: 53
-last_updated: 2026-07-29T06:48:23.110Z
+total_count: 60
+last_updated: 2026-07-29T10:34:38.319Z
 ---
 
 # Broken Windows Ledger
@@ -68,6 +68,13 @@ last_updated: 2026-07-29T06:48:23.110Z
 | 51 | 107 | deviation | .planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md |  | Removed a false-positive CFF2 flow heuristic | open |  | 2026-07-29T06:47:17.594Z |  |
 | 52 | 107 | deviation | .planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md |  | Synchronized documentation changes with exact policy file identities | open |  | 2026-07-29T06:47:18.126Z |  |
 | 53 | 107 | deviation | .planning/STATE.md |  | Normalized stale SDK-generated Phase 107 Plan 05 execution metadata | open |  | 2026-07-29T06:48:23.110Z |  |
+| 54 | 107 | deviation | scripts/quality/Assert-Policy.ps1 |  | Extended policy validation for the closed native CFF baseline contract. | open |  | 2026-07-29T10:33:33.738Z |  |
+| 55 | 107 | deviation | scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 |  | Preserved closed JSON schema order through baseline round-trip. | open |  | 2026-07-29T10:33:34.282Z |  |
+| 56 | 107 | deviation | scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 |  | Separated atomic temp content validation from clean current-input verification. | open |  | 2026-07-29T10:33:34.864Z |  |
+| 57 | 107 | deviation | scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 |  | Corrected synthetic canonical timing and policy staging fixtures. | open |  | 2026-07-29T10:33:35.422Z |  |
+| 58 | 107 | deviation | scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 |  | Canonicalized active power-scheme identity to its locale-independent GUID. | open |  | 2026-07-29T10:33:36.050Z |  |
+| 59 | 107 | deviation | scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 |  | Made existing baseline replacement atomic under Windows PowerShell/.NET Framework. | open |  | 2026-07-29T10:33:36.615Z |  |
+| 60 | 107 | deviation | .planning/STATE.md |  | Normalized stale Plan 05 activity and Phase ? decision labels after final Plan 06 state advancement. | open |  | 2026-07-29T10:34:38.319Z |  |
 
 ````json
 [
@@ -705,6 +712,90 @@ last_updated: 2026-07-29T06:48:23.110Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-29T06:48:23.110Z",
+    "resolved_at": null
+  },
+  {
+    "id": 54,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/quality/Assert-Policy.ps1",
+    "line": null,
+    "description": "Extended policy validation for the closed native CFF baseline contract.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T10:33:33.738Z",
+    "resolved_at": null
+  },
+  {
+    "id": 55,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1",
+    "line": null,
+    "description": "Preserved closed JSON schema order through baseline round-trip.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T10:33:34.282Z",
+    "resolved_at": null
+  },
+  {
+    "id": 56,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1",
+    "line": null,
+    "description": "Separated atomic temp content validation from clean current-input verification.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T10:33:34.864Z",
+    "resolved_at": null
+  },
+  {
+    "id": 57,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1",
+    "line": null,
+    "description": "Corrected synthetic canonical timing and policy staging fixtures.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T10:33:35.422Z",
+    "resolved_at": null
+  },
+  {
+    "id": 58,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1",
+    "line": null,
+    "description": "Canonicalized active power-scheme identity to its locale-independent GUID.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T10:33:36.050Z",
+    "resolved_at": null
+  },
+  {
+    "id": 59,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1",
+    "line": null,
+    "description": "Made existing baseline replacement atomic under Windows PowerShell/.NET Framework.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T10:33:36.615Z",
+    "resolved_at": null
+  },
+  {
+    "id": 60,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized stale Plan 05 activity and Phase ? decision labels after final Plan 06 state advancement.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T10:34:38.319Z",
     "resolved_at": null
   }
 ]

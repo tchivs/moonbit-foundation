@@ -4,16 +4,16 @@ milestone: v0.34
 milestone_name: CFF Outline Foundation
 current_phase: 107
 current_phase_name: hostile-licensed-and-four-target-qualification
-status: executing
-stopped_at: Completed 107-05-PLAN.md
-last_updated: "2026-07-29T06:47:44.953Z"
+status: verifying
+stopped_at: Completed 107-06-PLAN.md
+last_updated: "2026-07-29T10:34:06.530Z"
 last_activity: 2026-07-29
-last_activity_desc: Completed Phase 107 Plan 05 four-target v3 qualification and policy integration
+last_activity_desc: Completed Phase 107 Plan 06 native CFF benchmark baseline and final qualification
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 
 ## Current Position
 
-Phase: 107 (hostile-licensed-and-four-target-qualification) — EXECUTING
+Phase: 107 (hostile-licensed-and-four-target-qualification) — VERIFYING
 Plan: 6 of 6
-Status: Ready to execute
-Last activity: 2026-07-29 — Completed Phase 107 Plan 05 four-target v3 qualification and policy integration
+Status: Phase complete — ready for verification
+Last activity: 2026-07-29 — Completed Phase 107 Plan 06 native CFF benchmark baseline and final qualification
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100%
 
 ## Milestone Metrics
 
@@ -88,6 +88,9 @@ Progress: [█████████░] 94%
 - [Phase 107]: Qualification v3 owns exactly js.json, wasm.json, wasm-gc.json, native.json, and comparison.json beneath a link-free managed root.
 - [Phase 107]: Cross-target equality removes only top-level target and runner; every other closed field remains equality-bearing.
 - [Phase 107]: Wave 6 owns the observation-only native baseline and final benchmark/workspace identity refresh; Wave 5 makes no threshold, comparison, verdict, release, or stability claim.
+- [Phase 107]: Native timing remains observation-only and separate from portable four-target correctness evidence.
+- [Phase 107]: The active power scheme is sealed by locale-independent GUID rather than localized display text.
+- [Phase 107]: Existing baseline replacement uses same-directory File.Replace backup and guaranteed cleanup.
 
 ### Pending Todos
 
@@ -109,8 +112,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-29T06:47:44.934Z
-Stopped at: Completed 107-05-PLAN.md
+Last session: 2026-07-29T10:34:06.512Z
+Stopped at: Completed 107-06-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -142,3 +145,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 107 P03 | 24min | 2 tasks | 5 files |
 | Phase 107 P04 | 111min | 3 tasks | 15 files |
 | Phase 107 P05 | 67min | 3 tasks | 9 files |
+| Phase 107 P06 | 3h 41m | 2 tasks | 7 files |
