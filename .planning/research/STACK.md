@@ -1,311 +1,342 @@
-# Stack Research
+# Technology Stack
 
-**Domain:** Bounded static OpenType CFF1 parsing and Type 2 CharString execution to cubic `Path2` in MoonBit
-**Project:** MoonBit Native Foundation v0.34 CFF Outline Foundation
-**Researched:** 2026-07-28
-**Confidence:** MEDIUM
+**Project:** MoonBit Native Foundation v0.35 Text Shaping Foundation
+**Researched:** 2026-07-30
+**Overall confidence:** MEDIUM
 
 ## Executive Recommendation
 
-Extend the existing `tchivs/mb-font@0.1.0` module in pure MoonBit. Keep `tchivs/mb-core@0.1.0` as the sole runtime dependency and preserve the four-target `js`, `wasm`, `wasm-gc`, and `native` contract. Do not create a CFF-specific module, add FFI, or introduce a production dependency on FreeType, HarfBuzz, fontTools, AFDKO, OTS, or a JavaScript font runtime.
-
-Implement CFF1 as a second private outline profile behind the existing opaque `Font`. Admission should recognize an OpenType `OTTO` SFNT with exactly one `CFF ` table, require the common OpenType tables already consumed by `mb-font`, accept `maxp` version 0.5, and reject `CFF2`, variable tables, mixed outline profiles, and WOFF containers with the existing structured capability boundary. The existing `0x00010000` plus `glyf`/`loca` path must remain behaviorally frozen.
-
-The Type 2 interpreter should use checked signed Q16.16 values in `Int64`, fixed-capacity logical stacks, explicit call frames, and caller-owned work/allocation/path limits. Convert to `Double` only when an entirely decoded glyph is atomically published as the existing `@math.Path2`. `Path2` already supports `CubicTo`, so CFF curves and all four flex forms map directly without changing `mb-core`. Hints must be counted, ordered, mask-length validated, and then ignored for geometry; they must not execute a hinting or rasterization policy.
-
-Use external tools only as development and qualification oracles: pin fontTools `4.63.0`, AFDKO `5.0.1`, and OTS `9.2.0` in a host-only fixture lane. Generate canonical bytes and oracle JSON before the four-target MoonBit tests run. Cross-check accepted fonts and outlines with at least two independent tools, but retain hand-derived generated vectors so no foreign implementation becomes the specification.
-
-## Recommended Stack
-
-### Core Technologies
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| MoonBit `moon` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Workspace build, checks, tests, documentation, and qualification | Exact locally verified project baseline; no toolchain upgrade is required for CFF parsing or a bounded VM. |
-| MoonBit compiler `moonc` | `v0.10.4+2cc641edf` (2026-07-15) | Compile the same parser and interpreter on all four targets | Keeps the v0.33 compatibility baseline and avoids backend-specific numeric or allocation assumptions. |
-| MoonBit runner `moonrun` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Execute portable qualification artifacts | Must remain paired with the pinned toolchain and recorded in evidence. |
-| `tchivs/mb-font` | workspace `0.1.0` | Existing opaque `Font`, glyph identity, metrics, cmap, kern, collection selection, and outline API | Extend in place so static CFF1 fonts return the same public `Font` and `Path2` contract as static `glyf` fonts. |
-| `tchivs/mb-core` | workspace `0.1.0` | Retained bytes, checked arithmetic, budgets, structured errors, and `Path2` | Already contains every runtime primitive required. Keep it as the sole module dependency. |
-| OpenType Specification | `1.9.1` (May 2024) | Normative SFNT/CFF integration and required sibling-table rules | Current official revision; defines `OTTO`, CFF table integration, `maxp` 0.5, glyph-index identity, and the CFF/CFF2 boundary. |
-| Adobe CFF Specification | Technical Note `#5176`, 4 Dec 2003 | Normative CFF1 binary structures | Canonical definition of INDEX, DICT, encodings, charsets, Private DICTs, subroutines, and CID-keyed structures. |
-| Adobe Type 2 Specification | Technical Note `#5177`, 16 Mar 2000 | Normative CharString VM and path semantics | Canonical operator, number encoding, stack, subroutine, hint, flex, and implementation-limit contract. |
-
-### Supporting Libraries
-
-No new runtime library should be installed. Reuse the following existing `mb-core` packages:
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `tchivs/mb-core/bytes` | `0.1.0` | Retain caller-owned `ByteView`, create checked CFF/table/object views, and observe mutation revision | Every CFF structure and CharString must remain a view over the retained SFNT or collection root; do not copy the complete font. |
-| `tchivs/mb-core/checked` | `0.1.0` | Checked offset, length, count, Q16.16, matrix, and work arithmetic | Before every `count + 1`, `count * width`, offset addition, range construction, coordinate update, multiply/divide, or allocation narrowing. |
-| `tchivs/mb-core/budget` | `0.1.0` | Authoritative admission and per-outline resource transaction | Preflight complete CFF admission and per-glyph execution charges; commit only after the final source-revision guard. |
-| `tchivs/mb-core/error` | `0.1.0` | Stable invalid-data, unsupported-capability, resource, mutation, and state outcomes | Reuse existing categories/codes and add CFF-specific contexts, not string-only exceptions or panics. |
-| `tchivs/mb-core/math` | `0.1.0` | Existing `Point2`, `PathCommand::{MoveTo,LineTo,CubicTo,Close}`, and `Path2` | Publish complete unhinted cubic outlines without changing the shared geometry model. |
-
-### Development Tools
-
-| Tool | Verified version | Purpose | Notes |
-|------|------------------|---------|-------|
-| fontTools / TTX | `4.63.0` (2026-05-14) | Decompile/compile `CFF `, inspect CharStrings through `cffLib`, build deterministic subsets, and emit independent outline facts | Test and fixture tooling only. Requires Python 3.10 or later. Pin exact wheels and hashes in a host-only lock file. |
-| Adobe AFDKO | `5.0.1` (2026-05-18) | `tx` CFF/outline/metric oracle, `spot` table inspection, and `makeotf` generated CFF1 construction | CFF-specialist independent oracle. Pin exact package and hashes; never import it from MoonBit code. |
-| OpenType Sanitizer | `9.2.0` (2024-10-02) | Independent structural acceptance/rejection and transcode check for OTF/CFF | Use `ots-sanitize` as one validator, not as the semantic source of truth: it can normalize, rewrite, or drop data. |
-| Existing PowerShell fixture generator | repository version | Construct minimal name-keyed/CID-keyed CFF1, hostile mutations, manifests, and embedded MoonBit bytes | Extend the existing `scripts/fixtures/Generate-FontQualification.ps1` pattern with exact source/generator/oracle digests. |
-| MoonBit black-box tests | pinned toolchain | Verify only the public `Font`/`GlyphId`/`Path2` contract | `_test.mbt`; run identical generated/licensed cases on all four targets. |
-| MoonBit white-box tests | pinned toolchain | Verify INDEX, DICT, FDSelect, Type 2 VM, limits, and atomicity | `_wbtest.mbt`; use exact boundary and one-short resource cases. |
-
-## Normative Static CFF1 Profile
-
-### OpenType Admission
-
-| Check | v0.34 policy |
-|-------|--------------|
-| SFNT version | Accept `0x4F54544F` (`OTTO`) only for the new CFF1 profile. Preserve existing `0x00010000` static-`glyf` behavior. |
-| Outline tables | Require exactly `CFF ` for the CFF1 profile. Reject `CFF2`, `glyf`/`loca` mixed with `CFF `, and variation-dependent outline profiles as unsupported. |
-| Common tables | Continue requiring `cmap`, `head`, `hhea`, `hmtx`, `maxp`, `name`, `OS/2`, and `post`. `VORG` is optional and not needed for the horizontal outline slice. |
-| `maxp` | Require version `0x00005000` and require `numGlyphs == CharStrings INDEX.count`. Existing TrueType version 1.0 parsing remains private to the `glyf` profile. |
-| Glyph identity | OpenType GID is the CharStrings INDEX position. Continue to use OpenType `cmap` for Unicode-to-GID mapping; CFF encoding data is validated metadata, not a replacement cmap. |
-| Metrics | Continue to publish `hmtx`/`hhea`/`OS/2` facts through existing APIs. Validate CFF width syntax and Private DICT width defaults, but do not silently replace public `hmtx` metrics. |
-| Standalone/collection | Support the existing standalone and TTC/OTC selected-face paths through the same profile discriminator. CFF table offsets remain relative to the appropriate retained SFNT/collection root. |
-| Atomicity | No `Font`, admitted CFF facts, budget charge, or `Path2` becomes observable until all ranges, cross-table invariants, execution limits, and source revisions succeed. |
-
-### CFF1 Structures
-
-| Structure | Required handling |
-|-----------|-------------------|
-| Header | Admit CFF major version 1, honor `hdrSize`, validate header `offSize`, and reject future major versions gracefully. |
-| INDEX | Parse `count`, `offSize` 1–4, exactly `count + 1` offsets, mandatory first offset 1, monotonic offsets, terminal offset, and object-data range before object access or allocation. Empty INDEX is exactly its count field. |
-| Name INDEX | Require exactly one entry inside an OpenType `CFF ` table, as OpenType 1.9.1 requires one-font CFF FontSet data. |
-| Top DICT INDEX | Require one DICT corresponding to the sole Name entry. Decode operands before operators, cap at the specified 48 DICT operands, reject reserved/malformed encodings, and apply documented defaults. |
-| String INDEX | Validate every custom SID reference against the standard-string plus String INDEX namespace; never allocate or publish unbounded strings merely to select outlines. |
-| Global Subr INDEX | Retain bounded object windows and compute the Type 2 bias from count. Do not eagerly concatenate or desubroutinize the font. |
-| Charset | Support predefined name-keyed charsets and custom formats 0, 1, and 2. Require coverage of exactly `CharStrings.count - 1` entries because GID 0 is `.notdef`. CID-keyed fonts must not use predefined charsets. |
-| Encoding | Support predefined encodings and custom formats 0/1 plus supplements for name-keyed validation. CID-keyed CFF omits encoding. OpenType `cmap` remains authoritative for public scalar lookup. |
-| CharStrings INDEX | Require GID 0 `.notdef`, retain one bounded view per glyph, validate count against `maxp`, and reject non-Type-2 `CharstringType`. |
-| Private DICT | Require the Top DICT or selected FD to identify a Private DICT, permitting specified length zero. Parse `Subrs`, `defaultWidthX`, `nominalWidthX`, `initialRandomSeed`, and hint data under explicit operand/range limits. |
-| Local Subrs INDEX | Resolve `Subrs` relative to the beginning of its Private DICT. Select the Top Private DICT for name-keyed fonts and the FD-selected Private DICT for CID-keyed glyphs. |
-| CID `ROS` | Treat presence of `ROS` as the CID-keyed discriminator. Require `FDArray`, `FDSelect`, CID charset semantics, and no encoding. |
-| `FDArray` | Validate every Font DICT and its Private DICT before publication. Cap FD count and total DICT bytes independently from glyph count. |
-| `FDSelect` | Support CFF1 formats 0 and 3. Format 3 ranges must begin at GID 0, increase strictly, terminate with sentinel `numGlyphs`, and select an existing FD. |
-| Embedded PostScript | Validate the referenced SID if present but never execute it. Adobe states a CFF consumer without a PostScript interpreter can ignore this feature. |
-| Synthetic fonts | Reject `SyntheticBase` as unsupported for this vertical slice; it introduces cross-font transformation and selection beyond one admitted OpenType CFF font. |
-
-## Type 2 Execution Stack
-
-### Numeric and VM Representation
-
-Use a project-owned private Q16.16 numeric type represented by checked `Int64`. Type 2 byte `255` is a signed 16.16 number; integer encodings enter the same representation by a checked left shift. Keep coordinates, operands, transient-array values, and deterministic arithmetic in this representation and convert to `Double` only when constructing the final `Point2`.
-
-This is preferred over a `Double` operand stack because exact integer/fixed inputs, subroutine effects, operator arity, and cross-target output stay reproducible. It also avoids JS/native differences becoming part of malformed-input or limit behavior. `div`, `mul`, and `sqrt` need specified checked fixed-point algorithms and exact rounding rules. The Type 2 `random` operator must use a documented deterministic project-owned PRNG initialized from `initialRandomSeed`; ambient host randomness is forbidden.
-
-### Required Type 2 Coverage
-
-| Group | Required behavior |
-|-------|-------------------|
-| Number decoding | Support one-byte integers, two-byte positive/negative integers, `shortint`, and signed 16.16 five-byte values with truncation checks. |
-| Width | Detect the optional first width operand according to the first stack-clearing operator; validate against `defaultWidthX`/`nominalWidthX` while preserving `hmtx` as the public metric source. |
-| Moves and lines | Implement `rmoveto`, `hmoveto`, `vmoveto`, `rlineto`, `hlineto`, and `vlineto`; close an open contour when required by Type 2 path sequencing. |
-| Cubic curves | Implement `rrcurveto`, `rcurveline`, `rlinecurve`, `vvcurveto`, `hhcurveto`, `vhcurveto`, and `hvcurveto` directly as checked `CubicTo` endpoints/control points. |
-| Flex | Implement `flex`, `hflex`, `hflex1`, and `flex1` as two cubic segments. Because v0.34 returns unhinted design-space geometry, never flatten flex to a device-size-dependent line. |
-| Hints | Validate ordering, even stem-argument counts, maximum 96 total stems, negative edge-hint rules, and exact `ceil(stemCount / 8)` mask bytes. Count their work, then discard hint effects. |
-| Subroutines | Implement `callsubr`, `callgsubr`, and `return`; use biases 107, 1131, and 32768 at the specified count thresholds. Validate the biased index before entry and cap call depth. |
-| Arithmetic/logical/storage | Implement the defined non-reserved operators needed by valid Type 2 programs with checked Q16.16 behavior, a 32-element transient array, initialized-slot tracking, and deterministic `random`. |
-| Termination | Require legal `endchar` termination, allow a subroutine to terminate the glyph as specified, and reject trailing executable bytes or illegal `return`/`endchar` context. |
-| Deprecated compatibility | Treat `dotsection` as a validated no-op. Support deprecated four-operand `endchar` composition only if its StandardEncoding glyph-name resolution and non-nesting rules are implemented with the same resource/recursion authority; otherwise expose a deliberate unsupported-program outcome rather than partial geometry. |
-
-### Mandatory Limits
-
-The Adobe limits are protocol ceilings, not substitutes for caller authority:
-
-| Resource | Adobe ceiling | Project policy |
-|----------|---------------|----------------|
-| Argument stack | 48 | Fixed logical maximum 48 and caller work accounting for every push/operator. |
-| Total horizontal + vertical stems | 96 | Validate even pairs and mask bytes; also charge scanned hint bytes. |
-| Subroutine nesting | 10 | Hard maximum 10, plus cycle-safe explicit frames and a caller `max_cff_subr_calls`/work ceiling. |
-| CharString length | 65,535 bytes | Enforce per object and also cap cumulative executed bytes across subroutine re-entry. |
-| Local/global subroutine count | 65,536 | Intersect with CFF INDEX representation, caller limits, allocation limits, and checked index narrowing. |
-| Transient array | 32 elements | Fixed 32 Q16.16 slots plus initialized flags; no dynamic map. |
-| DICT operands | 48 | Fixed logical maximum 48; clear according to operator semantics. |
-| Path output | Project-defined | Add explicit maximum commands/contours/cubic segments and allocation bytes; do not overload TrueType point limits ambiguously. |
-| Work | Project-defined | Count bytes decoded, operators, stack actions, hint bytes, subroutine entries, FD/INDEX ranges, and emitted commands. |
-
-Extend `FontLimits` additively with CFF-specific ceilings rather than interpreting TrueType fields such as `max_outline_instruction_bytes` as CharString policy. Candidate limits should cover at least CFF INDEX objects/bytes, DICT operands/bytes, FDs, subroutines, subroutine calls/depth, executed CharString bytes, stems, path commands/contours, and total work.
-
-## Installation
-
-### Runtime
-
-No new runtime package is installed:
-
-```bash
-moon sync
-moon check --target native modules/mb-font
-```
-
-The module manifest remains:
+Implement the milestone as the first `tchivs/mb-text@0.1.0` vertical slice, while extending `tchivs/mb-font@0.1.0` with a narrow opaque layout-data seam. Keep all production parsing and shaping in pure MoonBit. The exact production dependency graph should be:
 
 ```text
-tchivs/mb-font@0.1.0 -> tchivs/mb-core@0.1.0
-supported_targets = "+js+wasm+wasm-gc+native"
+tchivs/mb-text@0.1.0 ──> tchivs/mb-font@0.1.0 ──> tchivs/mb-core@0.1.0
+           └────────────────────────────────────> tchivs/mb-core@0.1.0
 ```
 
-### Host-Only Qualification Tools
+`mb-font` must continue to depend only on `mb-core`; `mb-text` necessarily depends on both `mb-font` and `mb-core`, as already authorized by RFC 0005. Add no ICU, HarfBuzz, FreeType, fontTools, AFDKO, JavaScript, C, or platform-font runtime dependency. `mb-font` owns bounded font-table admission and keeps raw OpenType offsets, records, and mutable source state private. `mb-text` owns the Unicode-scalar-to-positioned-run operation and consumes only an opaque, format-neutral layout capability plus the existing public cmap/metric contract.
 
-Pin tools in a dedicated lock/manifest with verified hashes. Do not run floating `latest` installs in required CI.
+Use OpenType 1.9.1 as the normative layout specification, but implement a deliberately closed static subset:
 
-```bash
-python -m venv .venv-font-oracle
-python -m pip install --require-hashes -r qualification/font-oracles.requirements.txt
+- GSUB 1.0, or 1.1 only when `FeatureVariationsOffset == 0`.
+- GPOS 1.0, or 1.1 only when `FeatureVariationsOffset == 0`.
+- GDEF 1.0 glyph classes only when lookup filtering requires them.
+- Common ScriptList, LangSys, FeatureList, LookupList, Coverage 1/2, and ClassDef 1/2 structures.
+- GSUB type 1 single substitutions, type 4 ligatures, and type 7 extension wrappers only when they wrap type 1 or 4.
+- GPOS type 2 pair adjustments in formats 1 and 2, and type 9 extension wrappers only when they wrap type 2.
+- Scalar ValueRecord fields `xPlacement`, `yPlacement`, and `xAdvance`; reject `yAdvance`, device offsets, and variation indexes in the v0.35 horizontal profile.
+- Legacy `kern` format-0 compatibility with the OpenType-recommended precedence rule: a resolved GPOS `kern` feature suppresses legacy `kern`; otherwise legacy `kern` is applied before the remaining selected GPOS lookups.
 
-# The lock should resolve exactly:
-# fonttools==4.63.0
-# afdko==5.0.1
+Represent advances and offsets as checked signed `Int64` values in unscaled font design units. Do not use `Double` in substitution, positioning, cluster propagation, work accounting, or semantic evidence. This exactly represents the source `uint16` advances and `int16` OpenType positioning values, permits checked accumulation across a bounded run, and avoids backend-dependent floating-point evidence. Scaling to pixels or points remains a downstream rendering/layout operation.
 
-# Build or consume an integrity-pinned ots-sanitize 9.2.0 separately.
+Use fontTools 4.63.0 for host-only structural inspection and deterministic fixture generation, and HarfBuzz 14.2.1 `hb-shape` for host-only semantic comparison. Pin their exact artifacts and adapter digests. The four target lanes must consume committed/generated bytes and oracle facts without executing either foreign tool. HarfBuzz is an interoperability oracle, not the specification: generated hand-derived vectors remain authoritative for the admitted subset and for error/resource behavior.
+
+## Recommended Production Stack
+
+### Modules and Toolchain
+
+| Component | Exact version / identity | Purpose | Policy |
+|---|---|---|---|
+| `moon` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Workspace build, test, documentation, and package tooling | Preserve the current exact project pin. |
+| `moonc` | `v0.10.4+2cc641edf` (2026-07-15) | Compile one portable implementation | Record in every qualification record; do not upgrade inside the milestone. |
+| `moonrun` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Execute target artifacts | Keep paired with the pinned `moon` toolchain. |
+| `tchivs/mb-core` | workspace `0.1.0` | Checked arithmetic, budgets, errors, retained-byte guards, and pinned Unicode contracts | Direct dependency of both `mb-font` and `mb-text`; no replacement Unicode tables in `mb-text`. |
+| `tchivs/mb-font` | workspace `0.1.0` | Existing opaque `Font`, cmap, glyph identity, metrics, legacy kern, source mutation guard, and new opaque layout capability | Keep sole dependency `tchivs/mb-core@0.1.0`. Never expose raw GSUB/GPOS/GDEF offsets or records. |
+| `tchivs/mb-text` | new workspace `0.1.0` | Explicit single-font horizontal shaping input and positioned-run output | Direct dependencies exactly `tchivs/mb-font@0.1.0` and `tchivs/mb-core@0.1.0`. |
+| Supported targets | `+js+wasm+wasm-gc+native` | Portable contract | Declare at both module and public-package levels; keep `native` preferred. |
+| `mb-core/unicode` | Unicode data `15.1.0` | Existing scalar/property/segmentation boundary | Consume the existing pin. This slice does not require a Unicode-data upgrade because script, language, and direction are explicit and grapheme segmentation is out of scope. |
+
+### Package Boundary
+
+Recommended package layout:
+
+```text
+modules/mb-font/font     # existing public Font plus opaque layout handle/methods
+modules/mb-text/text     # public shaping options, shaped glyph/run, shape()
 ```
 
-Qualification order:
+The `mb-font` addition should expose only typed, format-neutral operations needed by `mb-text`, such as resolving an explicit script/language/feature set and applying one admitted substitution or positioning lookup to a bounded glyph buffer. The handle must retain the same source-revision authority as `Font`. It must not expose `ByteView`, table tags as an introspection API, offsets, coverage arrays, class records, or lookup indices as public data.
 
-```bash
-# 1. Regenerate bytes, provenance, hostile cases, and canonical oracle JSON.
-pwsh -File scripts/fixtures/Generate-FontQualification.ps1
+`mb-text` owns:
 
-# 2. Validate external structural/oracle agreement in the host lane.
-fonttools ttx -t "CFF " fixture.otf
-afdko tx -mtx fixture.otf
-ots-sanitize fixture.otf
+- validation of scalar input and explicit shaping options;
+- initial cmap mapping and per-glyph source-cluster identity;
+- lookup-plan orchestration in OpenType LookupList order;
+- ligature cluster propagation;
+- metric initialization, legacy/GPOS precedence, checked positioning accumulation;
+- direction-aware run order/advance contract;
+- atomic run publication and run-level resource charging.
 
-# 3. Run the same committed/generated MoonBit facts on every runtime target.
-moon test --target js modules/mb-font
-moon test --target wasm modules/mb-font
-moon test --target wasm-gc modules/mb-font
-moon test --target native modules/mb-font
+This boundary preserves RFC 0004/0005: font owns binary interpretation, while text owns string-level sequencing and positioned output.
+
+## Normative Standards Profile
+
+### Standards Versions
+
+| Standard | Selected version | Milestone use |
+|---|---:|---|
+| OpenType | 1.9.1 (May 2024, current official version) | Normative GSUB, GPOS, GDEF, layout-common, tag, feature, and `kern` behavior. |
+| Unicode scalar definition | Unicode 17.0 core specification | Validate `0..0x10FFFF` excluding `0xD800..0xDFFF`; no normalization is performed. |
+| UAX #9 | Revision 51 | Direction terminology and logical-versus-visual ordering only; bidi paragraph resolution is not implemented. |
+| UAX #24 | Revision 40 | Documents why Unicode Script values cannot be silently treated as OpenType script tags. |
+| UAX #29 | Revision 47 | Used only to keep “source cluster” distinct from grapheme segmentation; segmentation remains out of scope. |
+| OpenType tags | OpenType 1.9.1 registries | Exact four-byte script, language-system, and feature tags. |
+
+Do not infer script or language from Unicode properties in this slice. The caller supplies an OpenType script tag, an optional OpenType language-system tag, and `LeftToRight` or `RightToLeft`. Unicode Script values, ISO 15924 identifiers, and OpenType script tags are related but not one-to-one; accepting one enum and guessing another would create an unstable hidden policy.
+
+### Common Layout Structures
+
+| Structure | Required v0.35 handling |
+|---|---|
+| Layout header | Accept 1.0. Accept 1.1 only with a null FeatureVariations offset. Non-null FeatureVariations is an explicit unsupported-capability outcome. |
+| ScriptList | Validate sorted unique four-byte tags and every offset/range. Resolve the exact caller tag; if absent, try `DFLT`; do not guess another script tag. |
+| LangSys | Resolve the exact caller language tag, otherwise the script's default LangSys when present. A font record using reserved `dflt`/`DFLT` as a LangSys tag is invalid. |
+| Required feature | Always include a non-`0xFFFF` `requiredFeatureIndex`; it is not caller-disableable. |
+| Features | Support `rlig` as default-on/non-disableable when present; `liga` and `kern` are default-on but caller-disableable. Permit explicit caller feature tags only when every selected lookup is in the admitted lookup subset. |
+| Lookup order | Union and deduplicate selected lookup indices, then apply them in ascending LookupList order. Do not apply in caller feature-list order. |
+| Lookup subtables | Test subtables in stored order and stop at the first matching subtable for the current glyph position. |
+| Coverage | Formats 1 and 2, with sorted unique glyphs/ranges, non-overlap, exact coverage-index continuity, checked cardinality, and every glyph `< numGlyphs`. |
+| ClassDef | Formats 1 and 2, with checked ranges, no overlap, class values within the consuming table's declared class count, and implicit class 0 for unlisted glyphs. |
+| Extension lookup | Admit GSUB 7 only around GSUB 1/4 and GPOS 9 only around GPOS 2. Validate the 32-bit relative offset before dispatch and prohibit extension-to-extension recursion. |
+
+### Lookup Flags and GDEF
+
+Support lookup flags only to the extent needed for basic real-font Latin shaping:
+
+- `RIGHT_TO_LEFT` may be accepted but has no effect for the admitted lookup types; OpenType defines it only for GPOS cursive attachment type 3.
+- Support `IGNORE_BASE_GLYPHS`, `IGNORE_LIGATURES`, and `IGNORE_MARKS` using a validated GDEF 1.0 GlyphClassDef.
+- If any of those three flags is selected and GDEF/GlyphClassDef is absent, fail as malformed OpenType data.
+- Reject reserved flag bits, `USE_MARK_FILTERING_SET`, and non-zero `MARK_ATTACHMENT_CLASS_FILTER` as unsupported in v0.35.
+- Do not parse mark attachment, mark glyph sets, ligature caret, attachment point, or ItemVariationStore data into the shaping model.
+
+This slightly wider flag subset is necessary for representative static CFF1 qualification: the retained Source Sans 3.052R fixture expresses its GPOS `kern` feature as type-9 extension lookups around type-2 pair positioning with `IGNORE_MARKS`.
+
+### Substitution Profile
+
+| Lookup | Formats | Exact behavior |
+|---|---|---|
+| GSUB type 1 | SingleSubst 1/2 | Replace one GID with one checked in-range GID. Preserve the source cluster. Re-read metrics for the substituted glyph before positioning. |
+| GSUB type 4 | LigatureSubst 1 | Match components in logical writing order, respect lookup filtering, and use the first stored matching Ligature table. Replace participating components only; skipped glyphs remain. |
+| GSUB type 7 | Extension 1 | Dispatch only to type 1 or 4. |
+
+For a ligature, publish the minimum source scalar index of all consumed components as its `source_cluster`. This matches the useful monotone-character oracle projection and keeps the field an origin mapping rather than a claim of UAX #29 grapheme segmentation.
+
+Do not implement GSUB multiple, alternate, contextual, chained contextual, reverse contextual, script-specific reorder, composition/decomposition, or glyph deletion. If a selected required/default/caller feature reaches one of those types, return a structured unsupported-capability outcome atomically; do not silently skip the lookup and claim the feature was applied.
+
+### Positioning Profile
+
+| Lookup | Formats | Exact behavior |
+|---|---|---|
+| GPOS type 2 | PairPos 1/2 | Apply explicit-glyph or class-pair scalar adjustments using Coverage/ClassDef semantics. Accumulate ValueRecords from successive lookups in LookupList order. |
+| GPOS type 9 | Extension 1 | Dispatch only to type 2. |
+| Legacy `kern` | Existing format 0 horizontal pairs | Use only when the resolved language system has no selected GPOS `kern` lookups. |
+
+Allowed ValueFormat bits are `X_PLACEMENT`, `Y_PLACEMENT`, and `X_ADVANCE`. A zero ValueFormat is valid. `Y_ADVANCE`, device-table offsets, VariationIndex offsets, and reserved bits are unsupported in this horizontal static profile. PairSet records must be ordered by second GID; class matrices must be preflighted with checked `class1Count * class2Count * recordSize` arithmetic before allocation or access.
+
+## Public Numeric and Run Model
+
+Use a design-unit model:
+
+```text
+ShapedGlyph {
+  glyph_id: opaque mb-font GlyphId
+  source_cluster: UInt64       # scalar index in the caller's input array
+  advance_x: Int64             # signed design units
+  offset_x: Int64              # design-coordinate offset
+  offset_y: Int64              # design-coordinate offset
+}
+
+ShapedRun {
+  direction: LeftToRight | RightToLeft
+  units_per_em: UInt16
+  glyphs: immutable array of ShapedGlyph
+}
 ```
 
-## Qualification Fixture Stack
+Recommended semantics:
 
-| Fixture class | Recommended source | Purpose |
-|---------------|-------------------|---------|
-| Minimal generated name-keyed CFF1 | Repository PowerShell generator plus hand-authored expected facts | Every INDEX/DICT/encoding/charset format, width detection, all path operators, hints, subr bias thresholds, arithmetic/storage, and exact cubic commands. |
-| Minimal generated CID-keyed CFF1 | Repository generator, with multiple FDs and both FDSelect formats | `ROS`, CID charset, FDArray, per-FD Private DICT/local Subrs, invalid FD/range/sentinel cases. |
-| Licensed compact Latin OTF | Exact static OTF asset from Adobe Source Sans or Source Serif, pinned by release URL and SHA-256 | Ordinary name-keyed interoperability, real subroutinization, metrics/cmap/path fingerprints, license-preserving intake. |
-| Licensed CID CJK OTF/OTC derivative | Exact static Source Han Serif OTF/OTC parent under OFL-1.1, deterministically subset and pinned | CID-keyed/FDSelect/local-subr stress without committing an unnecessarily huge corpus. Preserve parent, derivative, generator, notice, and digest lineage. |
-| Existing `glyf`/TTC corpus | Current generated and DejaVu fixtures | Prove all old standalone and collection facts remain byte/behavior compatible. |
-| Negative/hostile matrix | Deterministic mutations of generated structures | Truncated operands/masks, bad OffSize/offsets, overlapping/out-of-range objects, DICT overflow, malformed FDSelect, invalid subr bias/index, recursion, stack overflow/underflow, work/path/allocation exhaustion, and source mutation. |
+1. Validate every input value as a Unicode scalar; preserve the exact sequence. “Normalized” is a caller assertion, not a normalization service.
+2. Assign the input array index as `source_cluster`.
+3. Map through the existing canonical cmap contract.
+4. Apply selected GSUB lookups.
+5. Initialize each surviving/substituted GID from its `hmtx` advance.
+6. Apply either legacy `kern` or selected GPOS `kern`, then remaining selected GPOS lookups according to the resolved LookupList plan.
+7. Keep calculations in checked `Int64`. For RTL, expose the direction explicitly and use a documented signed advance convention; do not infer bidi levels or reorder a paragraph.
+8. Publish one immutable run only after the final source-revision guard and successful budget commit.
 
-Do not use a fontTools-generated CFF file and fontTools-derived JSON as the only success proof. At least the minimal fixtures need hand-derived expected bytes and exact `PathCommand` sequences. For licensed fixtures, compare table/profile facts, metrics, glyph mapping, cubic command fingerprints, bounds, and independent tool outputs rather than opaque whole-file snapshots.
+Lengths, offsets, counts, work, and allocation facts remain `UInt64` until an already-limited value is narrowed for an array index. No unchecked `Int` multiplication is acceptable for Coverage, ClassDef, PairSet, class matrices, glyph buffers, or output arrays.
+
+## Qualification-Only Stack
+
+### Exact Tool Identities
+
+| Tool | Exact identity | Role | Boundary |
+|---|---|---|---|
+| fontTools | `4.63.0`, release commit `978d9edccb60ea0e5fbad7015cb11817c3532328` | Build/inspect GSUB, GPOS, GDEF, cmap, hmtx, and deterministic generated fixtures | Host-only structural/oracle adapter. Reuse the already locked CPython 3.12 Windows wheel: length `2,343,211`, SHA-256 `59ac449f8cca9b4ffa08d2e7bbadad87ce710d69d1eda5c3c1ce579baa987272`. |
+| HarfBuzz | `14.2.1`, release commit `56feae4035bdd48f62ba2b8d8c16232d4d89b3a4` | Independent positioned-glyph semantic oracle | Host-only `hb-shape`; pin official `harfbuzz-win64-14.2.1.zip`, length `5,994,030`, SHA-256 `493f7ca6e45377ffb8a330d4ca2abd14f82032da85e4a7094bbaa6059c5dde99`. |
+| OpenType Sanitizer | existing locked source commit `3b26b2e8b571a33739ee0c3553cb01c17ed62e23` | Structural acceptance/transcode signal | Reuse only as an independent structural reader. It is not a shaping oracle. |
+| Repository generator | new versioned PowerShell generator/adapters | Hand-derived minimal fonts, hostile mutations, exact manifests, and embedded MoonBit facts | Pin generator, adapter, input, output, source-font, and tool artifact digests. |
+
+HarfBuzz should run with explicit font, script, language, direction, features, and cluster policy; never rely on property guessing, ambient locale, default system fonts, or a platform shaper. Compare only the admitted projection: GIDs, scalar-origin clusters, design-unit advances, and x/y offsets. Its full complex-script behavior, normalization choices, fallback logic, and compatibility workarounds are outside the product contract.
+
+Do not add `uharfbuzz`. It would introduce a second versioned wrapper and obscure which HarfBuzz binary produced evidence. Do not use fontTools as a semantic shaper; its role is table/fixture structure. Keep a hand-derived generated oracle so agreement between two foreign tools cannot silently redefine project semantics.
+
+### Fixtures
+
+| Fixture class | Recommendation | Purpose |
+|---|---|---|
+| Generated static `glyf` font | Build minimal cmap/hmtx/GDEF/GSUB/GPOS/kern bytes with hand-derived facts | Every admitted header, offset, Coverage/ClassDef format, lookup type, flag, feature order, cluster, metric, and exact/one-short boundary. |
+| Generated static CFF1 font | Reuse the validated CFF generator foundation and add identical layout tables | Prove shaping is outline-format neutral. |
+| DejaVu Sans 2.37 | Reuse retained `DejaVuSans.ttf` SHA-256 `7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954` | Licensed `glyf`, GSUB ligature, GPOS pair, and legacy-kern coexistence evidence. |
+| Source Sans 3.052R | Reuse retained OTF SHA-256 `08df266400933d3178d081a45f94a08814c3e55b4b7dd2e0ff69cb1329f13ab6` | Licensed static CFF1, `liga`, GDEF `IGNORE_MARKS`, and GPOS extension-to-pair evidence. |
+| Source Han Serif JP 2.003R | Optional compatibility sample, not a complex-script claim | Demonstrate safe admission/skipping of unselected unsupported features and basic pair/single/ligature tables only. Do not claim Japanese shaping coverage. |
+
+## Testing Strategy
+
+### MoonBit Tests
+
+| Layer | Test form | Required coverage |
+|---|---|---|
+| `mb-font` public layout seam | `*_test.mbt` black-box | Opaque capability access, no raw-table leakage, static `glyf`/CFF1 parity, stable structured errors. |
+| `mb-font` parser internals | `*_wbtest.mbt` | Layout headers, Script/LangSys/Feature/Lookup resolution, Coverage/ClassDef, GDEF filtering, extension offsets, PairSet/class matrix validation, malformed and one-short limits. |
+| `mb-text` public shaping | `*_test.mbt` black-box | Scalar validation, explicit options, single substitution, `rlig`/`liga`, feature toggles, legacy/GPOS precedence, clusters, offsets, advances, LTR/RTL contract, empty and `.notdef` cases. |
+| Resource/atomicity | white-box plus public hostile tests | Caller and ancestor budgets, exact/one-short bytes/allocations/allocation-size/work/glyphs/lookups/pairs/classes/components, source mutation, multi-fault precedence, no partial run. |
+| Compatibility | black-box | Existing cmap, metrics, legacy kern query, outlines, collection selection, CFF, and all current `mb-font` public tests remain unchanged. |
+| Documentation | `.mbt.md` doctests | One generated single-font `office AV` example with explicit options and exact positioned output. |
+
+Generated valid tests must cover:
+
+- exact script and `DFLT` fallback;
+- exact language and default LangSys fallback;
+- required feature plus caller-enabled features with deduplicated LookupList order;
+- SingleSubst formats 1/2;
+- ligature preference and component deletion with stable source cluster;
+- GDEF ignore-base/ligature/mark filtering;
+- PairPos formats 1/2 and extension type 9;
+- placement plus advance accumulation;
+- GPOS `kern` suppressing legacy `kern`;
+- legacy `kern` when no resolved GPOS `kern` exists;
+- feature-off behavior and frozen default behavior;
+- equal facts for generated `glyf` and CFF1 fonts.
+
+Hostile tests must include truncated/overflowing offsets, unsorted or overlapping Coverage/ClassDef/PairSet data, impossible coverage cardinalities, out-of-range GIDs/classes/lookup indices, extension recursion, unsupported selected lookups, missing required GDEF, forbidden lookup flags/ValueFormat bits, huge class matrices, mutation before final commit, and every independently adjustable resource at exact and one-short authority.
+
+## CI and Evidence Strategy
+
+Use three separated lanes:
+
+1. **Host fixture/oracle lane**
+   - Verify all pinned artifact lengths and SHA-256 values before execution.
+   - Regenerate minimal fonts and oracle JSON in a staging directory.
+   - Inspect tables with fontTools and produce HarfBuzz JSON with explicit shaping inputs.
+   - Compare the foreign projections to hand-derived facts.
+   - Refuse partial publication or unbound source/tool/adapter identities.
+
+2. **Four isolated MoonBit target lanes**
+
+   ```powershell
+   moon test --target js modules/mb-font
+   moon test --target js modules/mb-text
+   moon test --target wasm modules/mb-font
+   moon test --target wasm modules/mb-text
+   moon test --target wasm-gc modules/mb-font
+   moon test --target wasm-gc modules/mb-text
+   moon test --target native modules/mb-font
+   moon test --target native modules/mb-text
+   ```
+
+   Emit exactly one canonical semantic record per target. Each record binds the Git HEAD, toolchain, module interfaces, generator/adapters, fixture manifest, source fonts, oracle artifacts, case counts, and public output digest. Compare all four semantic digests byte-for-byte.
+
+3. **Workspace regression and observation lane**
+   - Run full `moon test --target all` only after the isolated evidence is complete.
+   - Keep native shaping timings observation-only, correctness-gated, workload-declared, and bound to the same semantic digest.
+   - Never compare runtime duration across JS/Wasm/Wasm-GC/native as a correctness condition.
+
+## Installation and Workspace Changes
+
+Production adds no foreign package:
+
+```text
+moon.work:
+  add "./modules/mb-text"
+
+modules/mb-text/moon.mod.json:
+  name = "tchivs/mb-text"
+  version = "0.1.0"
+  preferred-target = "native"
+  supported-targets = "+js+wasm+wasm-gc+native"
+  deps = {
+    "tchivs/mb-font": "0.1.0",
+    "tchivs/mb-core": "0.1.0"
+  }
+```
+
+Retain `moon.mod.json` for this milestone to match every existing module and the pinned toolchain line. Revisit the repository-wide migration to `moon.mod` separately; do not migrate one module during the shaping work.
+
+Qualification tools belong in a dedicated immutable host lock, not in module manifests or PATH discovery. Reuse the v0.34 provisioning pattern, add the exact HarfBuzz release asset, and record the invoked `hb-shape.exe` digest after extraction.
 
 ## Alternatives Considered
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Extend `tchivs/mb-font` | New `mb-cff` module | Only if a future RFC deliberately makes standalone CFF/PDF font programs a separate public product. It is wrong for the current opaque OpenType `Font` contract. |
-| Pure MoonBit CFF/Type 2 implementation | FreeType or Adobe C library wrapper | Only as a future optional native validation/acceleration leaf after the portable implementation is authoritative. |
-| Checked Q16.16 `Int64` VM | `Double` operand/coordinate VM | Only if later profiling proves fixed arithmetic infeasible and a cross-target numeric contract is separately specified and qualified. |
-| Lazy bounded INDEX/object views | Eagerly materialize/desubroutinize the full CFF table | Only in an offline authoring/subsetting tool where memory use and rewritten bytes are the product. |
-| Existing `Path2::CubicTo` | Convert cubic curves to quadratics or flattened lines | Only for a downstream consumer that explicitly requests approximation. The font layer should preserve native CFF cubics. |
-| Validate and ignore hints | Execute CFF hinting | Only in a separate rasterization/hinting milestone with device scale, grid, and rendering policy. |
-| Three independent host oracles | One foreign library as golden truth | Never for conformance. One tool can share bugs or normalize malformed data. |
-| Static raw OTF/OTC | WOFF1/WOFF2 | Only after a separate bounded decompression/reconstruction foundation is designed and qualified. |
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| FreeType, HarfBuzz, CoreText, DirectWrite, or fontconfig as runtime dependencies | Violates the pure-MoonBit/four-target goal, adds FFI ownership and platform behavior, and conflates parsing with shaping/discovery/rasterization | Existing `mb-core` primitives and a MoonBit CFF1/Type 2 implementation |
-| fontTools, AFDKO, or OTS in production | Python/C++ host tools are not portable runtime contracts and may rewrite input | Host-only pinned oracle lane producing committed/generated evidence |
-| `opentype.js`, `fontkit`, or browser APIs | Adds a JS-only implementation and destroys identical four-target behavior | One MoonBit source implementation |
-| CFF2 parser reuse by tag switch | CFF2 removes CFF1 structures, changes stack/operator semantics, and adds `blend`/variation-store behavior | Explicit unsupported `CFF2` outcome and a future separate milestone |
-| Variable tables or instance selection | Static CFF1 has no OpenType outline variations; variable CFF outlines are CFF2 | Reject/defer `fvar`, CFF2 `VariationStore`, `vsindex`, and `blend` |
-| WOFF1 zlib or WOFF2 Brotli/transform code | Container reconstruction is a separate bounded codec/allocation problem | Raw SFNT/TTC/OTC caller-provided bytes |
-| GSUB/GPOS shaping or bidi | String-level glyph selection/positioning is outside single-font outline extraction | Preserve existing scalar-to-GID and per-glyph APIs; defer shaping to `mb-text` |
-| Hint execution and rasterization | Requires device/grid policy and would make outline results resolution-dependent | Validate hint syntax, publish unhinted cubic geometry |
-| Executing embedded PostScript | Introduces an unbounded language runtime and ambient behavior; Adobe permits non-PostScript consumers to ignore it | Validate its SID/range only |
-| Ambient RNG for Type 2 `random` | Breaks determinism and four-target equality | Fixed documented PRNG seeded from Private DICT state |
-| Using CFF encoding for `glyph_for_scalar` | OpenType Unicode mapping is defined by `cmap`; CFF encoding is a different legacy/name-keyed structure | Continue the existing canonical cmap selection |
-| Replacing `hmtx` widths with CharString width values | Would silently change the existing public metric contract | Validate both representations and define mismatches as malformed or a documented compatibility rule |
-| Partial path publication | A late malformed operator, mutation, or budget failure would leak inconsistent geometry | Build private bounded geometry, final revision guard, then publish one `Path2` |
-
-## Stack Patterns by Variant
-
-**If the CFF is name-keyed:**
-
-- Parse one Top DICT, one Top Private DICT, its optional local Subrs, charset, and encoding.
-- Resolve every GID directly through CharStrings; use charset only for name/SID validation and deprecated StandardEncoding composition.
-- Continue to use the OpenType `cmap` and `hmtx` tables for public mapping and metrics.
-
-**If the CFF is CID-keyed:**
-
-- Require `ROS`, `FDArray`, `FDSelect`, and a CID charset; reject an Encoding operator.
-- Select the FD before CharString execution, then use that FD's Private DICT, local Subrs, widths, random seed, and matrix facts.
-- Apply explicit FD-count, FDSelect-range, DICT-byte, local-subr, and work ceilings before publication.
-
-**If the font is selected from TTC/OTC:**
-
-- Reuse the retained collection root and selected-face directory adapter.
-- Admit `OTTO` plus `CFF ` through the new profile without copying the whole collection or rebasing shared table offsets.
-- Preserve collection-mode checksum rules and source revision guards.
-
-**If hints or flex operators occur:**
-
-- Parse and validate all hint arguments and mask bytes, but do not alter coordinates.
-- Emit flex as the two specified cubic curves regardless of device size.
-
-**If CFF2, WOFF, variable data, shaping requests, or rasterization requests occur:**
-
-- Return the established structured unsupported-capability outcome at the appropriate boundary.
-- Do not partially parse the foreign profile or silently ignore variation-dependent geometry.
-
-## Version Compatibility
-
-| Component | Compatible With | Notes |
-|-----------|-----------------|-------|
-| `tchivs/mb-font@0.1.0` | `tchivs/mb-core@0.1.0` | Preserve as the only public runtime dependency and existing opaque `Font` API owner. |
-| MoonBit `0.1.20260713` / `moonc 0.10.4` | `js`, `wasm`, `wasm-gc`, `native` | Exact locally verified baseline. A toolchain upgrade is not part of v0.34. |
-| Static CFF1 admission | OpenType `1.9.1`, Adobe TN `#5176`, Adobe TN `#5177` | Raw OTF and selected OTC faces; one CFF FontSet entry; Type 2 CharStrings; `maxp` 0.5. |
-| Existing TrueType admission | OpenType `0x00010000`, `glyf`/`loca`, `maxp` 1.0 | Must remain unchanged and pass the existing full corpus on every target. |
-| fontTools `4.63.0` | Python `>=3.10` | Host-only oracle/subsetter; exact lock and hashes required. |
-| AFDKO `5.0.1` | Host qualification environment | Host-only CFF specialist oracle/builder; exact lock and hashes required. |
-| OTS `9.2.0` | OTF/TTF/WOFF/WOFF2 validation | Host-only independent sanitizer; no runtime linkage. |
-| CFF2/variable fonts | Not supported | Different CFF structures and VM (`VariationStore`, `vsindex`, `blend`); separate milestone. |
-| WOFF1/WOFF2 | Not supported | Requires zlib or Brotli plus reconstruction; separate outer adapter. |
-| GSUB/GPOS shaping, hint execution, rasterization | Not supported | Preserve module boundary and deterministic unhinted outlines. |
+| Decision | Rejected alternative | Why rejected |
+|---|---|---|
+| New `mb-text` module plus opaque `mb-font` seam | Put the complete shaper in `mb-font` | Violates the accepted font-versus-string boundary and couples font-format releases to text sequencing policy. |
+| Pure MoonBit runtime | Link HarfBuzz/FreeType/ICU through native FFI | Breaks four-target parity and makes the foreign engine the effective contract. |
+| Explicit script/language/direction | Infer them from Unicode or locale | Adds segmentation, Script_Extensions, bidi, locale, and fallback policy expressly excluded from the milestone. |
+| Checked `Int64` design units | Accumulate in `Double` or scaled pixels | Unnecessary loss of exactness and makes renderer scale/ppem state part of shaping. |
+| GSUB 1/4 and GPOS 2 only | Full contextual/mark/cursive shaping | Would make Arabic/Indic/Khmer claims without the required script engines and reordering algorithms. |
+| GDEF glyph-class filtering | Reject every non-zero lookup flag | Would exclude representative Source Sans GPOS `kern` evidence and common Latin lookup construction. |
+| PairPos formats 1/2 | Legacy `kern` only | Misses the standard modern kerning representation, especially for CFF fonts. |
+| GPOS-over-legacy precedence | Add both sources | Double-applies kerning when a font contains both tables, contrary to OpenType recommendations. |
+| Direct official `hb-shape` | `uharfbuzz` Python wrapper | Adds a second version/ABI identity and weakens provenance of semantic evidence. |
+| Hand-derived facts plus two tools | Treat HarfBuzz output as normative | HarfBuzz intentionally includes broader script logic and compatibility workarounds outside the selected contract. |
+| Existing Unicode 15.1 data pin | Upgrade all Unicode data to 17.0 | The slice uses explicit options and does not need new property tables; an upgrade would create unrelated conformance scope. |
 
 ## Sources
 
-- [OpenType Specification 1.9.1](https://learn.microsoft.com/typography/opentype/spec) and [version archive](https://learn.microsoft.com/en-us/typography/opentype/opentypeversions) — current revision and May 2024 release date. **Confidence: MEDIUM**; official primary source, cross-checked through the research seam.
-- [OpenType font file](https://learn.microsoft.com/en-us/typography/opentype/spec/otff) — `OTTO`, required common tables, CFF/CFF2 table roles, and separation from optional layout/variation/raster data. **Confidence: MEDIUM**; official primary source.
-- [OpenType CFF table](https://learn.microsoft.com/en-us/typography/opentype/spec/cff) — one Name/Top DICT entry, Type 2 requirement, CharStrings/GID identity, and `maxp.numGlyphs` equality. **Confidence: MEDIUM**; official primary source.
-- [OpenType `maxp` table](https://learn.microsoft.com/en-us/typography/opentype/spec/maxp) — version 0.5 for CFF/CFF2 and version 1.0 for TrueType outlines. **Confidence: MEDIUM**; official primary source.
-- [OpenType outline-format comparison](https://learn.microsoft.com/en-us/typography/opentype/spec/glyphformatcomparison) — CFF1 cubic/Q16.16 characteristics and CFF2 structural/operator/variation differences. **Confidence: MEDIUM**; official primary source.
-- [Adobe Technical Note #5176: The Compact Font Format Specification](https://adobe-type-tools.github.io/font-tech-notes/pdfs/5176.CFF.pdf) — CFF1 layout, INDEX/DICT, encoding/charset, Private DICT, subroutines, CID `ROS`/FDArray/FDSelect, and defaults. **Confidence: MEDIUM**; canonical Adobe specification, cross-checked with OpenType.
-- [Adobe Technical Note #5177: The Type 2 CharString Format](https://adobe-type-tools.github.io/font-tech-notes/pdfs/5177.Type2.pdf) — number/operator encoding, path/flex/hint/subroutine semantics, deprecated forms, and interpreter limits. **Confidence: MEDIUM**; canonical Adobe specification, cross-checked with OpenType and tool implementations.
-- [fontTools TTX documentation](https://fonttools.readthedocs.io/en/latest/ttx.html), [CFF table documentation](https://fonttools.readthedocs.io/en/latest/ttLib/tables/C_F_F_.html), and [cffLib](https://fonttools.readthedocs.io/en/latest/cffLib/index.html) — CFF XML round-trip, CFF/Type 2 inspection, and test-oracle capabilities. [fontTools 4.63.0 release](https://github.com/fonttools/fonttools/releases/tag/4.63.0) verifies the pinned version. **Confidence: MEDIUM**; official project docs/releases.
-- [AFDKO command-line guide](https://adobe-type-tools.github.io/afdko/CommandLineHowTo.html) — `tx`, `spot`, and `makeotf` CFF workflows. [AFDKO 5.0.1 release](https://github.com/adobe-type-tools/afdko/releases/tag/5.0.1) verifies the pinned version. **Confidence: MEDIUM**; official Adobe project docs/releases.
-- [OpenType Sanitizer 9.2.0](https://chromium.googlesource.com/external/ots/+/refs/tags/v9.2.0) and [OTS design](https://chromium.googlesource.com/external/ots/+/refs/tags/v6.1.0/docs/DesignDoc.md) — CFF-aware validation/transcoding role and version. **Confidence: MEDIUM**; official upstream repository.
-- [MoonBit v0.10.4 release](https://www.moonbitlang.com/updates/2026/07/13/moonbit-0-10-4-release), [module configuration](https://docs.moonbitlang.com/en/stable/toolchain/moon/module.html), and [testing documentation](https://docs.moonbitlang.com/en/stable/language/tests.html) — toolchain line, supported targets, and black-/white-box tests. **Confidence: MEDIUM**; official sources, cross-checked locally.
-- [WOFF 1.0](https://www.w3.org/TR/WOFF/) and [WOFF 2.0](https://www.w3.org/TR/WOFF2/) — zlib/Brotli wrapper and reconstruction boundaries supporting the explicit deferral. **Confidence: MEDIUM**; W3C Recommendations.
-- [Adobe Source Sans](https://github.com/adobe-fonts/source-sans), [Adobe Source Serif](https://github.com/adobe-fonts/source-serif), and [Adobe Source Han Serif](https://github.com/adobe-fonts/source-han-serif) — official static OTF/CID fixture candidates and OFL-1.1 provenance. **Confidence: MEDIUM**; official upstream repositories.
-- Repository evidence: `.planning/PROJECT.md`, `moon.work`, `modules/mb-font/moon.mod.json`, `modules/mb-font/font/moon.pkg`, `modules/mb-font/font/{font,directory,cursor,limits,outline}.mbt`, `modules/mb-core/math/path.mbt`, `scripts/fixtures/Generate-FontQualification.ps1`, and fixture policy documents. **Confidence: MEDIUM**; direct local inspection, with the seam offering no higher local-provider tier.
+### Primary Standards
 
-## Confidence and Research Flags
+- [OpenType version archive](https://learn.microsoft.com/en-us/typography/opentype/opentypeversions) — OpenType 1.9.1 is the current listed release (May 2024).
+- [OpenType Layout Common Table Formats 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2) — Script/LangSys/Feature/Lookup order, lookup flags, Coverage, and ClassDef.
+- [GSUB 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/gsub) — single, ligature, extension, processing order, and logical component order.
+- [GPOS 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/gpos) — PairPos formats, ValueRecord fields, accumulation, and pair-iteration rules.
+- [GDEF 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/gdef) — glyph classes and versioned mark/variation structures.
+- [OpenType recommendations](https://learn.microsoft.com/en-us/typography/opentype/spec/recom) — GPOS `kern` versus legacy `kern` precedence.
+- [OpenType feature registry, k–o](https://learn.microsoft.com/en-us/typography/opentype/spec/features_ko) — `kern` and `liga`.
+- [OpenType feature registry, p–t](https://learn.microsoft.com/en-us/typography/opentype/spec/features_pt) — `rlig`.
+- [OpenType script tags](https://learn.microsoft.com/en-us/typography/opentype/spec/scripttags) and [language-system tags](https://learn.microsoft.com/en-us/typography/opentype/spec/languagetags) — exact tag domains and default LangSys distinction.
+- [Unicode 17, Chapter 3](https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/) — Unicode scalar-value definition.
+- [UAX #9](https://www.unicode.org/reports/tr9/), [UAX #24](https://www.unicode.org/reports/tr24/), and [UAX #29](https://www.unicode.org/reports/tr29/) — direction, script properties, and grapheme segmentation boundaries.
 
-| Area | Confidence | Reason |
-|------|------------|--------|
-| Runtime dependency and target stack | MEDIUM | Exact local manifests/tool identities and official MoonBit docs agree; provider classifier caps verified web findings at MEDIUM. |
-| CFF1/OpenType profile | MEDIUM | OpenType 1.9.1 and Adobe TN #5176 agree on integration and structures. |
-| Type 2 operator/limit stack | MEDIUM | Adobe TN #5177 is canonical and was cross-checked against OpenType/fontTools/AFDKO behavior. |
-| Qualification tools | MEDIUM | Current official releases and capability docs are verified; final hashes/environment lock remain implementation work. |
-| Licensed fixture selection | MEDIUM | Suitable OFL-1.1 upstreams exist, but exact assets, derivatives, and SHA-256 values must be frozen during fixture intake. |
+### Official Tooling
 
-Phase-specific research/decision flags:
+- [MoonBit 0.10.4 release](https://www.moonbitlang.com/updates/2026/07/13/moonbit-0-10-4-release), [module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html), [package target configuration](https://docs.moonbitlang.com/en/stable/toolchain/moon/package.html), [test model](https://docs.moonbitlang.com/en/stable/language/tests.html), [CLI targets](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html), and [numeric types](https://docs.moonbitlang.com/en/latest/language/fundamentals.html).
+- [fontTools 4.63.0 release](https://github.com/fonttools/fonttools/releases/tag/4.63.0) — exact upstream release/tag.
+- [HarfBuzz 14.2.1 release](https://github.com/harfbuzz/harfbuzz/releases/tag/14.2.1), [shaping API](https://harfbuzz.github.io/harfbuzz-hb-shape.html), [hb-shape utility](https://harfbuzz.github.io/utilities.html), and [cluster behavior](https://harfbuzz.github.io/working-with-harfbuzz-clusters.html).
 
-- Freeze the exact checked Q16.16 rounding contract for `div`, `mul`, `sqrt`, matrix application, and final `Double` conversion before implementing the VM.
-- Freeze the deterministic Type 2 `random` PRNG algorithm and glyph/reset semantics; the Adobe specification constrains the result range but does not prescribe one algorithm.
-- Decide whether deprecated four-operand `endchar` composition is admitted in v0.34 or returns a structured unsupported-program result. Do not implement it partially.
-- Define the precise cross-check policy when CharString width and `hmtx` disagree. Public metrics must not silently change.
-- Select and hash one compact static name-keyed OTF and one CID-keyed Source Han derivative, including parent/generator/license/notice lineage.
-- A future CFF2/variable or WOFF milestone requires separate research; neither is an incremental tag switch.
+### Repository Evidence
 
----
-*Stack research for MoonBit Native Foundation v0.34 CFF Outline Foundation*
-*Researched: 2026-07-28*
+- `.planning/PROJECT.md`, `.planning/MILESTONE-CONTEXT.md`, and archived v0.34 roadmap/requirements.
+- `docs/rfcs/0004-mb-font.md` and `docs/rfcs/0005-mb-text.md`.
+- `moon.work`, `modules/mb-core/moon.mod.json`, `modules/mb-font/moon.mod.json`, and public package manifests.
+- `modules/mb-core/unicode`, `modules/mb-font/font`, current four-target tests, and v0.34 qualification scripts.
+- `fixtures/font/cff/host-toolchain.lock.json`, `fixtures/font/cff-oracle-tools.json`, and retained licensed font manifests.
+
+## Confidence and Watch Items
+
+| Area | Confidence | Watch item |
+|---|---|---|
+| Production dependency graph | HIGH | Directly established by accepted RFC 0004/0005 and current module manifests. |
+| MoonBit toolchain and four targets | HIGH | Verified locally and against current official 0.10.4 documentation. |
+| OpenType common/GSUB/GPOS/GDEF subset | MEDIUM | Official specification is authoritative; implementation still needs exact hostile and selected-feature validation rules. |
+| `Int64` design-unit model | HIGH | Source fields are integral and local MoonBit provides target-portable `Int64`; no scaling is required in this slice. |
+| GPOS/legacy precedence | HIGH | Explicit OpenType 1.9.1 recommendation. |
+| Source Sans and DejaVu qualification fit | MEDIUM | Direct local fontTools inspection confirms the relevant table/lookup shapes; final oracle facts must be provenance-bound by the generator. |
+| HarfBuzz 14.2.1 identity | HIGH | Official tag/commit and official release-asset digest verified; invoked executable digest remains to be recorded after provisioning. |
+| Exact RTL public advance/order convention | MEDIUM | Must be frozen before implementation and cross-checked against hand-derived cases; this slice does not implement bidi resolution or complex RTL shaping. |
+| Unicode data | HIGH | No new property data is required, but callers must understand that source clusters are scalar origins, not grapheme boundaries. |
+
+### Phase Research Flags
+
+- The first planning phase must freeze the opaque `mb-font` layout seam and the exact RTL run-order/signed-advance contract before implementation.
+- Parser planning must enumerate every admitted offset base and selected-versus-unselected unsupported-feature rule; this is the largest hostile-input risk.
+- Qualification planning must lock HarfBuzz extraction/provisioning and canonicalize its output to the project run model before any baseline is recorded.
+- Complex-script, mark attachment, bidi, normalization, fallback, paragraph layout, vertical layout, variable fonts, device tables, and FFI remain explicit future research topics, not hidden follow-ups inside v0.35.

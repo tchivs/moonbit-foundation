@@ -1,638 +1,467 @@
-# Pitfalls Research
+# Domain Pitfalls
 
-**Domain:** Bounded static OpenType CFF1 admission and Type 2 cubic outline extraction in MoonBit
-**Project:** MoonBit Native Foundation v0.34 CFF Outline Foundation
-**Researched:** 2026-07-28
-**Confidence:** MEDIUM overall; HIGH for existing MNF integration contracts, MEDIUM for specification-derived CFF1/Type 2 edge cases
+**Project:** MoonBit Native Foundation v0.35 Text Shaping Foundation
+**Domain:** Bounded, deterministic single-font horizontal OpenType shaping
+**Researched:** 2026-07-30
+**Overall confidence:** MEDIUM
 
-## Executive Warning
+The confidence seam classifies verified web research as MEDIUM. The normative behavior below was cross-checked against official OpenType 1.9.1, Unicode 17/UAX documents, HarfBuzz documentation, current MoonBit 0.10.4 documentation, and the retained `mb-font` implementation. Repository-specific prevention guidance is additionally grounded in the existing checked-read, revision-guard, caller-budget, and atomic-commit patterns.
 
-CFF1 is not merely another table decoder. It combines several offset coordinate
-systems, compact numeric encodings, per-glyph execution environments, and a
-small stack language whose inline mask bytes affect instruction framing. A
-parser that accepts ordinary Latin fonts can still be unsafe or semantically
-wrong for CID fonts, subroutine-heavy programs, deprecated compatibility
-operators, collection faces, or hostile resource amplification.
+## Executive Risk Position
 
-The central prevention strategy is to separate four concerns and implement them
-in order:
+The highest-risk failure is not rejecting an exotic font. It is returning `Ok(ShapedRun)` for a selected layout path that was parsed, ordered, filtered, or executed incorrectly. Such a result looks plausible, survives ordinary Latin smoke tests, and becomes an accidental compatibility contract. v0.35 should therefore be strict about the selected path, explicit about unsupported capability, and modest about what its text-shaping profile claims.
 
-1. **Phase 104 — CFF1 profile and bounded data model:** exact static profile
-   classification, checked Header/INDEX/DICT parsing, name/CID keying, and one
-   unambiguous CharString/Private-DICT/local-Subrs environment per GID.
-2. **Phase 105 — bounded Type 2 validation and retained metrics:** one iterative
-   VM, fixed limits plus caller work authority, exact hint-mask framing,
-   deterministic numeric policies, all-glyph validation, and atomically retained
-   bounds.
-3. **Phase 106 — cubic `Path2` and public/TTC integration:** reuse the same VM
-   with a path sink, preserve `cmap`/`hmtx` authority, enable standalone and
-   selected collection faces, and keep the qualified `glyf` backend frozen.
-4. **Phase 107 — hostile, licensed, and four-target qualification:** close
-   exact/one-short limits, mutation and recovery cases, licensed provenance,
-   independent oracles, frozen compatibility evidence, and semantic equality
-   across `js`, `wasm`, `wasm-gc`, and `native`.
+The second systemic risk is letting four concerns drift apart: parser limits, shaping work limits, caller budget authority, and publication atomicity. OpenType layout tables contain nested attacker-controlled counts and offsets, while small tables can drive repeated scans over large runs. Exact structural bounds alone do not bound execution. v0.35 needs one transaction that stages layout facts and output privately, charges every attacker-controlled dimension, performs a final font revision guard, commits once, and publishes once.
 
-Do not combine Phases 104 and 105. Structural offset/keying failures and VM
-execution/resource failures have different invariants, error precedence, and
-test matrices. Do not publish CFF-backed `Font` values before Phase 105 has
-proved all-glyph validation and truthful retained bounds.
+The roadmap should separate contract freezing, layout admission, GSUB, GPOS/kerning, transactional integration, and qualification. In particular, the exact RTL run order and signed-advance convention must be fixed before implementation. If that decision is deferred until oracle integration, the implementation and expected data will co-evolve and conceal errors.
+
+## Risk Ranking
+
+| Rank | Pitfall | Likelihood | Impact | Confidence | Primary owner |
+|---:|---|---|---|---|---|
+| 1 | Relative-offset and table-window confusion | High | Critical rewrite/security | MEDIUM | Phase 109 |
+| 2 | Wrong feature/lookup/subtable order | High | Silent semantic corruption | MEDIUM | Phases 108–111 |
+| 3 | Returning success after skipping a selected unsupported path | Medium | False capability contract | MEDIUM | Phases 108–111 |
+| 4 | Cluster, direction, and glyph-order conflation | High | Public API incompatibility | MEDIUM | Phases 108, 110, 113 |
+| 5 | Unbounded shaping work hidden behind bounded tables | High | Resource exhaustion | MEDIUM | Phases 109–112 |
+| 6 | Mutation or budget commit before atomic publication | Medium | State/authority corruption | MEDIUM | Phase 112 |
+| 7 | PairPos/class-matrix misinterpretation | High | Incorrect positioning/OOB | MEDIUM | Phase 111 |
+| 8 | GPOS plus legacy `kern` double application | Medium | Common-font spacing errors | MEDIUM | Phase 111 |
+| 9 | Oracle semantics silently defining product semantics | Medium | Self-confirming incompatibility | MEDIUM | Phase 113 |
+| 10 | Four targets agree on tests but not on canonical behavior | Medium | Broken portability claim | MEDIUM | Phases 112–113 |
 
 ## Critical Pitfalls
 
-### Pitfall 1: CFF INDEX offsets are treated as ordinary zero-based file offsets
-
-**What goes wrong:**
-INDEX object windows point one byte early or outside object data; a malicious
-`count`, `offSize`, or terminal offset overflows during `count + 1`, offset-table
-length, or final-range arithmetic. Empty and non-empty INDEX forms become
-ambiguous, and different INDEX consumers apply different validation.
-
-**Why it happens:**
-CFF INDEX offsets are 1-based and relative to the start of INDEX object data,
-not the beginning of the INDEX, CFF table, SFNT, or TTC. The encoding also uses
-variable-width offsets and a special empty form.
-
-**How to avoid:**
-Use one shared INDEX parser for Name, Top DICT, String, Global Subrs,
-CharStrings, FDArray, and local Subrs. Check `offSize` is 1–4; preflight
-`count + 1` and offset-table bytes in checked wide arithmetic; require first
-offset exactly 1; require monotonic offsets; convert each `[offset_i - 1,
-offset_(i+1) - 1)` only after the terminal extent is proven inside the INDEX
-window. A zero-count INDEX is exactly its count field. Retain bounded views or
-compact offsets rather than eagerly copying attacker-sized objects.
-
-**Warning signs:**
-Separate INDEX implementations exist; helper names omit the offset base;
-`count + 1` or `count * offSize` uses a narrow integer; test coverage omits
-every `offSize`, descending/equal offsets, terminal offset 0/1, maximum count,
-and exact/one-short windows.
-
-**Phase to address:**
-Phase 104, with private white-box fixtures before DICT/keying code depends on
-INDEX.
-
----
-
-### Pitfall 2: DICT numbers and offsets escape checked authority
-
-**What goes wrong:**
-Malformed integer/real encodings, stack overflow, wrong arity, duplicate
-structural operators, or unchecked conversions produce wrapped ranges,
-target-dependent numeric facts, or acceptance of a structurally ambiguous
-font. `CharStrings`, `charset`, `Encoding`, `Private`, `FDArray`, `FDSelect`,
-and `Subrs` are resolved against the wrong base.
-
-**Why it happens:**
-CFF DICT is a compact operand/operator language, not a fixed record. Its
-operators use different arities and defaults. Most Top/Font DICT offsets are
-CFF-table-relative, the Private operator contains a checked size/offset pair,
-and Private DICT `Subrs` is relative to the start of that Private DICT.
-
-**How to avoid:**
-Decode at most 48 operands into a checked typed representation. Validate
-integer and real encodings completely, reject reserved/truncated forms, and
-perform every narrowing, fixed/rational conversion, offset addition, size
-addition, and matrix operation with overflow checks. Give Top, Font, and
-Private DICTs separate typed schemas with exact operand arity/type, defaults,
-and duplicate-singleton policy. Resolve each operator through a helper whose
-name and input window identify the base; construct a bounded `TableWindow` or
-`ByteView` immediately and never retain a raw unchecked offset.
-
-**Warning signs:**
-One generic map stores untyped operand arrays; offsets are added directly to a
-root buffer; `Double` is used while parsing DICT reals; duplicate `CharStrings`,
-`Private`, `ROS`, `FDArray`, or `FDSelect` keys silently use first/last wins;
-negative or oversized values are narrowed before validation.
-
-**Phase to address:**
-Phase 104; FontMatrix arithmetic is frozen in Phase 105 before geometry is
-published.
-
----
-
-### Pitfall 3: CID keying is reduced to a name-keyed special case
-
-**What goes wrong:**
-A CID-keyed CJK font uses the wrong Private DICT, local subroutine INDEX, width
-defaults, random seed, or FontMatrix for a glyph. Malformed FDSelect ranges or
-out-of-range FD indices are discovered only during outline extraction.
-
-**Why it happens:**
-Presence of `ROS` changes the keying model. CID fonts require a CID charset,
-`FDArray`, and `FDSelect`; they omit CFF Encoding and cannot use predefined
-name-keyed charsets. Each GID may select a different Font DICT and Private
-environment.
-
-**How to avoid:**
-Make name-keyed versus CID-keyed a closed admitted representation. For CID
-fonts require `ROS`, `FDArray`, `FDSelect`, a CID charset, and absence of
-Encoding. Support FDSelect formats 0 and 3; for format 3 require the first range
-at GID 0, strictly increasing ranges, a sentinel equal to `numGlyphs`, and every
-FD index in range. Validate every Font DICT, Private DICT, and local Subrs INDEX
-before publication. Resolve the execution environment once per GID before the
-VM runs; a global subroutine's `callsubr` still uses the calling glyph's
-selected local environment.
-
-**Warning signs:**
-The VM parses FDSelect itself; one global “local subrs” field exists on
-`CffOutlineFacts`; predefined charset/Encoding is accepted with `ROS`; only
-FDSelect format 0 has tests; unused FDs or the terminal range are not validated.
-
-**Phase to address:**
-Phase 104, with generated multi-FD CID fixtures; Phase 107 adds a licensed CID
-fixture and high-GID/range stress.
-
----
-
-### Pitfall 4: Type 2 depth limits are mistaken for complete resource safety
-
-**What goes wrong:**
-Repeated shallow subroutine calls, large CharStrings, stack churn, transient
-array operations, or geometry expansion consume unbounded work even though
-nesting never exceeds 10. Host recursion produces different failure behavior
-on different targets. Incorrect subroutine bias selects the wrong program.
-
-**Why it happens:**
-The format ceilings are necessary but not sufficient caller authority. Local
-and global subroutine biases depend on INDEX count (107, 1131, or 32768).
-Subroutine frames share the operand stack and execution state, and a shallow
-program can repeat calls indefinitely or amplify output.
-
-**How to avoid:**
-Use an explicit iterative frame stack with a hard depth ceiling of 10 and
-active identities that distinguish `Global(index)` from
-`Local(private_environment, index)`. Enforce the 48-entry argument stack before
-every push/operator. Implement a fixed 32-slot transient array with initialized
-bits and checked index conversion. Compute bias from the selected INDEX count
-and validate the biased index before entry. Charge every decoded byte/token,
-operator, stack action, subroutine call/return, repeated execution, mask byte,
-arithmetic operation, emitted point/command, and contour against private
-ledgers, `max_work`, and caller `Budget`. Cap cumulative executed bytes, calls,
-commands, points, contours, and allocations independently from nesting.
-
-**Warning signs:**
-`callsubr` is a recursive MoonBit function; only maximum depth is tested;
-subroutine count is used as the direct operand index; transient reads default
-to zero; call work is charged only once per unique subroutine; path growth has
-no separate ceiling.
-
-**Phase to address:**
-Phase 105, including exact-limit/one-over tests for stack 48, transient 32,
-depth 10, bias thresholds, call count, executed bytes, path growth, and total
-work.
-
----
-
-### Pitfall 5: `hintmask` and `cntrmask` are skipped as no-op operators
-
-**What goes wrong:**
-The next mask byte is interpreted as a number or operator, desynchronizing the
-rest of the CharString. A mask spanning a subroutine boundary, truncated mask,
-implicit stem declaration, or excessive stem count is accepted inconsistently.
-
-**Why it happens:**
-Hint effects are out of scope, but hint syntax is part of bytecode framing.
-Mask length depends on cumulative stems declared across the glyph and all
-subroutines. Immediately before a mask, pending even operands may declare
-omitted vertical stems.
-
-**How to avoid:**
-Recognize `hstem`, `vstem`, `hstemhm`, and `vstemhm`; handle the optional width
-before operand-pair parity; maintain a cumulative maximum of 96 H/V stems.
-Before `hintmask` or `cntrmask`, consume valid pending vstem pairs, require the
-mask to remain in the current frame, then consume exactly
-`(stem_count + 7) / 8` inline bytes. Validate truncation, ordering/phase rules,
-and unused low bits in the final byte. Count mask work, discard mask effects,
-and never move the current point.
-
-**Warning signs:**
-Hint operators simply clear the stack; mask size is based only on stems in the
-current frame; the program counter advances by one after a mask operator;
-tests cover only an 8-stem mask and omit 1/7/8/9/96/97 stems and truncation.
-
-**Phase to address:**
-Phase 105, before any general CharString acceptance or path comparison.
-
----
-
-### Pitfall 6: Deprecated and compatibility operators get partial semantics
-
-**What goes wrong:**
-Legacy fonts are accepted with wrong geometry or nondeterministic output:
-four-operand `endchar`/seac composition nests or uses the wrong glyph mapping;
-flex is flattened based on a device heuristic; `random` differs by target or
-run; `dotsection` disturbs state; FontMatrix composition overflows or emits
-coordinates in a different unit space.
-
-**Why it happens:**
-These behaviors look peripheral but can be exercised by valid static CFF1.
-Their policies affect both admission-time bounds and later `Path2`, so a
-“mostly supported” operator creates validator/renderer drift.
-
-**How to avoid:**
-
-- Freeze one explicit seac policy before VM implementation. If supported,
-  resolve StandardEncoding names only for name-keyed fonts, admit at most two
-  components, prohibit nesting, and apply the same work/component authority as
-  ordinary outlines. If deliberately unsupported, return a stable recognized
-  capability outcome—never partial geometry.
-- Emit `flex`, `hflex`, `hflex1`, and `flex1` as two cubic segments. Device-size
-  flattening belongs to hint execution/rasterization and is deferred.
-- Treat deprecated `dotsection` as a validated no-op if admitted.
-- Specify a project-owned deterministic PRNG, `initialRandomSeed` handling, and
-  reset semantics for Type 2 `random`; ambient host randomness is forbidden.
-- Specify Top/Font DICT FontMatrix composition, normalization to
-  `head.unitsPerEm`, fixed-point precision/rounding, and overflow errors before
-  calculating bounds.
-
-**Warning signs:**
-Admission and outline modes implement separate operator switches; flex becomes
-a line; `random` calls a host API; a CID Font DICT matrix is ignored;
-coordinates are converted to `Double` before repeated arithmetic; seac tests
-omit CID rejection, missing components, nesting, and budgets.
-
-**Phase to address:**
-Policy decisions and generated vectors in Phase 105; public and licensed
-interoperability verification in Phases 106–107.
-
----
-
-### Pitfall 7: Glyph bounds and metrics are computed lazily or admitted partially
-
-**What goes wrong:**
-`Font::open` succeeds but a malformed unqueried glyph fails later; budgetless
-`horizontal_metrics` performs hidden VM work; CFF bounds are `None` or fake
-zero extents; right-side bearing is wrong; a failure leaks some retained bounds
-or charges an uncommitted budget transaction.
-
-**Why it happens:**
-CFF has no `glyf` header with cheap stored bounds, while the existing public
-metrics query has no budget parameter. Reusing `glyf` assumptions or postponing
-CharString validation violates the opaque format-neutral `Font` contract.
-
-**How to avoid:**
-Run every glyph through the same Type 2 VM with a validation/bounds sink during
-CFF admission. Retain only a conservative integer bound per GID, using
-`floor(min)`/`ceil(max)` over checked transformed endpoints and cubic control
-points. Keep `hmtx` authoritative for advances and side-bearing inputs; Type 2
-widths are validated but do not replace public metrics. Accumulate all CFF
-charges in a private ledger, perform a final source-revision guard, commit once,
-then publish the complete `Font`. On any structural, glyph, resource, numeric,
-or mutation failure publish no font, no bounds, and no committed admission
-charge.
-
-**Warning signs:**
-`horizontal_metrics` calls the VM; bounds are optional for all CFF glyphs;
-admission validates only `.notdef` or mapped glyphs; a `Font` is constructed
-before the all-glyph pass; budget charges occur inside individual glyph loops.
-
-**Phase to address:**
-Phase 105 establishes validation/bounds and atomic admission; Phase 106 proves
-public metric parity and selected-outline transactions.
-
----
-
-### Pitfall 8: TTC face bases are mixed with table-relative and CFF-relative offsets
-
-**What goes wrong:**
-Standalone CFF works, but the same font selected from TTC/OTC reads a different
-table or object. Shared CFF tables are copied, double-rebased, or rejected, and
-face-local `cmap`/`hmtx` facts are accidentally taken from another face.
-
-**Why it happens:**
-In TTC/OTC, a table-record offset remains relative to collection byte zero; it
-is not relative to the selected face directory. After a checked `'CFF '`
-table window is created, CFF internal `(0)` offsets are relative to that table,
-INDEX offsets are relative to object data, and Private `Subrs` is relative to
-the Private DICT.
-
-**How to avoid:**
-Reuse the v0.33 retained-root, root-relative selected-face adapter. First turn
-the root-relative table record into a checked `TableWindow`; only then resolve
-CFF-internal offsets inside that window. Never add the selected directory base
-to a table record or CFF offset. Permit exact shared table ranges while keeping
-face-local common tables authoritative. Preserve collection checksum and final
-root-revision rules rather than materializing a fake standalone SFNT.
-
-**Warning signs:**
-The CFF parser accepts both root and face bases; a selected face is copied to a
-new buffer; shared CFF is treated as overlap corruption; standalone and
-collection admission use separate CFF parsers; collection tests use only a
-face directory at offset zero.
-
-**Phase to address:**
-Phase 106, after standalone structural and VM semantics are proven.
-
----
-
-### Pitfall 9: Four-target equality is inferred from compilation or one backend
-
-**What goes wrong:**
-`js`, `wasm`, `wasm-gc`, and `native` compile but disagree on overflow, fixed
-point rounding, host recursion failure, `Double` conversion, random output,
-allocation failure, error precedence, or command fingerprints.
-
-**Why it happens:**
-CFF/Type 2 combines numeric edge cases and state-machine amplification that
-exercise backend differences. A target-produced snapshot can also confirm its
-own bug.
-
-**How to avoid:**
-Keep VM arithmetic in checked integer/fixed-point form until final `Point2`
-emission, use explicit frames and a project-owned PRNG, and make allocation/work
-preflight target-neutral. Run the same complete package and qualification
-matrix independently on all four targets in isolated target directories.
-Compare exactly four ordered semantic records, normalizing only declared
-runner/target fields. Keep CFF commands, bounds, errors, budget effects,
-mutation outcomes, frozen `glyf` facts, dependency/API facts, and toolchain
-identity byte-visible.
-
-**Warning signs:**
-Only `moon check --target all` is run; native results are copied as expected
-data for portable targets; coordinates are compared with broad tolerances;
-random values or error categories are omitted from evidence; test output uses
-one shared build directory.
-
-**Phase to address:**
-Phase 105 makes semantics portable by construction; Phase 107 closes independent
-four-target execution and comparison.
-
----
-
-### Pitfall 10: Licensed fixtures lack provenance or become their own oracle
-
-**What goes wrong:**
-A moving download, system-installed font, or unlicensed derivative cannot be
-reproduced or redistributed. A font transformed by one tool is validated only
-against expectations produced by that same tool or by MNF itself. CID behavior
-is claimed without a real multi-FD fixture.
-
-**Why it happens:**
-Generated fixtures are convenient but do not prove desktop interoperability;
-large CJK assets encourage undocumented subsetting. Tool output is easy to
-mistake for independent truth.
-
-**How to avoid:**
-Commit or integrity-pin one immutable name-keyed static CFF1 OTF and one
-immutable CID-keyed CFF1 OTF or license-compliant deterministic derivative.
-Record source URL and revision, original and derivative SHA-256, license and
-notice, exact generator identity/version/command, transformation recipe, and
-offline oracle versions in a manifest. Preserve license/notice files. Use
-hand-derived generated vectors for exact structure/operator truths and
-cross-check licensed semantic facts with independent tools; target-produced
-MNF output must never generate its own expected result.
-
-**Warning signs:**
-Fixtures come from `%WINDIR%\Fonts`; URLs point to `latest`; only derivative
-hashes are recorded; notice or parent digest is absent; fontTools both generates
-the file and provides the sole golden JSON; the CID fixture selects only one FD.
-
-**Phase to address:**
-Select and approve provenance during Phase 107 planning; qualification cannot
-close until manifests, notices, digests, recipes, and independent oracle facts
-are verified.
+### Pitfall 1: Treating every OpenType offset as relative to the same base
+
+**What goes wrong:** Script, language-system, feature, lookup, subtable, Coverage, ClassDef, PairSet, ligature, ValueRecord device, and extension offsets are resolved against the wrong parent. Valid fonts are rejected, malformed fonts read an adjacent valid-looking region, or target-dependent narrowing permits an out-of-window access.
+
+**Why it happens:** OpenType layout uses several nested offset bases. Most are 16-bit, extension offsets are 32-bit, and similarly named offsets are relative to different structures. Reusing a generic `base + offset` helper without encoding the base/window contract makes review difficult.
+
+**Consequences:** Incorrect shaping, out-of-range access attempts, budget undercounting, inconsistent error context, and a parser rewrite after fixtures expose the mistake.
+
+**Prevention:**
+
+- Represent each retained table as a bounded view/window, never as an unqualified absolute offset.
+- Name helpers by base (`from_layout`, `from_script_list`, `from_script`, `from_feature_list`, `from_lookup_list`, `from_lookup`, `from_subtable`).
+- Keep offsets/counts/lengths as `UInt64`; use checked add/multiply before validating the complete range; narrow only after a semantic ceiling proves the value indexable.
+- Validate the entire fixed header and offset array before following any member.
+- For GSUB 7 and GPOS 9, validate the 32-bit offset relative to the extension subtable and reject extension-to-extension dispatch.
+- Bind every structured error to the exact table and relation that failed.
+
+**Detection / warning signs:**
+
+- Helpers accept two bare integers named only `base` and `offset`.
+- Tests cover truncation but not an in-range offset that points into the wrong sibling structure.
+- Generated valid fixtures use only zero or immediately-following offsets.
+- Parser code narrows to `Int` before checked range validation.
+
+**Required tests:** For every admitted offset field: exact end, one-byte-short, additive overflow, offset to header, offset to sibling, overlapping targets, zero where forbidden, and valid non-contiguous layout. Include 32-bit extension offsets above `0xFFFF`.
+
+### Pitfall 2: Applying features in caller order or feature-record order
+
+**What goes wrong:** The shaper applies `rlig`, `liga`, and `kern` lookups in option order, LangSys feature-index order, or FeatureList order rather than LookupList order. Earlier substitutions then fail to feed later lookups, or a later lookup runs too early.
+
+**Why it happens:** Feature selection and lookup execution are separate operations in OpenType. LangSys feature indices and Feature table lookup indices are not the final execution schedule.
+
+**Consequences:** Plausible but wrong glyphs/positions; changes in caller option order change output; generated fixtures pass if their tables happen to be naturally ordered.
+
+**Prevention:**
+
+- Resolve exactly one Script table and one language system for each GSUB/GPOS table.
+- Build the selected feature set, include the LangSys required feature, resolve all referenced lookup indices, reject out-of-range indices, then union and deduplicate.
+- Execute the resulting lookups in ascending LookupList index order.
+- Within one lookup, scan the glyph sequence according to the frozen direction contract; at a glyph position, try subtables in stored order and stop after the first match.
+- Freeze whether duplicate lookup references execute once; the recommended v0.35 rule is one execution per LookupList index after union/deduplication.
+
+**Detection / warning signs:**
+
+- Reordering caller feature toggles changes output.
+- A `Feature` object directly owns executable callbacks.
+- Tests do not interleave lookup indices from `rlig`, `liga`, and `kern`.
+- Multiple matching subtables all apply at one glyph position.
+
+**Required tests:** Permute caller feature order and LangSys feature-index order while keeping LookupList fixed; output must remain identical. Add two features referencing the same lookup and two subtables matching the same starting glyph.
+
+### Pitfall 3: Silently skipping a selected unsupported lookup, flag, or ValueRecord
+
+**What goes wrong:** A selected feature references contextual GSUB, mark/cursive GPOS, device/variation positioning, a forbidden lookup flag, or an unsupported extension target; the engine skips it and returns a run as if the feature were honored.
+
+**Why it happens:** “Best effort” is attractive for compatibility, but a partial layout engine cannot know whether the skipped operation was optional to the font’s intended result.
+
+**Consequences:** False support claims, especially for complex scripts; consumers cannot distinguish “feature absent” from “feature present but not implemented.”
+
+**Prevention:**
+
+- Separate absence, not-selected, selected-and-supported, selected-but-unsupported, malformed, resource-exhausted, and mutated outcomes.
+- Do not deep-execute unselected capability paths, but validate the structural envelope needed to resolve lists and indices safely.
+- If any selected required/default/caller feature reaches an unsupported lookup type, flag, format, device/variation field, or extension target, fail atomically with `CapabilityUnavailable`.
+- Do not let a later supported subtable hide an earlier selected unsupported subtable.
+- Document the supported profile as GSUB 1/4/7-to-1-or-4 and GPOS 2/9-to-2 plus the explicit GDEF flag subset; never advertise “OpenType shaping” without that qualifier.
+
+**Detection / warning signs:**
+
+- Code has `default => continue` in selected lookup dispatch.
+- Licensed-font qualification logs “unsupported lookup skipped” while still recording success.
+- Required features can be disabled through the same path as optional features.
+
+**Required tests:** A selected unsupported lookup must fail; the same lookup under an unselected optional feature must not run; an unsupported required feature must fail; failure must publish no run and consume no budget.
+
+### Pitfall 4: Mixing source clusters, grapheme clusters, and visual glyph order
+
+**What goes wrong:** `source_cluster` is documented or implemented as a grapheme boundary, byte offset, glyph-array index, or visual-order position. RTL reversal and ligature formation then produce non-monotone or unstable provenance.
+
+**Why it happens:** “Cluster” has several meanings. HarfBuzz cluster behavior is configurable, UAX #29 grapheme segmentation is a separate algorithm, and RTL output order is not the input scalar order.
+
+**Consequences:** Downstream selection/caret code relies on a promise v0.35 cannot keep; changing the RTL convention later becomes a breaking API change.
+
+**Prevention:**
+
+- Define `source_cluster` only as the zero-based index of a scalar in the exact caller input array.
+- Single substitution preserves the cluster.
+- Ligature substitution publishes the minimum source scalar index among consumed components.
+- State explicitly that the value is not a UTF-8/UTF-16 byte offset, UAX #29 grapheme, caret stop, bidi level, or font fallback span.
+- Freeze output glyph order and signed `advance_x` convention for LTR and RTL before writing the executor.
+- Keep input in logical order; do not reverse text and shape it as LTR.
+- Compare HarfBuzz only using an explicitly selected cluster level compatible with scalar-origin projection; do not inherit its default cluster policy.
+
+**Detection / warning signs:**
+
+- API examples use ASCII only.
+- RTL tests compare a set of glyphs rather than exact order, clusters, advances, and offsets.
+- Tests generate clusters from a UTF-8 string instead of the caller scalar array.
+- Documentation claims cursor placement.
+
+**Required tests:** Supplementary scalar, combining mark, repeated scalar, LTR ligature, RTL ligature, skipped mark under `IGNORE_MARKS`, empty input, and `.notdef`. Freeze the exact ordered run record for each.
+
+### Pitfall 5: Implementing direction as array reversal
+
+**What goes wrong:** The shaper reverses the scalar array for RTL, applies LTR lookup matching, and reverses the glyphs again. Logical component order, pair order, cluster propagation, and lookup filtering become wrong even for a deliberately limited RTL run.
+
+**Why it happens:** Visual reversal looks equivalent on trivial one-glyph-per-scalar tests. HarfBuzz explicitly warns that reversing RTL input and shaping it as LTR is not equivalent to shaping logical input with RTL direction.
+
+**Consequences:** Wrong ligatures and pair positioning; mismatch with licensed oracles; hidden coupling to future bidi behavior.
+
+**Prevention:**
+
+- Accept only a caller-segmented, uniform-direction run in logical scalar order.
+- Encode direction in traversal helpers rather than mutating the input.
+- Interpret GSUB ligature components and GPOS pairs in writing/logical direction as specified.
+- Keep UAX #9 paragraph resolution, mirroring, embeddings, isolates, weak/neutral resolution, and line reordering explicitly out of scope.
+- Reject mixed-direction expectations at the API/documentation boundary instead of guessing.
+
+**Detection / warning signs:** Functions named `reverse_for_rtl`, oracle calls using guessed properties, or tests where LTR and RTL differ only by final array reversal.
+
+### Pitfall 6: Mishandling lookup filtering and ligature components
+
+**What goes wrong:** `IGNORE_BASE_GLYPHS`, `IGNORE_LIGATURES`, or `IGNORE_MARKS` is ignored, applied before GDEF validation, or causes skipped glyphs to be consumed by a ligature. A ligature incorrectly deletes intervening marks or assigns the wrong cluster.
+
+**Why it happens:** Filtering changes traversal but not the underlying glyph buffer. Matching components are non-contiguous in storage when ignored glyphs intervene.
+
+**Consequences:** Common real fonts, including Source Sans-style `IGNORE_MARKS` lookup construction, shape incorrectly. Cluster provenance and glyph preservation break together.
+
+**Prevention:**
+
+- Parse and validate GDEF 1.0 GlyphClassDef before applying the admitted filtering flags.
+- If one of the admitted ignore flags is used but usable GlyphClassDef is absent, fail the selected path rather than invent classes.
+- Treat unclassified glyphs as class 0; reject out-of-range class values.
+- Build a matched-index list; consume only participating components; keep skipped glyphs in their original relative order.
+- Reject reserved bits, `USE_MARK_FILTERING_SET`, and non-zero mark-attachment-class filtering in v0.35.
+- Treat `RIGHT_TO_LEFT` as non-operative for admitted lookup types; never infer run direction from it.
+
+**Detection / warning signs:** Ligature code deletes a contiguous slice from first to last component, or lookup filtering is a predicate with no GDEF dependency.
+
+### Pitfall 7: Reusing stale metrics after GSUB
+
+**What goes wrong:** Base `hmtx` advances are loaded during cmap mapping, then GSUB changes glyph IDs without refreshing metrics. Ligature output retains the sum or first component’s old advance, and single substitutions keep the pre-substitution advance.
+
+**Why it happens:** Glyph buffers are initialized with both identity and metrics too early.
+
+**Consequences:** Correct glyph IDs with incorrect positions; format-neutral parity between `glyf` and CFF1 may hide the error if fixtures share widths.
+
+**Prevention:**
+
+- Keep the pre-GSUB buffer to glyph identity plus source cluster.
+- Validate every substitution result `< numGlyphs`.
+- Initialize horizontal metrics only after all selected GSUB lookups complete.
+- Keep metric queries behind the opaque `Font` seam and its revision guard.
+- Use generated ligatures and single substitutions whose output widths deliberately differ from input widths.
+
+**Detection / warning signs:** `advance_x` exists in the cmap buffer type, or a GSUB handler mutates GID without touching/reinitializing metrics.
+
+### Pitfall 8: Misparsing PairPos and applying pair adjustments with the wrong scan rule
+
+**What goes wrong:** PairSet count does not match Coverage cardinality, PairValue records are accepted unsorted, class 0 is ignored, class matrix size overflows, zero ValueFormat is treated as malformed, the second glyph is always skipped, or adjustments overwrite rather than accumulate.
+
+**Why it happens:** PairPos format 2 is a dense two-dimensional matrix of variable-width records; PairPos scan advancement also depends on whether the second ValueRecord is present.
+
+**Consequences:** Wrong kerning, out-of-window reads, quadratic fallback scans, or failure on ordinary fonts.
+
+**Prevention:**
+
+- Require PairPos format-1 `pairSetCount == Coverage cardinality`.
+- Require PairValue records strictly ordered by second GID and use bounded binary search or an equally charged deterministic search.
+- Preflight `class1Count * class2Count * recordSize` with checked arithmetic before any allocation/access; include class 0 in both counts.
+- Validate every ClassDef value against its consuming declared count.
+- Accept zero ValueFormat; permit only the frozen static fields (`xPlacement`, `yPlacement`, `xAdvance`) and reject `yAdvance`, device/variation, and reserved bits.
+- Accumulate signed adjustments in checked `Int64` in LookupList order.
+- Follow the PairPos “next glyph” rule: when the second ValueRecord is absent, it may become the next probe.
+
+**Detection / warning signs:**
+
+- Matrix allocation uses `Int` multiplication.
+- Format 2 is expanded eagerly without an allocation-size ceiling.
+- Tests use only `valueFormat2 == 0`.
+- Positioning stores one adjustment per glyph instead of accumulating.
+
+### Pitfall 9: Double-applying GPOS `kern` and legacy `kern`
+
+**What goes wrong:** The engine applies the existing legacy `Font::kerning` result and then applies selected GPOS `kern`, or uses legacy `kern` merely because the GPOS adjustment for a particular pair is zero.
+
+**Why it happens:** Fallback is implemented per pair rather than per resolved language-system feature plan.
+
+**Consequences:** Common fonts with both tables become too tight/loose, while smoke tests using fonts with only one source pass.
+
+**Prevention:**
+
+- Decide kerning authority once from the resolved GPOS feature plan.
+- If selected GPOS `kern` contributes any lookup in the resolved language system, ignore the legacy table for the whole run.
+- If the resolved plan has no selected GPOS `kern` lookup, use legacy format-0 horizontal pairs.
+- If `kern` is caller-disabled, disable both modern and legacy routes.
+- Do not fall back per missing pair or per zero adjustment.
+- Preserve the existing `Font::kerning` distinctions for absent, miss, unsupported, malformed, mutation, and exhausted resource state.
+
+**Detection / warning signs:** Legacy kerning is called inside the GPOS pair loop, or the fallback condition checks an adjustment value rather than lookup-plan presence.
+
+### Pitfall 10: Bounding table bytes but not shaping work
+
+**What goes wrong:** Admission respects source bytes and table counts, but shaping repeatedly scans long runs, many lookups, Coverage ranges, ligature alternatives/components, PairSets, or class definitions. A small font table and moderate input produce excessive work.
+
+**Why it happens:** Structural complexity and execution complexity are different. The product of individually valid limits can still be unacceptable.
+
+**Consequences:** Denial of service in document/agent workloads and target-dependent timeouts.
+
+**Prevention:**
+
+- Define separate non-zero semantic ceilings for input scalars, initial/final glyphs, selected features, resolved lookups, subtables, Coverage entries/ranges, ClassDef ranges, PairSet records, class cells, ligature sets/alternatives/components, retained bytes, allocations, allocation size, match probes, lookup applications, and total work.
+- Charge failed probes, filtered skips, binary-search steps, and output compaction—not only successful substitutions.
+- Preflight cross-products with checked arithmetic; do not infer safety from each factor being under its own ceiling.
+- Avoid repeated full parsing of the same selected subtable; retain bounded validated facts behind the opaque font seam.
+- Preserve exact-fit success and one-short failure for every independently adjustable dimension.
+
+**Detection / warning signs:** A `for glyph` loop contains a linear scan of a PairSet or all ligatures without a work charge; a limit exists but no hostile test drives it; allocation count and maximum allocation size are conflated.
+
+### Pitfall 11: Charging or publishing before the final revision guard
+
+**What goes wrong:** The engine mutates a public run incrementally, commits caller/ancestor budget during parsing, or performs its last source-revision check before final positioning. A later malformed lookup or mutation leaves partial output or consumed authority.
+
+**Why it happens:** Parser and executor layers each believe their local success is independently committable.
+
+**Consequences:** Violates the established MNF transaction model; retries observe reduced budgets; stale source bytes can influence published results.
+
+**Prevention:**
+
+- Capture the authoritative font/source revision at operation start through a narrow opaque `mb-font` layout seam.
+- Stage validated layout facts, glyph identities, clusters, metrics, positions, totals, and the combined `ResourceCharge` privately.
+- Use caller and ancestor budget preflight without mutation.
+- Run deterministic mutation probes during attacker-controlled stages and one final guard immediately before the sole commit.
+- Commit the complete charge once, then publish one immutable `ShapedRun`.
+- No error path may expose a partial glyph array or decrement any budget dimension.
+
+**Detection / warning signs:** More than one `charge`/`commit` call in the public operation, output arrays passed to callbacks during shaping, or the final revision guard precedes final GPOS accumulation.
+
+**Required tests:** Mutation at opening, after selection, during Coverage/ClassDef traversal, between GSUB and metrics, during GPOS, and immediately before commit. Combine mutation with malformed data and one-short budget to freeze precedence.
+
+### Pitfall 12: Letting error precedence depend on traversal accidents
+
+**What goes wrong:** The same multi-fault input reports unsupported, malformed, resource-exhausted, or mutation depending on target, map iteration, feature option order, or which parser helper happens to run first.
+
+**Why it happens:** Fail-fast code has no declared admission/selection/execution precedence.
+
+**Consequences:** Four-target evidence diverges; callers cannot rely on structured outcomes; tests overfit current implementation order.
+
+**Prevention:**
+
+- Define a canonical stage order: validate caller input/options/limits → opening revision → bounded structural envelope → script/language/feature selection → selected capability/profile validation → complete work/charge preflight → GSUB → metrics → GPOS/legacy choice → final revision guard → commit/publication.
+- Within each stage, use deterministic table/list order.
+- Freeze a multi-fault precedence matrix in public hostile tests.
+- Keep error operation/context names stable and table-specific.
+
+**Detection / warning signs:** Tests accept one of several errors, or error context embeds host exception text.
+
+### Pitfall 13: Assuming `Int64` alone guarantees cross-target equality
+
+**What goes wrong:** Intermediate work narrows to 32-bit `Int`, signed conversion differs, map iteration order leaks into records, or canonical JSON/text formatting differs across JS, Wasm, Wasm-GC, and native.
+
+**Why it happens:** The public numeric model is 64-bit, but array indices, loop counters, serialization, and helper APIs may not be.
+
+**Consequences:** Target-specific glyph positions, failures, or evidence digests despite common high-level tests.
+
+**Prevention:**
+
+- Keep lengths/offsets/counts/work in `UInt64` until checked narrowing after limits.
+- Keep design-unit advances/offsets/totals in checked `Int64`; reject overflow rather than wrap.
+- Use arrays and explicit sorting for semantic order; never rely on hash-map iteration.
+- Define one closed canonical semantic carrier with decimal integer syntax, exact field order, explicit direction, explicit zero values, and no target-formatted floats.
+- Run isolated `moon test` lanes for all four production targets; do not treat one `--target all` summary as equality proof.
+- Compare canonical records byte-for-byte; allow target identity only outside the compared semantic payload.
+
+**Detection / warning signs:** `.to_int()` appears before a limit check, a position uses `Double`, or equality is inferred from equal test counts.
+
+### Pitfall 14: Treating HarfBuzz output as the specification
+
+**What goes wrong:** Expected facts are copied directly from HarfBuzz without pinning all properties, or implementation behavior is changed to match HarfBuzz functionality outside the admitted profile.
+
+**Why it happens:** HarfBuzz is mature and convenient, but includes normalization, script shapers, reordering, fallback/compatibility behavior, and cluster policies beyond v0.35.
+
+**Consequences:** The foreign oracle silently defines product semantics; upgrades rewrite baselines; two tools can agree for reasons unrelated to the project contract.
+
+**Prevention:**
+
+- Keep hand-derived generated facts normative for the admitted micro-profile.
+- Use direct pinned `hb-shape` only as an independent semantic comparison for the exact projection: GID, scalar-origin cluster, design-unit advances, and x/y offsets.
+- Pass explicit font, face, text encoding, direction, script, language, feature list, cluster level, output format, and shaper selection; prohibit property guessing and ambient font lookup.
+- Record archive hash, extracted executable hash, version output, command-line arguments, adapter hash, input hash, and raw/canonical output hash.
+- Keep fontTools structural, HarfBuzz semantic, and OpenType Sanitizer structural; do not let one tool serve as generator, parser, and oracle.
+- A mismatch is an investigation, not an automatic baseline update.
+
+**Detection / warning signs:** Oracle scripts call `hb_buffer_guess_segment_properties`, omit cluster level, or regenerate expected files in place without a reviewed diff.
+
+### Pitfall 15: Losing fixture provenance or redistribution obligations
+
+**What goes wrong:** A licensed font is replaced by a distro/repacked variant, generated fixture bytes are committed without generator identity, or the license/copyright notice is separated from the redistributed font.
+
+**Why it happens:** Font filenames and upstream version labels do not uniquely identify bytes. Reproducibility needs the entire artifact/tool/adaptor chain.
+
+**Consequences:** Non-reproducible evidence, accidental license violation, and oracle drift caused by unrelated font bytes.
+
+**Prevention:**
+
+- Reuse retained DejaVu Sans 2.37 and Source Sans 3.052R bytes only after verifying repository hashes.
+- Preserve the upstream copyright and license beside each redistributed font; do not infer license from repository metadata alone.
+- Prefer official archives/releases and record upstream URL, version/tag, archive size/hash, member path/hash, repository path/hash, acquisition date, and license path/hash.
+- For generated fonts, bind source description, generator/adaptor commits, pinned tool identities, deterministic environment inputs, output hash, and hand-derived expected facts.
+- Refuse partial publication when any manifest member, tool, adapter, source font, or output digest is unbound.
+
+**Detection / warning signs:** A fixture manifest contains only filename/version, the generator depends on PATH discovery, or CI downloads “latest.”
+
+### Pitfall 16: Claiming complex-script shaping from simple lookup support
+
+**What goes wrong:** Because a font’s selected Arabic/Indic feature happens to contain a supported single or ligature lookup, v0.35 returns success without the required script-specific stages, reordering, contextual substitutions, mark/cursive attachment, or bidi preparation.
+
+**Why it happens:** OpenType defines low-level lookups, while complete script shaping requires client-side algorithms outside the tables.
+
+**Consequences:** Incorrect text for languages where shaping correctness is essential; misleading product positioning.
+
+**Prevention:**
+
+- Define and enforce a horizontal, caller-segmented, implementation-honest profile rather than a broad script-name allowlist.
+- If a selected required path needs contextual/chained/reverse, mark/cursive, reordering, variable/device, or other deferred semantics, return capability failure.
+- Use Source Han only as admission/compatibility evidence, never as a Japanese/complex-script shaping claim.
+- Documentation must say “Latin-style GSUB/GPOS subset,” not “multilingual shaping.”
+
+**Detection / warning signs:** Release notes list supported scripts based on cmap coverage or successful glyph output alone.
 
 ## Moderate Pitfalls
 
-### Pitfall 11: CFF profile recognition is tag-only
+### Pitfall 17: Ambiguous script, language, and feature fallback
 
-**What goes wrong:**
-Any `OTTO` font or any file containing `CFF ` reaches the new parser despite
-mixed `glyf`/`loca`, `CFF2`, variation tables, missing common tables, wrong
-`maxp` version, or CharStrings count mismatch.
+**What goes wrong:** Missing exact script selects the first script, missing language combines default and exact LangSys, `DFLT` and default LangSys are conflated, or duplicate/conflicting caller feature entries resolve differently by input order.
 
-**Prevention:**
-Classify a closed static profile: `OTTO`, exactly one supported `CFF ` outline
-profile, required common tables, `maxp` 0.5, and
-`maxp.numGlyphs == CharStrings.count`. Preserve the existing static `glyf`
-branch and reject recognized CFF2/variable/WOFF profiles with stable capability
-outcomes.
+**Prevention:** Exact script → documented `DFLT` fallback only; exact LangSys → that Script table’s default LangSys only; use one language system, not both; include the required feature; define `rlig`/`liga`/`kern` defaults; reject malformed/duplicate/conflicting caller entries; validate sorted unique tags and all indices.
 
-### Pitfall 12: CFF Encoding, charset, and OpenType `cmap` are conflated
+**Detection:** Changing record order changes selection, or tests never distinguish `DFLT` Script from default LangSys.
 
-**What goes wrong:**
-Public Unicode lookup changes with CFF Encoding, CID fonts appear unmappable,
-or public GIDs are renumbered by SID/CID order.
+### Pitfall 18: Overflowing signed placement and total advance
 
-**Prevention:**
-Keep OpenType GID equal to CharStrings INDEX position and keep admitted SFNT
-`cmap` authoritative for `glyph_for_scalar`. Validate charset and Encoding as
-CFF structures and for seac compatibility only; CID fonts have no Encoding.
+**What goes wrong:** Individually valid FWORD adjustments overflow after many lookups/glyphs, or unsigned base advances are mixed with signed deltas through unchecked casts.
 
-### Pitfall 13: The qualified `glyf` decoder is generalized during CFF work
+**Prevention:** Convert admitted base advances to checked `Int64`, checked-add every ValueRecord and legacy kern delta, checked-sum total advance, and fail before publication. Add exact-boundary and alternating-sign sequences, not only one pair.
 
-**What goes wrong:**
-Existing metrics, error precedence, budget counts, quadratic paths, collection
-selection, or fingerprints regress, and the source of the regression becomes
-hard to isolate.
+### Pitfall 19: Over-validating unsupported, unselected font capabilities
 
-**Prevention:**
-Use a private closed `FontOutlineSource::Glyf | Cff1` dispatch. Share only the
-public facade and common metric boundary. Keep the current `outline.mbt` path
-and frozen evidence unchanged.
+**What goes wrong:** The presence of any contextual, mark, vertical, device, or variable structure rejects a font even when no selected v0.35 feature reaches it.
 
-### Pitfall 14: Unsupported scope is silently partially accepted
+**Prevention:** Validate enough of the global envelope to resolve selected structures safely, but apply capability rejection to selected/reachable execution paths. Keep “present but unselected” distinct from “selected and unsupported.” Preserve the ability to shape a simple supported feature in a font that also contains richer layout.
 
-**What goes wrong:**
-CFF2/variable fonts, WOFF containers, shaping requests, or device hint/raster
-behavior appear to succeed while geometry is incomplete or wrong.
+**Detection:** A Source Han compatibility fixture cannot shape a deliberately simple supported path because unrelated complex tables exist.
 
-**Prevention:**
-Explicitly defer CFF2 and variable instantiation, WOFF1/WOFF2, GSUB/GPOS/bidi
-shaping, hint execution, and rasterization. Detect recognized profiles at the
-appropriate boundary and return the established structured unsupported
-capability result. CFF1 hint syntax is still fully validated because it frames
-the bytecode.
+### Pitfall 20: Breaking the existing opaque `Font` and legacy behavior
 
-## Technical Debt Patterns
+**What goes wrong:** `mb-text` gains raw-table access, `Font` exposes mutable layout records, font admission starts rejecting previously accepted static fonts, or the existing `Font::kerning` public semantics change.
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Separate INDEX readers per structure | Fast local progress | Divergent offset, overflow, and empty-form rules | Never |
-| Untyped DICT operator map | Less schema code | Ambiguous arity/defaults, duplicate keys, unsafe offsets | Never |
-| Recursive `callsubr` | Short interpreter | Target-dependent stack failure and hidden accounting | Never |
-| Validate only requested glyphs | Faster open | Breaks atomic admission and budgetless metrics | Never under the existing public API |
-| Store a `Path2` for every glyph | Easy metric bounds | CJK-scale memory amplification | Never; retain compact bounds and views |
-| Memoize subroutine geometry | Faster repeated calls | Incorrect because stack, point, hint state, FD environment, and transient state are caller-dependent | Never |
-| Use `Double` throughout Type 2 | Easier arithmetic | Cross-target drift and unclear overflow | Never for VM state; final emission only |
-| Treat hints as zero-byte no-ops | Smaller VM | Instruction desynchronization | Never |
-| Reject all CID fonts | Smaller initial slice | Not desktop-grade CFF1 and excludes CJK | Never for v0.34 |
-| Treat seac/random/FontMatrix as “later” while accepting them | Smaller operator surface | Valid programs publish wrong bounds/paths | Never; support fully or reject explicitly |
-| Build a parallel CFF public type | Avoid facade refactor | Splits consumer APIs and exposes unstable internals | Never for v0.34 |
-| Float fixture downloads/oracle versions | Less fixture maintenance | Irreproducible and legally incomplete evidence | Never in Required CI |
+**Prevention:** Add a narrow private/opaque layout capability seam to `mb-font`; keep string sequencing in the independently publishable `mb-text`; expose no raw offsets/views; run the frozen 1,287-test v0.34 four-target baseline plus public interface diffs; require an RFC for dependency or public-boundary changes.
 
-## Integration Gotchas
+## Minor Pitfalls
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| SFNT directory → CFF admission | Pass raw root offset and length | Pass one checked `'CFF '` `TableWindow` and common admitted facts |
-| CFF INDEX → objects | Apply offsets from INDEX start | Apply 1-based offsets from object-data start after terminal proof |
-| Private DICT → local Subrs | Apply `Subrs` from CFF table base | Apply it from the beginning of the selected Private DICT |
-| CID keying → VM | Let VM choose FD/local Subrs | Resolve one environment per GID before execution |
-| Global Subrs → local calls | Use one global local-Subrs set | Use the calling glyph's selected Private environment |
-| Type 2 → metrics | Replace advance with CharString width | Validate Type 2 width; keep `hmtx` public authority |
-| Type 2 → `Path2` | Publish commands incrementally | Build bounded scratch geometry and publish only after final guard/commit |
-| TTC/OTC → CFF | Rebase table offsets by face directory | Keep table records root-relative; CFF offsets become table-relative only after windowing |
-| Offline oracles → tests | Consume oracle tools at runtime | Pin host-only tools and commit/generated bounded semantic facts |
-| Four-target runner | Reuse one backend's output as expected | Run four independent lanes and compare normalized semantic records |
+### Pitfall 21: Treating empty input or `.notdef` as failure
 
-## Performance Traps
+**What goes wrong:** Empty input attempts table selection or requires GSUB/GPOS presence; a valid unmapped scalar is treated as malformed instead of glyph zero.
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Eager object/string copying | Memory scales with CFF table plus decoded copies | Retain root views and compact INDEX offsets | Large String/Subrs INDEX or CJK fonts |
-| Retaining every glyph path | High open-time memory and allocation failure | Retain one conservative integer bound per GID | Tens of thousands of CID glyphs |
-| Repeated subroutine work uncharged | Tiny CharString consumes extreme CPU | Count every executed byte/token/call and total work | Shallow repeated call programs |
-| FDSelect linear scan per operation | CJK outline time grows with range count | Resolve selected FD once per GID; retain compact validated ranges | High GID and many ranges |
-| Allocation after partial parsing | Late resource failures and wasted work | Preflight attacker-controlled counts/ranges before loops/allocations | Maximum-count hostile fonts |
-| Broad floating-point tolerance | Cross-target regressions appear “close enough” | Fixed-point semantics and exact normalized evidence | Long arithmetic/FontMatrix chains |
-| Optimizing before semantic freeze | Cache/desubroutinization bugs obscure correctness | Baseline licensed Latin/CJK workloads after Phase 107 correctness gates | Any premature optimization phase |
+**Prevention:** Empty valid input returns an empty immutable run with direction/units-per-em and zero total advance under the frozen charging rule. Valid unmapped scalars preserve their source cluster and use the admitted `.notdef` glyph/metrics. Invalid scalars still fail before shaping.
 
-## Security Mistakes
+### Pitfall 22: Benchmarking before semantics stabilize
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Narrow unchecked count/offset arithmetic | Out-of-range reads, panics, or allocation amplification | Checked wide arithmetic before every add/multiply/narrow/range |
-| Trusting object count before terminal extent | Attacker-controlled traversal/allocation | Prove complete INDEX envelope and semantic ceilings first |
-| Host recursion for subroutines | Backend stack exhaustion | Explicit depth-10 frames plus call/work budgets |
-| Lazy malformed-glyph discovery | Partially trusted `Font` state | Validate every glyph before admission publication |
-| Mutation guard only at open entry | TOCTOU between retained views and publication | Capture revision and guard immediately before each commit/publication |
-| Executing embedded PostScript | Unbounded language/runtime behavior | Validate referenced SID/range only; never execute |
-| Treating licensed corpus as trusted input | Uncovered parser defects in Required CI | Apply the same limits, budgets, mutation guards, and independent checks |
+**What goes wrong:** Native timing thresholds drive premature caches or target-specific fast paths, obscuring correctness and resource accounting.
 
-## UX Pitfalls
+**Prevention:** Keep performance observation-only, native-only, workload-declared, and bound to the same semantic digest after all four correctness lanes pass. No cross-runtime timing comparison is an acceptance criterion.
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| CFF-backed font has a second public type | Consumers branch throughout document/graphics code | Return the same opaque `Font` and cubic `Path2` |
-| CFF bounds are missing or fabricated | Wrong RSB/layout diagnostics despite valid outline | Retain truthful conservative bounds during atomic admission |
-| Error taxonomy differs standalone vs collection | Callers cannot recover consistently | Preserve state/input/resource/data/capability precedence on both routes |
-| Recognized deferred formats look malformed | Users cannot distinguish unsupported capability from corrupt input | Return stable unsupported outcomes for CFF2/variable, WOFF, shaping, and raster requests |
-| Hinting claim exceeds implementation | Users expect device-quality raster output | State clearly: hint syntax validated, unhinted design-space geometry published |
+## Phase-Specific Warnings
 
-## “Looks Done But Isn’t” Checklist
+| Phase | Scope | Likely pitfall | Required mitigation / exit evidence |
+|---:|---|---|---|
+| 108 | Public contract and opaque seam | RTL order/advance and cluster meaning remain ambiguous; raw OpenType details leak from `mb-font` | Freeze the exact run/options/error model, scalar-origin clusters, direction convention, feature defaults, fallback rules, selected-unsupported policy, and opaque `mb-font` capability interface before parser implementation |
+| 109 | Bounded layout admission | Wrong offset base, unchecked cardinality, oversized class matrices, missing GDEF dependency, or eager rejection of unrelated complex tables | Offset-base ledger; checked window helpers; semantic limits for every count/range/matrix; exact/one-short hostile suite; selected-vs-unselected validation rules; no public raw tables |
+| 110 | GSUB execution | Feature order, ligature preference, filtered component deletion, stale metrics, or wrong clusters | LookupList-order scheduler; stored subtable and ligature preference; matched-index consumption; GID range checks; metrics deliberately deferred; LTR/RTL exact generated facts |
+| 111 | GPOS and kerning | Pair scan rule, class 0, ValueRecord width, accumulation, or legacy double-kern | PairPos 1/2 hostile fixtures; checked dense extent; allowed-bit mask; signed accumulation; run-level GPOS/legacy authority decision; licensed DejaVu/Source Sans comparisons |
+| 112 | Transactional shaping integration | Structural limits mistaken for execution limits; mutation/commit occurs too early; error precedence drifts | Combined parser/executor charge; caller+ancestor exact/one-short tests; mutation at frozen probes; one final revision guard; one commit and one publication; multi-fault precedence matrix |
+| 113 | Qualification and release evidence | Oracle defaults, self-oracle, repacked font, unbound toolchain, or equal test counts mistaken for equal behavior | Hand-derived facts plus pinned `hb-shape`; explicit oracle args/cluster level; full artifact/license manifest; generated `glyf`/CFF1 equivalence; four byte-equal canonical semantic records; frozen v0.34 regression |
 
-- [ ] Every INDEX consumer uses one checked implementation with `offSize` 1–4,
-      first offset 1, monotonic offsets, terminal extent, and empty-form tests.
-- [ ] Top, Font, and Private DICT schemas enforce number encoding, 48 operands,
-      exact arity/type/default/duplicate policy, and named offset bases.
-- [ ] `ROS` requires CID charset, FDArray, FDSelect, no Encoding, and a validated
-      per-GID Private/local-Subrs environment.
-- [ ] Type 2 tests cover stack 48/49, transient 32/out-of-range/uninitialized,
-      all three subr bias bands, depth 10/11, cycles, repeated shallow calls,
-      executed-byte limits, path limits, work, and caller budgets.
-- [ ] `hintmask`/`cntrmask` consume exactly `ceil(stems/8)` bytes after pending
-      vstem operands and cover 1/7/8/9/96/97 stems and truncation.
-- [ ] Flex remains two cubic segments; seac is either fully bounded/non-nested
-      or explicitly unsupported; random and FontMatrix policies are frozen and
-      deterministic.
-- [ ] All glyphs validate and produce retained bounds before `Font` publication;
-      failed admission exposes no bounds and commits no charge.
-- [ ] `hmtx` remains authoritative; CharString widths are validated but never
-      silently replace public metrics.
-- [ ] Selected TTC/OTC CFF faces use root-relative table offsets and CFF-local
-      windows without copying or double rebasing.
-- [ ] Existing static `glyf` bytes, errors, budgets, metrics, mappings, kerning,
-      paths, interface, and dependency evidence remain frozen.
-- [ ] Generated name-keyed and multi-FD CID fixtures cover structural and VM
-      boundaries with hand-derived expected facts.
-- [ ] Licensed name-keyed and CID assets have source/derivative hashes,
-      revision, license/notice, exact recipe/tool identity, and independent
-      oracle facts.
-- [ ] `js`, `wasm`, `wasm-gc`, and `native` run independently and produce
-      exactly four comparable semantic records.
-- [ ] CFF2/variable, WOFF1/WOFF2, shaping/bidi/GSUB/GPOS, hint execution, and
-      rasterization remain explicitly deferred and are not partially accepted.
+## Roadmap Research Flags
 
-## Recovery Strategies
+- **Phase 108 requires deeper research before implementation:** exact RTL output order and signed-advance convention. This is the only major public-semantic watch item that cannot be safely deferred.
+- **Phase 109 requires phase research:** enumerate every admitted field’s offset base, required cardinality relation, sortedness rule, class-zero behavior, selected/unselected validation depth, and error context.
+- **Phase 111 requires phase research:** freeze the full allowed `ValueFormat` bit matrix and the PairPos next-probe rule for both directions with hand-derived examples.
+- **Phase 112 requires phase research:** derive a complete work equation and charge ledger from actual executor loops; do not copy CFF limits mechanically.
+- **Phase 113 requires phase research:** provision HarfBuzz 14.2.1, record the extracted executable digest, choose/freeze cluster level and shaper options, and prove retained font licensing/manifests before baselining.
+- Complex scripts, mark/cursive attachment, contextual/chained lookups, bidi, normalization, fallback, vertical layout, variable/device positioning, and font discovery are future milestone research topics—not spillover tasks.
 
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Wrong INDEX/DICT offset base | HIGH | Stop dependent work; centralize checked windows; regenerate structural fixtures; re-run every parser/keying case |
-| CID environment selected incorrectly | HIGH | Replace global environment with per-GID keying facts; invalidate retained bounds; re-run multi-FD and licensed CID qualification |
-| VM resource accounting incomplete | HIGH | Introduce one execution ledger; enumerate every loop/call/emission; add exact/one-short budgets before optimizing |
-| Hint-mask desynchronization | MEDIUM | Centralize stem state and frame-local mask consumption; add byte-level program-counter fixtures |
-| seac/random/FontMatrix policy drift | HIGH | Freeze policy in tests; make both sinks share one VM; regenerate all bounds/path oracle facts |
-| Partial bounds or budget published | HIGH | Reinstate private admission ledger and all-glyph pass; move final revision guard/one charge immediately before publication |
-| TTC double rebasing | MEDIUM | Restore root-relative selected-face adapter; make CFF parser accept only a checked table window; add non-zero-directory/shared-table fixtures |
-| Four-target semantic mismatch | MEDIUM | Reduce to generated exact vector; compare ledger/state transitions; remove host recursion/random/early float conversion |
-| Fixture provenance gap | MEDIUM | Quarantine the asset from Required CI; reconstruct parent/derivative lineage or replace with a fully licensed reproducible fixture |
+## Pre-Submission / “What Might We Have Missed?” Review
 
-## Pitfall-to-Phase Mapping
+The following areas remain intentionally unresolved and must not be inferred from this research:
 
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| INDEX 1-based offsets/count overflow | Phase 104 | Every `offSize`; empty/non-empty; descending, truncated, terminal, exact/one-short, maximum-count cases |
-| DICT number/offset/arity overflow | Phase 104 | Integer/real encodings, 48/49 operands, typed arity, duplicates, every coordinate base and checked range |
-| Name/CID keying confusion | Phase 104 | Predefined/custom charset/Encoding plus ROS, FDArray, FDSelect 0/3, multiple FDs and local Subrs |
-| Type 2 stack/transient/subr/work failure | Phase 105 | Stack/transient boundaries, biases 107/1131/32768, depth/cycle/calls/bytes/work/path/resource matrix |
-| Hint-mask byte desynchronization | Phase 105 | Stem boundary matrix, pending vstem pairs, truncation, last-byte bits, frame-boundary rejection |
-| seac/flex/random/FontMatrix drift | Phase 105 | One-VM two-sink equality, non-nested compatibility, exact cubics, deterministic PRNG, fixed-point matrix overflow |
-| Bounds/metrics partial admission | Phase 105 | Every-glyph validation, retained conservative bounds, `hmtx` authority, mutation and no-charge-on-failure |
-| Public cubic path and glyf regression | Phase 106 | Same VM BuildPath sink, complete `Path2` only, frozen glyf semantic/budget/interface evidence |
-| TTC root/table/CFF offset confusion | Phase 106 | Non-zero face directories, shared CFF table, face-local cmap/hmtx, standalone/collection semantic equality |
-| Deferred-scope leakage | Phase 106 | Stable unsupported outcomes for CFF2/variable, WOFF, shaping, hint execution, and rasterization |
-| Four-target drift | Phase 107 | Independent complete package runs and four ordered exact semantic records |
-| Licensed fixture provenance/self-oracle | Phase 107 | Manifest/license/notice/digests/recipe/tool versions plus two-source semantic cross-check |
-| Hostile and atomicity gaps | Phase 107 | Closed structural/program/resource/mutation matrix with exact/one-short limits and final evidence negative probes |
-
-## Explicit Deferrals
-
-The following are not implementation shortcuts inside v0.34; they are separate
-capability boundaries and must remain visibly unsupported:
-
-- **CFF2 and variable fonts:** different data model and VM semantics, including
-  VariationStore, `vsindex`, and `blend`; not a CFF1 tag switch.
-- **WOFF1 and WOFF2:** require bounded zlib/DEFLATE or Brotli plus transformed
-  table reconstruction before SFNT/CFF admission.
-- **Text shaping:** GSUB/GPOS, bidi, script/language selection, and glyph
-  positioning belong to a future `mb-text` layer.
-- **Hint execution and rasterization:** v0.34 validates hint syntax only and
-  publishes deterministic unhinted design-space `Path2`; grid fitting, device
-  scale, stem darkening, antialiasing, and pixels remain downstream work.
+- Exact MoonBit allocation-size accounting for the final retained layout representation; it depends on the Phase 109 data model.
+- Exact RTL public order/advance projection; official standards and HarfBuzz document behavior, but MNF must choose and freeze its own bounded-run contract.
+- Whether Source Sans 3.052R exercises every desired GDEF/filter/extension combination after the final selected script/language/features are fixed; the fixture must be inspected by the pinned host lane.
+- The complete set of feature parameters and layout 1.1 FeatureVariations rejection cases; v0.35 should accept only the explicitly documented null/absent profile.
+- Performance of the eventual MoonBit lookup representation; correctness and charged complexity must land before observation-only tuning.
 
 ## Sources
 
-### Authoritative format sources
+### Primary standards and official documentation
 
-- [OpenType 1.9.1 — The OpenType Font File](https://learn.microsoft.com/en-us/typography/opentype/spec/otff)
-  — `OTTO`, required/shared tables, outline profile separation, TTC/OTC
-  collection directories, sharing, and root-relative table-record offsets.
-- [OpenType 1.9.1 — CFF table](https://learn.microsoft.com/en-us/typography/opentype/spec/cff)
-  — one-font CFF FontSet restrictions, Type 2 requirement, OpenType GID /
-  CharStrings identity, `maxp` cardinality, and CFF collection integration.
-- [OpenType 1.9.1 — CFF2 table](https://learn.microsoft.com/en-us/typography/opentype/spec/cff2)
-  — authoritative contrast supporting the explicit CFF2/variable deferral.
-- [Adobe Technical Note #5176 — The Compact Font Format Specification](https://adobe-type-tools.github.io/font-tech-notes/pdfs/5176.CFF.pdf)
-  — Header, INDEX, DICT, charset, Encoding, Private DICT, Subrs, ROS, FDArray,
-  FDSelect, offset bases, and FontMatrix.
-- [Adobe Technical Note #5177 — The Type 2 Charstring Format](https://adobe-type-tools.github.io/font-tech-notes/pdfs/5177.Type2.pdf)
-  — number/operator semantics, stack/transient limits, subroutine bias/depth,
-  hints/masks, path/flex operators, deprecated seac compatibility, and
-  implementation ceilings.
+- [OpenType 1.9.1 specification index](https://learn.microsoft.com/en-us/typography/opentype/spec) — current official OpenType specification and change history. **Confidence: MEDIUM**
+- [OpenType Layout Common Table Formats](https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2) — Script/LangSys/Feature/Lookup relationships, lookup order, lookup flags, Coverage, ClassDef, and offset bases. **Confidence: MEDIUM**
+- [GSUB — Glyph Substitution Table](https://learn.microsoft.com/en-us/typography/opentype/spec/gsub) — SingleSubst, LigatureSubst preference/logical order, and extension dispatch. **Confidence: MEDIUM**
+- [GPOS — Glyph Positioning Table](https://learn.microsoft.com/en-us/typography/opentype/spec/gpos) — PairPos formats, ValueRecords, pair traversal, class matrices, and extension dispatch. **Confidence: MEDIUM**
+- [GDEF — Glyph Definition Table](https://learn.microsoft.com/en-us/typography/opentype/spec/gdef) — glyph classes used by lookup filtering. **Confidence: MEDIUM**
+- [Recommendations for OpenType Fonts](https://learn.microsoft.com/en-us/typography/opentype/spec/recom) — GPOS `kern` versus legacy `kern` precedence. **Confidence: MEDIUM**
+- [Unicode 17, Chapter 3](https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/) — Unicode scalar-value definition. **Confidence: MEDIUM**
+- [UAX #9: Unicode Bidirectional Algorithm](https://www.unicode.org/reports/tr9/) — bidi resolution and reordering boundary. **Confidence: MEDIUM**
+- [UAX #24: Unicode Script Property](https://www.unicode.org/reports/tr24/) — Script and Script_Extensions ambiguity. **Confidence: MEDIUM**
+- [UAX #29: Unicode Text Segmentation](https://www.unicode.org/reports/tr29/) — grapheme clusters and their distinction from ligatures. **Confidence: MEDIUM**
+- [HarfBuzz buffer direction](https://harfbuzz.github.io/harfbuzz-hb-buffer.html) and [cluster behavior](https://harfbuzz.github.io/working-with-harfbuzz-clusters.html) — explicit direction, RTL output, cluster levels, and monotonicity. **Confidence: MEDIUM**
+- [HarfBuzz shaping API](https://harfbuzz.github.io/harfbuzz-hb-shape.html) and [utilities](https://harfbuzz.github.io/utilities.html) — explicit font/properties/features and `hb-shape` projection. **Confidence: MEDIUM**
+- [MoonBit fundamentals](https://docs.moonbitlang.com/en/latest/language/fundamentals.html) and [`moon` command reference](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — 64-bit integer types and target commands. **Confidence: MEDIUM**
 
-**Confidence:** MEDIUM. These are official Microsoft/Adobe primary sources
-already cross-checked in the v0.34 stack, feature, and architecture research;
-no new external search was performed for this recovery synthesis.
+### Fixture and license authorities
 
-### Project sources
+- [DejaVu official downloads](https://dejavu-fonts.github.io/Download.html) — official 2.37 artifact identities and checksums versus third-party packages. **Confidence: MEDIUM**
+- [Source Sans official repository](https://github.com/adobe-fonts/source-sans) — 3.052 release and SIL Open Font License identity. **Confidence: MEDIUM**
 
-- `.planning/PROJECT.md` — v0.34 goal, active requirements, atomicity and
-  four-target baseline, and explicit deferrals.
-- `.planning/research/STACK.md` — recommended pure-MoonBit stack, format limits,
-  deterministic VM policy, qualification tools, and fixture policy.
-- `.planning/research/FEATURES.md` — desktop-grade table stakes, anti-features,
-  acceptance matrix, and four-phase ordering.
-- `.planning/research/ARCHITECTURE.md` — closed outline-source dispatch,
-  checked-window boundaries, one-VM/two-sink design, atomic admission, TTC
-  integration, and qualification architecture.
-- `AGENTS.md` — repository constraints: pure MoonBit core, explicit targets,
-  bounded deterministic automation, modularity, and RFC governance.
+### Repository evidence
 
-**Confidence:** HIGH for binding project scope and existing integration
-contracts; MEDIUM where planning still must freeze random, FontMatrix, seac,
-and exact licensed-CID fixture choices.
-
----
-*Pitfalls research for: MoonBit Native Foundation v0.34 CFF Outline Foundation*
-*Researched: 2026-07-28*
+- `.planning/PROJECT.md`, `.planning/MILESTONE-CONTEXT.md`, `.planning/research/FEATURES.md`, and `.planning/research/STACK.md`.
+- `modules/mb-font/font/cursor.mbt`, `limits.mbt`, `font.mbt`, `kern.mbt`, and `cff_admission.mbt`.
+- Retained DejaVu Sans 2.37, Source Sans 3.052R, and Source Han Serif JP 2.003R fixtures and manifests under `fixtures/font/`.
+- v0.34 Phase 107 qualification, review, security, and verification artifacts.

@@ -1,234 +1,316 @@
 # Project Research Summary
 
-**Project:** MoonBit Native Foundation — v0.34 CFF Outline Foundation
-**Domain:** Bounded static OpenType CFF1 admission and Type 2 CharString execution to reusable cubic `Path2`
-**Researched:** 2026-07-28
-**Confidence:** MEDIUM overall; HIGH for project scope and repository integration seams
+**Project:** MoonBit Native Foundation v0.35 Text Shaping Foundation
+**Domain:** Bounded, deterministic, single-font horizontal OpenType text shaping
+**Researched:** 2026-07-30
+**Confidence:** MEDIUM
 
 ## Executive Summary
 
-v0.34 is a code-first extension of the existing `tchivs/mb-font` foundation, not a new public CFF library or foreign-font wrapper. The honest desktop-grade slice is static OpenType CFF1 in both name-keyed Latin and CID-keyed CJK forms, opened from standalone `OTTO` SFNTs or selected TTC/OTC faces through the existing opaque `Font`. Public Unicode mapping, glyph identity, metrics, kerning, errors, and outline queries remain format-neutral; CFF curves are emitted directly as the existing `Path2::CubicTo`. Experts build this as a checked CFF data-model parser feeding a bounded Type 2 virtual machine, with format-specific facts kept behind a closed private `Glyf | Cff1` outline-source dispatch.
+v0.35 should add the first independently publishable `tchivs/mb-text` vertical slice over the already-qualified opaque `tchivs/mb-font::Font`. The product is not a general multilingual shaping engine: it is a pure-MoonBit, four-target operation that accepts one admitted static `glyf` or CFF1 font, caller-supplied Unicode scalars, explicit OpenType script/language/direction/feature choices, explicit limits, and one authoritative budget, then atomically returns an immutable run of opaque glyph IDs, scalar-origin clusters, signed design-unit advances, and x/y offsets. Binary ownership and OpenType parsing remain in `mb-font`; string sequencing, feature policy, direction, clusters, and the public run remain in `mb-text`.
 
-The recommended implementation remains pure MoonBit on the pinned v0.33 toolchain with `tchivs/mb-core` as the sole runtime dependency. One reusable INDEX decoder and typed Top/Font/Private DICT schemas establish checked CFF-local windows and resolve one unambiguous CharString, Private DICT, FontMatrix, and local-subroutine environment per GID. One iterative fixed-point Type 2 VM then serves two sinks: an admission-time validation/bounds sink for every glyph and a query-time path sink for one glyph. Hints are fully parsed because they frame bytecode, but their rendering effects are ignored. Every operation uses explicit limits, cumulative work accounting, mutation guards, private scratch state, and one final budget commit before publishing a `Font` or `Path2`.
+The optimal closed profile is slightly wider than the nominal minimum in [FEATURES.md](FEATURES.md) and [ARCHITECTURE.md](ARCHITECTURE.md), but it does not widen shaping semantics. In addition to GSUB 1/4 and GPOS 2, v0.35 should admit one-hop GSUB 7 and GPOS 9 extension wrappers only when they dispatch to those admitted inner types, plus GDEF 1.0 `GlyphClassDef` and the three class-based ignore flags. This is required to qualify the retained Source Sans 3.052R CFF1 specimen, whose ordinary Latin GPOS `kern` path uses a type-9 wrapper and `IGNORE_MARKS`. Deferring those mechanics would force either a generated-only claim, replacement of the strongest retained CFF1 evidence, or a misleading “licensed interoperability” result. Extension wrappers add address width, not a new shaping operation; GDEF glyph-class filtering adds traversal semantics, not mark attachment.
 
-The largest risks are wrong offset bases, incomplete CID keying, treating the Type 2 depth ceiling as sufficient resource control, hint-mask desynchronization, target-dependent arithmetic or random behavior, partial metric/bounds publication, TTC double rebasing, and self-confirming fixture evidence. Mitigation drives the roadmap order: first freeze structural profile/keying facts, then freeze VM and admission-time bounds semantics, then expose cubic paths and collection integration, and only then close licensed, hostile, compatibility, and four-target evidence. CFF2/variable execution, WOFF, shaping, hint execution, rasterization, color/bitmap glyphs, and authoring remain explicit later capabilities rather than partial v0.34 acceptance.
+The principal risks are plausible-but-wrong success, attacker-controlled offset/work amplification, and loss of atomic budget/source authority. Mitigate them by failing closed on every selected unsupported path, retaining request-specific normalized layout facts behind an opaque transactional `mb-font` seam, applying lookups in LookupList order, keeping all execution in logical order, using checked `Int64` design-unit arithmetic, and committing the combined parser/executor/output charge exactly once after the final source-revision guard. The four-phase architecture sketch should therefore be refined into six phases, 108–113, so admission, GSUB, GPOS, transaction hardening, and qualification receive separate exit evidence.
+
+## Key Decisions
+
+| Decision | Selected policy | Why this is the best closed option |
+|---|---|---|
+| Module ownership | New `tchivs/mb-text@0.1.0`; layout parsing and source authority stay in `tchivs/mb-font@0.1.0` | Preserves RFC 0004/0005 ownership, acyclic dependencies, opaque `Font`, and outline-format neutrality |
+| Cross-module seam | Request-scoped opaque transactional profile/continuation, not raw-table access or a public persistent cache | Permits one combined budget commit and one final source guard without exposing offsets, bytes, lookup indices, or mutable state |
+| Public feature policy | Closed booleans for `liga` and `kern`; required LangSys feature and supported `rlig` are non-disableable | Keeps the claim reviewable and prevents arbitrary feature tags from smuggling unsupported script behavior into v0.35 |
+| Script/language selection | Exact caller-supplied script, including explicit `DFLT`; `LanguageChoice::Default` selects only DefaultLangSys and `Exact(tag)` never silently falls back | Matches the milestone's explicit-input contract and removes hidden locale/script fallback policy |
+| Layout profile | GSUB 1/4 plus 7→1/4; GPOS 2 plus 9→2; common Coverage/ClassDef; GDEF 1.0 glyph classes and class-ignore flags | Smallest profile that closes generated `glyf`/CFF1 and retained Source Sans CFF1 qualification without adding contextual, mark-attachment, or complex-script semantics |
+| Unsupported paths | Selected unsupported/malformed/resource-exhausting paths fail atomically; unselected richer tables do not reject the font | Avoids both false success and over-rejection of ordinary fonts containing unrelated advanced layout data |
+| Numeric model | Checked `Int64` design-unit accumulators and public values; checked `UInt64` counts/offsets/work until limited narrowing | Exact on all targets and independent of ppem, floats, hinting, or renderer state |
+| Clusters | Zero-based source scalar index; a ligature receives the minimum index of consumed components | Stable provenance without claiming grapheme, byte-offset, caret-stop, bidi-level, or fallback-span semantics |
+| Direction | Shape logical input; LTR publishes logical order, RTL reverses only the final records into pen order; advance is a signed pen delta | Prevents the common “reverse and shape as LTR” error and gives downstream consumers one explicit drawing contract |
+| Kerning authority | A selected supported GPOS `kern` plan is authoritative for the whole run; otherwise use legacy `kern`; `kern=false` disables both | Prevents double kerning and prevents malformed modern data from being hidden by legacy fallback |
+| Qualification authority | Hand-derived generated facts are normative for the closed profile; pinned `hb-shape` is an independent licensed-font comparison only | A foreign engine cannot silently redefine production semantics |
 
 ## Key Findings
 
 ### Recommended Stack
 
-Extend the existing module in place. No new runtime dependency, public module, FFI layer, ambient I/O, database, native font engine, or target-specific implementation is justified. External font tooling belongs only in an integrity-pinned host qualification lane; generated MoonBit fixtures and hand-derived vectors remain the normative regression base.
+Production remains pure MoonBit and keeps the existing pinned toolchain. No HarfBuzz, ICU, FreeType, fontTools, C/C++, JavaScript, platform shaper, host font lookup, or FFI is a runtime dependency.
 
 **Core technologies:**
 
-- **MoonBit `moon` / `moonrun` `0.1.20260713` and `moonc v0.10.4+2cc641edf`**: build and run the same implementation on `js`, `wasm`, `wasm-gc`, and `native` — preserves the exact validated v0.33 baseline.
-- **`tchivs/mb-font@0.1.0`**: owns the opaque `Font`, collection selection, metrics, cmap, kern, glyph identity, and outline API — CFF1 must be a private second outline profile, not a parallel public type.
-- **`tchivs/mb-core@0.1.0`**: remains the sole runtime dependency — its retained `ByteView`, checked arithmetic, budget, structured errors, mutation revision, and cubic `Path2` already provide the required primitives.
-- **OpenType 1.9.1 plus Adobe Technical Notes #5176 and #5177**: normative static CFF1, OpenType integration, INDEX/DICT/CID structures, Type 2 semantics, and hard format ceilings.
-- **Checked signed Q16.16 in `Int64`**: VM operands, coordinates, transient values, arithmetic, and FontMatrix application — avoids cross-target drift; conversion to `Double` occurs only while publishing final `Point2` values.
-- **Pinned host oracles**: fontTools `4.63.0`, AFDKO `5.0.1`, and OTS `9.2.0` — qualification-only structural and semantic cross-checks, never production dependencies or the sole source of expected results.
+- `moon 0.1.20260713` / `moonc v0.10.4+2cc641edf` / paired `moonrun` — preserve the exact v0.34 four-target baseline throughout the milestone.
+- `tchivs/mb-core@0.1.0` — checked arithmetic, `CoreError`, hierarchical budgets, retained-byte mutation guards, and checked aggregate `ResourceCharge`.
+- `tchivs/mb-font@0.1.0` — existing opaque `Font`, cmap, glyph identity, metrics, legacy `kern`, retained source authority, and new opaque layout transaction.
+- `tchivs/mb-text@0.1.0` — new user-facing shaping options, limits, positioned-run model, sequencing, clusters, direction, and atomic `shape`.
+- OpenType 1.9.1 — normative table, ordering, lookup, GDEF, GSUB, GPOS, and legacy-kern behavior.
+- Unicode scalar rules — scalar admission only; the existing Unicode 15.1 data pin does not need to change because script, language, and direction are explicit and normalization/bidi/segmentation are excluded.
+- fontTools 4.63.0 — host-only deterministic fixture generation and structural inspection.
+- HarfBuzz 14.2.1 `hb-shape` — host-only semantic comparison for the exact admitted projection, with archive, executable, adapter, invocation, input, and output digests pinned.
 
-**Critical version and profile requirements:**
+The production dependency graph is:
 
-- Admit the new profile only for `OTTO` with exactly one `CFF ` table, no `CFF2`, no `glyf`/`loca` mixture, no variation-dependent outline profile, and `maxp` version 0.5.
-- Require `maxp.numGlyphs == CharStrings INDEX.count`; OpenType GID remains the CharStrings position.
-- Preserve the existing `0x00010000` static-`glyf`, common-table, checksum, collection, API, budget, and error behavior unchanged.
-- Keep `moon.mod.json`, the four declared targets, and the sole `mb-font -> mb-core` dependency for v0.34.
+```text
+tchivs/mb-text@0.1.0 ──> tchivs/mb-font@0.1.0 ──> tchivs/mb-core@0.1.0
+           └────────────────────────────────────> tchivs/mb-core@0.1.0
+```
+
+Retain `moon.mod.json` for this milestone and support `js`, `wasm`, `wasm-gc`, and `native` at both module and public-package boundaries.
+
+### Recommended Closed Layout Profile
+
+#### Common layout admission
+
+- Accept GSUB/GPOS version 1.0.
+- Accept version 1.1 only when `FeatureVariationsOffset == 0`; non-null feature variations are `CapabilityUnavailable`.
+- Parse bounded ScriptList, LangSys, FeatureList, LookupList, Coverage formats 1/2, and ClassDef formats 1/2 with exact offset-base, sortedness, uniqueness, cardinality, range, and glyph-ID checks.
+- Select one exact script and one default/exact language system. Include the LangSys required feature, supported `rlig`, caller-enabled `liga`, and caller-enabled `kern`.
+- Union and de-duplicate selected lookup indices, then execute each selected index once in ascending LookupList order. At one glyph position, test subtables in stored order and stop after the first match.
+- Validate global envelopes enough to resolve selected structures safely, but reject advanced capability only when the selected/reachable path requires it.
+
+#### GSUB
+
+- Type 1 SingleSubst formats 1/2.
+- Type 4 LigatureSubst format 1.
+- Type 7 ExtensionSubst format 1 only as a single, checked 32-bit indirection to type 1 or type 4.
+- No extension-to-extension recursion.
+- Substitution outputs must be valid glyph IDs for the same `Font`.
+- Ligatures match participating glyphs in logical/writing order, preserve filtered/skipped glyphs, consume only matched indices, and merge the consumed source interval to its minimum scalar index.
+- Query `hmtx` only after all substitutions complete.
+
+#### GPOS and legacy kerning
+
+- Type 2 PairPos formats 1/2.
+- Type 9 ExtensionPos format 1 only as a single, checked 32-bit indirection to type 2.
+- Static `xPlacement`, `yPlacement`, and `xAdvance` ValueRecord fields for either glyph; zero ValueFormat is valid.
+- Reject `yAdvance`, Device/VariationIndex offsets, reserved bits, contextual/cursive/mark attachment, and every other selected GPOS operation.
+- PairPos format 1 requires Coverage cardinality and PairSet count agreement plus strictly ordered second-glyph records.
+- PairPos format 2 requires valid ClassDef 1/2 facts, explicit class-0 handling, and checked `class1Count × class2Count × recordSize` preflight.
+- Accumulate adjustments in LookupList order and follow the PairPos next-probe rule; never overwrite an earlier adjustment.
+- Resolve modern-versus-legacy authority once per selected language-system plan, never per pair.
+
+#### GDEF and lookup flags
+
+- Admit only GDEF 1.0 `GlyphClassDef`; do not expose or retain mark attachment, ligature caret, attachment point, mark glyph set, or variation-store data.
+- Support `IGNORE_BASE_GLYPHS`, `IGNORE_LIGATURES`, and `IGNORE_MARKS` using the validated class definition.
+- Treat `RIGHT_TO_LEFT` as non-operative for the admitted lookup types; it does not select run direction.
+- If an admitted ignore flag is selected but no usable GlyphClassDef exists, return deterministic malformed-data failure rather than inventing classes.
+- Reject reserved flag bits, `USE_MARK_FILTERING_SET`, and non-zero mark-attachment-class filters as unsupported capability.
+
+This resolves the research disagreement. The narrower `lookupFlag == 0` / “extension later” architecture is unsuitable for the retained Source Sans evidence. The selected wrapper/filter additions are bounded dispatch and traversal mechanics around already-admitted semantic operations, so they preserve the milestone's “complete but small” promise.
 
 ### Expected Features
 
 **Must have (table stakes):**
 
-- Static CFF1 admission behind the existing opaque `Font` for standalone OTF and selected TTC/OTC faces.
-- One checked INDEX implementation for Name, Top DICT, String, Global Subrs, CharStrings, FDArray, and local Subrs, including empty form and all `offSize` values.
-- Typed Top, Font, and Private DICT parsing with complete number encodings, arity/default/duplicate policy, named offset bases, checked ranges, and no embedded PostScript execution.
-- Both name-keyed selection (predefined/custom charset and Encoding) and CID-keyed selection (`ROS`, CID charset, FDArray, FDSelect 0/3, per-FD Private DICT and local Subrs).
-- Full normal static Type 2 execution: number/stack/transient/arithmetic/logical/storage operators, widths, path operators, all flex forms, local/global subroutines, legal termination, and deterministic `random`.
-- Exact hint/stem/mask framing and validation without device hint execution.
-- Bounded, atomic cubic path publication with explicit byte, work, call, depth, stack, stem, command, contour, point, allocation, mutation, and budget authority.
-- Admission-time validation of every glyph and retention of truthful compact bounds before any CFF-backed `Font` is published.
-- Existing `cmap`, `GlyphId`, `hmtx`, line/global metrics, legacy `kern`, checksum, structured error, and collection behavior preserved.
-- Generated name-keyed and multi-FD CID fixtures, licensed name-keyed and CID evidence, hostile/resource/mutation matrices, frozen `glyf` regressions, and exact four-target semantic comparison.
+- One explicit, deterministic, single-font horizontal `shape` operation in `mb-text`.
+- Whole-array scalar validation, existing cmap reuse, glyph-zero preservation for valid misses, and an empty-run success contract.
+- Opaque glyph IDs, scalar-origin clusters, signed design-unit advances/offsets, `units_per_em`, direction, and checked `total_advance`.
+- Exact script/default-or-exact-language selection, required feature behavior, closed `rlig`/`liga`/`kern` policy, LookupList ordering, and first-matching-subtable behavior.
+- The complete closed GSUB/GPOS/GDEF/extension profile above.
+- Final-GID metrics and one unambiguous GPOS-versus-legacy kerning policy.
+- Separate semantic limits for parser structure and shaping execution, plus caller/ancestor budget authority.
+- Stable `InvalidInput`, `Data`, `Capability`, `Resource`, and `State` outcomes with a frozen multi-fault precedence matrix.
+- One private transaction, final source-revision guard, one budget commit, and one immutable publication.
+- Generated and licensed `glyf`/CFF1 evidence, hostile fixtures, v0.34 compatibility, and byte-equal canonical semantics on all four targets.
 
-**Should have (competitive):**
+**Should have (differentiators):**
 
-- One public `Font` and native cubic `Path2` fidelity across both outline formats, so downstream SVG/PDF/canvas/CLI consumers do not branch on storage.
-- Zero-copy retained CFF views and capability-preserving TTC/OTC face selection, including shared CFF tables with face-local mapping and metrics.
-- Caller-authorized resource transactions and deterministic failure precedence rather than host OOM, host recursion, or target-dependent timeout.
-- Independent semantic oracle records covering GID/FD selection, commands, control points, bounds, metrics, failure class, and fixture provenance.
-- Reproducible Latin and CJK performance baselines after correctness gates close; optimizations must preserve commands, coordinates, errors, budgets, and API.
+- Equivalent generated layout programs over `glyf` and CFF1 faces.
+- Licensed DejaVu Sans and Source Sans evidence through the exact public route.
+- Hand-derived micro-oracles plus a separately pinned HarfBuzz comparison.
+- Canonical target-neutral evidence carrying inputs, selected options, outputs/errors, budget deltas, fixture/tool identities, and interface/toolchain identities.
+- Observation-only native workloads after correctness is sealed.
 
-**Static CFF1 scope and explicit deferrals:**
+**Defer beyond v0.35:**
 
-- **In scope:** raw static CFF1 in `OTTO` SFNT and TTC/OTC selected faces; one-font CFF FontSet; name-keyed and CID-keyed data; Type 2 CharStrings; local/global Subrs; FontMatrix normalization; validated non-rendering hints; unhinted cubic design-space outlines.
-- **Deferred to v0.34.x:** semantics-preserving performance work, broader licensed corpus coverage, and optional metadata inspection only after a concrete RFC-backed consumer need.
-- **Deferred to v0.35+:** CFF2 and variable-font instantiation (`VariationStore`, `vsindex`, `blend`); WOFF1/WOFF2 decompression and reconstruction; shaping/GSUB/GPOS/bidi; hint execution and rasterization; color/bitmap glyphs; subsetting, authoring, serialization, discovery, fallback, and host-font lookup.
-- **Never in this slice:** foreign runtime font stacks, ambient filesystem/network access, cubic-to-quadratic approximation, public raw CFF offsets/DICT objects, or silent partial acceptance of deferred profiles.
-
-### Metrics Admission and Bounds Decision
-
-The roadmap should treat the following as resolved architecture, not leave it as a later API choice:
-
-1. **`hmtx` remains the sole public advance-width and left-side-bearing authority.** Type 2 optional/default/nominal widths are decoded and validated for legal program semantics and checked arithmetic, but they neither replace public metrics nor cause rejection merely because a collection face's face-local `hmtx` differs from a shared CFF table.
-2. **Every CharString is executed during CFF admission through the same VM used for outlines.** The admission sink validates the complete program, selected FD/private environment, subroutine behavior, hints, numeric operations, contour lifecycle, limits, and effective FontMatrix before `Font` publication.
-3. **Retain one compact conservative integer bound per GID, not a `Path2`.** Compute `floor(min)` / `ceil(max)` after the effective FontMatrix over line endpoints and cubic endpoints/control points. Preserve truthful empty-glyph semantics. `horizontal_metrics` performs no hidden or unbudgeted VM work and derives its existing bound/right-side-bearing result from these retained facts plus authoritative `hmtx`.
-4. **Admission is one transaction.** Structural parsing, all-glyph execution, retained bounds, exact work/allocation accounting, and final source-revision guard complete before one budget charge and `Font` publication. Any glyph, resource, numeric, or mutation failure publishes no font, no bounds, and no committed admission charge.
-5. **Outline queries remain separate transactions.** The VM runs one selected glyph with the path sink into private scratch geometry; only legal termination, final revision validation, and one caller-budget commit publish a complete cubic `Path2`.
+- Arbitrary caller feature tags and larger feature policy.
+- Multiple/alternate/contextual/chained/reverse substitutions.
+- Contextual positioning, cursive and mark attachment, mark filtering sets, mark attachment classes, and GDEF data beyond glyph classes.
+- Arabic/Syriac joining, Indic/Khmer/Tibetan reordering, and every full complex-script engine.
+- Normalization, paragraph bidi, mirroring, script/language inference, grapheme segmentation, line layout, justification, rich text, fallback, discovery, and multi-font run merging.
+- Vertical metrics/layout, device positioning, variables/FeatureVariations, WOFF/WOFF2, AAT/Graphite, color/bitmap/raster/hinting, authoring/subsetting, persistent caches, production FFI, and publication/stability promotion.
 
 ### Architecture Approach
 
-Split common SFNT facts from a closed private outline source. The existing `glyf` decoder stays compatibility-frozen; CFF1 receives dedicated checked cursor, INDEX, DICT, keying, admission, Type 2 VM, and geometry-sink components within the current `font` package. Standalone and collection routes pass the same admitted common facts and one checked `'CFF '` table window into the same CFF admission transaction. SFNT/TTC table records stay root-relative; CFF internal offsets become table-relative only after windowing; INDEX offsets are 1-based from object data; Private `Subrs` is relative to its Private DICT.
+`mb-font` should create one request-specific, immutable, bounded `FontLayoutProfile` inside a guarded continuation. That profile retains normalized selected lookup facts and exact private charges, applies supported layout operations to opaque glyph/source-interval seeds, and returns an opaque `FontLayoutOutcome`. `mb-text` validates options/scalars, owns clusters and direction, builds the private public-model value, and binds its exact text-side charge to the outcome. The font-owned harness combines profile, execution, and output charges; preflights caller and ancestors; checks the source revision; commits once; and only then returns the run. No profile persists across calls.
 
 **Major components:**
 
-1. **Closed outline-profile facade** — retains common cmap/metrics/kern facts once and dispatches only private `Glyf` or `Cff1` state at bounds and outline boundaries.
-2. **SFNT/TTC profile and table-window layer** — recognizes an exact static profile, preserves root-relative collection records/checksums, and hands CFF one checked table-local authority.
-3. **CFF structural parser** — central checked cursor, reusable INDEX parser, typed DICT schemas, String/SID validation, charsets, Encodings, Private DICTs, and Global/Local Subr windows.
-4. **CFF keying adapter** — normalizes name-keyed or CID-keyed data into exactly one per-GID CharString and private/local-subroutine/matrix environment before VM execution.
-5. **Iterative Type 2 VM** — fixed stack/transient/frame storage, Q16.16 arithmetic, deterministic PRNG, hint framing, subroutine biases/cycles, termination, and unified execution/work ledgers.
-6. **Two geometry sinks** — admission-time `ValidateBounds` retains conservative integer extents; query-time `BuildPath` publishes complete native cubic paths.
-7. **Qualification system** — one extended fixture generator and one upgraded four-target evidence lane with generated, licensed, hostile, compatibility, dependency, API, and toolchain facts.
+1. `mb-core::ResourceCharge::checked_add` — immutable, overflow-checked composition needed for one whole-operation commit.
+2. `mb-text::ShapingOptions` / `ShapeLimits` / `ShapedRun` — closed public contract with no locale, raw layout, font bytes, or rendering state.
+3. `mb-font::FontLayoutSelection` / `FontLayoutProfile` — exact selected request, normalized common-layout/GDEF/GSUB/GPOS facts, and retained source identity.
+4. Private common-layout parser — typed table windows and base-specific offset helpers; no bare global `base + offset` convention.
+5. Private GSUB executor — logical seed buffer, class filtering, lookup/subtable order, matched-index ligatures, and source-interval propagation.
+6. Private metrics/GPOS executor — final-GID metrics, PairPos, signed accumulation, and run-level legacy authority.
+7. Transaction harness — stage guards, exact charge ledger, one final revision check, one commit, and one publication.
+8. Qualification carrier — generated/licensed/hostile facts and identical four-target semantic payloads independent of native timing.
 
-**Key patterns:**
+## Requirements Candidates
 
-- Parse → validate → exact preflight → final mutation guard → one budget commit → publish.
-- Preflight attacker-controlled counts and ranges before traversal, narrowing, or allocation.
-- Use explicit Type 2 frames rather than host recursion; distinguish `Global(index)` from `Local(environment,index)`.
-- Resolve CID FD/private facts before the VM; the VM never parses FDSelect.
-- Keep one interpreter/operator switch for both bounds and path sinks to prevent validator/renderer drift.
-- Retain compact views, offsets, FD ranges, and bounds; do not copy strings/CharStrings broadly, desubroutinize, memoize geometry, or retain every glyph path.
+These candidates are ready for requirements definition; identifiers are proposed and may be renamed without changing scope.
 
-### Critical Pitfalls
-
-1. **Wrong offset coordinate space** — centralize INDEX decoding and checked named windows; never mix SFNT-root, CFF-table, INDEX-object-data, or Private-DICT-relative offsets.
-2. **CID reduced to name-keyed behavior** — require the complete `ROS`/CID charset/FDArray/FDSelect contract, validate all FDs, and resolve one per-GID execution environment before the VM.
-3. **Incomplete Type 2 resource accounting** — hard stack/stem/depth/transient ceilings are insufficient; charge every executed byte/token, call/return, stack action, mask byte, arithmetic operation, range traversal, and emitted geometry unit.
-4. **Hints treated as zero-byte no-ops** — count stems across frames and consume exactly `ceil(stems/8)` mask bytes, including pending vstem operands, truncation, unused bits, and 96/97 boundaries.
-5. **Compatibility policy drift** — freeze deterministic PRNG/reset rules, fixed-point rounding/overflow, FontMatrix composition, contour closure, flex-as-two-cubics, and bounded non-nested seac support or a stable explicit unsupported outcome before implementation.
-6. **Partial bounds or metric admission** — validate all glyphs, retain compact bounds, keep `hmtx` authoritative, and commit only after the final mutation guard; never execute hidden work in `horizontal_metrics`.
-7. **TTC double rebasing and shared-table confusion** — preserve the v0.33 retained-root adapter, root-relative table records, table-local CFF windows, face-local common tables, and exact shared CFF ranges.
-8. **Self-oracle and target inference** — use hand-derived generated vectors plus independent pinned tools, provenance-complete licensed inputs, four isolated target runs, and exactly four normalized semantic records.
+| ID | Requirement candidate | Acceptance focus |
+|---|---|---|
+| TXT-01 | Library authors can shape one bounded scalar array with one admitted static `Font` and explicit script, language choice, horizontal direction, closed feature policy, limits, and budget. | Empty/non-empty, valid/missing cmap, exact input round-trip, no ambient state |
+| TXT-02 | A successful immutable run exposes only same-font opaque glyphs, scalar-origin clusters, signed design-unit advances/x-y offsets, `units_per_em`, direction, and checked total advance. | LTR exact order; RTL pen order; ligature minimum cluster; no raw OpenType facts |
+| LAY-01 | `mb-font` resolves and bounds one exact Script/LangSys/Feature/Lookup plan with canonical LookupList ordering. | Exact script; explicit `DFLT`; default/exact language; required feature; de-duplication; first matching subtable |
+| LAY-02 | Selected layout paths support Coverage 1/2, ClassDef 1/2, GDEF 1.0 glyph classes, class-ignore flags, and one-hop GSUB/GPOS extension wrappers to admitted inner types. | Source Sans path, 32-bit offset tests, missing GDEF, skipped-glyph preservation, recursion rejection |
+| SUB-01 | Selected GSUB type 1 formats 1/2 and type 4 format 1 execute deterministically in logical order under the closed profile. | Modulo delta, explicit replacements, ligature preference, matched-index consumption, output GID validation, final-GID metrics |
+| POS-01 | Selected GPOS type 2 formats 1/2 applies the closed static ValueRecord subset with checked accumulated results. | PairSet ordering/cardinality, class 0/matrix bounds, both glyph records, next-probe rule, overflow/limit tests |
+| KRN-01 | Kerning uses one run-level authority decision: selected supported GPOS `kern`, otherwise legacy format-0 fallback, or neither when disabled. | No double application, no per-pair fallback, malformed/unsupported GPOS never degrades silently |
+| SAF-01 | Malformed, unsupported, over-limit, over-budget, or mutated shaping fails with stable structured outcomes and no partial run or partial caller/ancestor charge. | Exact/one-short every dimension, multi-fault precedence, mutation at each frozen stage, success commits once |
+| CMP-01 | v0.35 preserves existing `Font` admission, cmap, metrics, legacy-kern query, outline, collection, CFF1, module dependency, and public-interface behavior except the intentional opaque additive seam. | Frozen v0.34 regression and reviewed API/dependency diffs |
+| QUA-01 | Maintainers can reproduce hand-derived generated, pinned licensed, hostile, compatibility, and equal four-target shaping evidence without a foreign production dependency. | Equivalent `glyf`/CFF1, DejaVu/Source Sans, pinned oracle, canonical records, byte-equal semantic hashes |
 
 ## Implications for Roadmap
 
-Use four phases, numbered 104–107. The boundary between Phases 104 and 105 is mandatory: structural offset/keying failures and VM execution/resource failures have distinct invariants, error precedence, and hostile matrices.
+The four broad phases proposed by FEATURES/ARCHITECTURE should be expanded to six. The mapping is:
 
-### Phase 104: CFF1 Profile and Bounded Data Model
+| Broad architecture phase | Refined roadmap |
+|---|---|
+| 108 — contract and bounded selection | 108 contract/transaction skeleton + 109 bounded layout admission |
+| 109 — GSUB | 110 GSUB |
+| 110 — GPOS/kerning | 111 GPOS/kerning |
+| Cross-cutting atomicity inside 108–110 | 112 integrated transaction/resource/mutation hardening |
+| 111 — qualification | 113 qualification |
 
-**Rationale:** Every later operation depends on a single checked CFF table authority and an unambiguous execution environment per GID. INDEX/DICT/keying semantics must be stable before a bytecode VM can safely consume them.
+This is not scope expansion. It isolates the exact parser, executor, and authority risks identified by PITFALLS and gives each a reviewable exit artifact.
 
-**Delivers:** Closed static-CFF1 profile classification; common-versus-outline-specific table facts; CFF Header and all shared INDEX decoding; typed Top/Font/Private DICT schemas; String/SID checks; predefined/custom name-keyed charset and Encoding; CID `ROS`, charset, FDArray, FDSelect 0/3, Private DICT, and local/global Subr windows; CharStrings/`maxp` identity; derived semantic limits, error precedence, exact structural charge formula; generated structural and exact/one-short fixtures. The phase ends with internal proof that every GID selects exactly one bounded CharString and environment. It does not yet claim a publicly usable CFF-backed `Font`.
+### Phase 108: Public Contract and Transaction Skeleton
 
-**Addresses:** Static CFF1 profile admission, reusable INDEX/DICT, name-keyed and CID-keyed selection, GID identity, checked retained views, and explicit unsupported recognition for mixed/CFF2/variable profiles.
+**Rationale:** Public run/direction/cluster semantics and one-commit ownership are expensive to change after parser/executor code exists.
+**Delivers:** `mb-text` module skeleton; typed tags, language choice, direction, feature policy, limits, positioned-run model; `ResourceCharge` composition; opaque `mb-font` continuation/outcome shape; error taxonomy and stage precedence; generated API-contract fixtures.
+**Addresses:** TXT-01, TXT-02 foundations and the architectural part of SAF-01.
+**Avoids:** Raw-table leakage, module cycles, two budget commits, ambiguous RTL/cluster promises, and premature persistent caching.
+**Exit condition:** The public numeric/order contract and transaction ownership are frozen; a private value can be prepared and either atomically published after one combined commit or discarded without authority change.
 
-**Primary risks avoided:** 1-based INDEX mistakes; unchecked count/offset arithmetic; duplicate or untyped DICT keys; wrong CFF/Private offset bases; malformed SID/CID/FDSelect facts; tag-only profile recognition.
+### Phase 109: Bounded Layout Admission
 
-**Research flag:** **DEEP RESEARCH REQUIRED.** Freeze duplicate-key policy, DICT real/fixed conversion, predefined charset/Encoding tables, exact CID FontMatrix rules, semantic limit derivation, admission-time validation boundaries, and structural error precedence against primary specifications before planning implementation tasks.
+**Rationale:** Every later executor depends on correct table-local windows, selection, filtering metadata, and normalized selected facts.
+**Delivers:** GSUB/GPOS header 1.0/closed 1.1 admission; Script/LangSys/Feature/Lookup selection; Coverage/ClassDef; GDEF 1.0 glyph classes; supported flags; GSUB 7/GPOS 9 one-hop extension dispatch; semantic ceilings; source-stage guards; selected-versus-unselected validation depth; hostile offset/cardinality fixtures.
+**Addresses:** LAY-01 and LAY-02.
+**Avoids:** Wrong relative-offset bases, unchecked count products, missing GDEF dependencies, recursion, over-validation of unrelated rich tables, and silent selected-capability skipping.
+**Exit condition:** Every admitted field has an offset-base ledger, validation rule, limit/work charge, exact/one-short fixture, and stable error context; retained profiles expose no raw table data.
 
-### Phase 105: Bounded Type 2 Validation and Retained Metrics
+### Phase 110: Deterministic GSUB and Source Clusters
 
-**Rationale:** The existing budgetless metrics API requires truthful bounds before a CFF `Font` can exist. This phase therefore closes execution semantics, all-glyph validation, and atomic metric admission before public path integration.
+**Rationale:** Substitution changes glyph identity and must complete before metrics or positioning.
+**Delivers:** Whole-array scalar preflight, existing cmap reuse, logical seed intervals, GSUB 1/4/7 execution, class filtering, LookupList/subtable/ligature preference, matched-index consumption, LTR/RTL logical execution and final order, final-GID metric initialization.
+**Addresses:** SUB-01 and the substitution/cluster portions of TXT-01/TXT-02.
+**Avoids:** Caller-order lookup execution, early RTL reversal, deletion of skipped marks, stale metrics, invalid substitute GIDs, and conflation of source clusters with graphemes.
+**Exit condition:** Generated LTR/RTL single/ligature cases freeze exact glyph order, clusters, metrics, probe counts, and capability failures, including intervening ignored marks.
 
-**Delivers:** Iterative fixed-capacity Type 2 VM; Q16.16 numeric contract; all required stack/arithmetic/logical/storage, line/curve/flex, width, hint/mask, local/global subroutine, and termination semantics; hard ceilings plus caller work ledgers; deterministic PRNG; effective FontMatrix handling; one VM with a validation/bounds sink; all-glyph pass; one compact conservative bound per GID; `hmtx`-authoritative metric integration; private admission transaction with no publication or charge on failure.
+### Phase 111: Pair Positioning and Kerning Authority
 
-**Addresses:** Full static Type 2 execution, validated non-rendering hints, deterministic resource authority, truthful CFF bounds/RSB, atomic admission, and four-target-portable semantics by construction.
+**Rationale:** Positioning depends on the final glyph stream and is the densest numeric/table-shape portion of the profile.
+**Delivers:** GPOS 2/9, PairPos 1/2, ValueRecord decoding, ClassDef/class-0 matrices, next-probe behavior, checked accumulated placement/advance, signed pen deltas, total advance, and run-level GPOS/legacy authority.
+**Addresses:** POS-01 and KRN-01; completes TXT-02 semantics.
+**Avoids:** Matrix overflow, wrong pair scan advancement, adjustment overwrite, target-dependent narrowing, and GPOS-plus-legacy double application.
+**Exit condition:** Hand-derived explicit/class pair cases, zero formats, both-glyph ValueRecords, overflow boundaries, LTR/RTL signs, and modern/legacy coexistence all have exact expected facts.
 
-**Primary risks avoided:** host recursion; wrong subroutine bias/environment; repeated shallow-call amplification; stack/transient misuse; mask-byte desynchronization; early floating point; random/FontMatrix/seac drift; lazy malformed-glyph discovery; partial bounds or budget publication.
+### Phase 112: Integrated Transaction, Resource, and Mutation Hardening
 
-**Research flag:** **DEEP RESEARCH REQUIRED.** Before coding, freeze fixed-point rounding for `div`/`mul`/`sqrt` and final conversion, PRNG algorithm and reset semantics, effective Top/FD FontMatrix composition, contour closure, deprecated four-operand `endchar`/seac policy, exact geometric-bound rounding, and exhaustive resource-ledger units.
+**Rationale:** Structural bounds do not bound shaping work, and local parser/executor success is not independently committable.
+**Delivers:** Complete work equation and exact aggregate charge; caller/ancestor exact-fit and one-short matrices; source mutation probes across admission/GSUB/metrics/GPOS/final publication; stable multi-fault precedence; one complete private run; one final source guard; one commit; one publication; compatibility/API dependency gates.
+**Addresses:** SAF-01 and CMP-01.
+**Avoids:** Hidden quadratic work, partial charges, stale publication, traversal-dependent errors, and regressions in existing opaque `Font` behavior.
+**Exit condition:** Every failure path leaves output and all budget ancestors unchanged, every success charges once, and the complete current v0.34 successor regression passes.
 
-### Phase 106: Cubic Path and Public/TTC Integration
+### Phase 113: Interoperability and Four-Target Qualification
 
-**Rationale:** Once the VM and retained metric facts are proven, public outlines become a thin second sink and collection support can reuse the already-qualified standalone CFF admission path without forking semantics.
-
-**Delivers:** `BuildPath` sink on the same VM; complete `MoveTo`/`LineTo`/`CubicTo`/`Close` publication; closed `FontOutlineSource::Glyf | Cff1` dispatch; standalone CFF1 `Font::open`; successful static-CFF1 `FontCollection::open_face`; root-relative shared-table handling; face-local `cmap`/`hmtx`/`kern` authority; final per-outline mutation/budget transaction; frozen existing static-`glyf` API, errors, charges, metrics, mappings, kerning, paths, and TTC behavior; stable unsupported outcomes for deferred capabilities.
-
-**Addresses:** One opaque `Font`, native cubic fidelity, selected CFF collection faces, mapping/metrics/kerning compatibility, no-copy retained views, and public atomic `Path2` extraction.
-
-**Primary risks avoided:** a parallel CFF public API; validator/path divergence; partial geometry; TTC face-base double rebasing; shared CFF with wrong face-local metrics; accidental generalization of the qualified `glyf` decoder; silent CFF2/WOFF/shaping/hint/raster leakage.
-
-**Research flag:** **TARGETED CODE-LEVEL RESEARCH; SKIP BROAD ECOSYSTEM RESEARCH.** The repository already has the relevant facade, selected-face adapter, checksum, revision, budget, and `Path2` patterns. Planning should inspect exact local charge/error/interface baselines and build non-zero-directory/shared-CFF fixtures, but should not reopen the selected architecture.
-
-### Phase 107: Hostile, Licensed, and Four-Target Qualification
-
-**Rationale:** Desktop-grade support is not proven by generated Latin success or compilation. Final acceptance must exercise both keying models, real subroutinized fonts, the public standalone/collection routes, hostile limits and mutation, frozen `glyf`, and independent execution on all four targets.
-
-**Delivers:** Closed generated name-keyed and multi-FD CID matrices; hand-derived operator/path vectors; immutable licensed name-keyed OTF and licensed CID CJK OTF/OTC derivative; source/derivative hashes, licenses/notices, exact recipes and tool identities; independent fontTools/AFDKO/OTS semantic cross-checks; structural/program/resource/mutation exact/one-short cases; collection shared-table cases; existing-`glyf` regression suite; API/dependency/toolchain checks; reproducible Latin/CJK benchmark baselines; exactly four ordered semantic records from isolated `js`, `wasm`, `wasm-gc`, and `native` runs.
-
-**Addresses:** Interoperability, provenance, hostile-input closure, atomicity evidence, compatibility, performance baselines, deterministic errors/facts, and the milestone's reproducibility requirement.
-
-**Primary risks avoided:** generated-only or Latin-only claims; floating downloads; missing derivative lineage; one tool as both builder and oracle; target-produced expected data; compilation-only portability; broad numeric tolerances; premature optimization.
-
-**Research flag:** **TARGETED PROVENANCE RESEARCH REQUIRED.** Runtime patterns and four-target evidence machinery are established, so skip another format/architecture survey. Planning must approve exact redistributable name-keyed and CID assets, licenses/notices, parent and derivative digests, deterministic subset recipes, pinned oracle hashes/versions, and independence of expected facts.
+**Rationale:** Licensed/oracle evidence is authoritative only after the exact public transaction and capability profile are closed.
+**Delivers:** Equivalent generated `glyf`/CFF1 and standalone/collection fixtures; retained DejaVu Sans and Source Sans cases; pinned fontTools/HarfBuzz adapters and manifests; canonical hostile carrier; identical `js`/`wasm`/`wasm-gc`/`native` semantic records; observation-only native workload.
+**Addresses:** QUA-01 and final milestone proof.
+**Avoids:** Oracle-defined semantics, repacked/unlicensed fixture drift, widening production to satisfy a convenient font, and equating equal test counts with equal behavior.
+**Exit condition:** Source Sans exercises the admitted extension/GDEF path, every artifact and license is digest-bound, and the four normalized semantic payloads are byte-identical.
 
 ### Phase Ordering Rationale
 
-- Phase 104 owns byte authority and keying; the VM cannot safely execute before every GID has one validated CharString and local environment.
-- Phase 105 owns semantics, work, atomic admission, and retained bounds; no public CFF `Font` is honest before every glyph and metric fact is validated.
-- Phase 106 reuses proven semantics for complete cubic paths and adapts the existing standalone/collection facade; this isolates public compatibility risk from parser/VM construction.
-- Phase 107 qualifies the completed public slice with real fonts and independent targets; phase-local white-box and hostile tests still ship in Phases 104–106 rather than being postponed.
-- Performance optimization starts only after Phase 107 freezes semantic fingerprints and named Latin/CJK baselines.
+- Contract and transaction ownership precede binary work because run order, numeric signs, clusters, error classes, and one-commit authority are public compatibility decisions.
+- Admission precedes execution because normalized selected facts are the only safe input to GSUB/GPOS.
+- GSUB precedes metrics and GPOS because substitutions change glyph identity.
+- GPOS and legacy authority land together because separating them invites double application or per-pair fallback.
+- Full work/budget/mutation integration receives its own phase because parser limits alone cannot bound execution cross-products.
+- Licensed/oracle/four-target qualification comes last and must not redefine the closed production profile.
 
 ### Research Flags
 
-Phases likely needing `$gsd-plan-phase --research-phase <N>`:
+Phases requiring deeper research during planning:
 
-- **Phase 104:** deep specification work for DICT/keying/matrix policy and error/limit boundaries.
-- **Phase 105:** deep Type 2 semantic work for numeric, random, seac, hint framing, bounds, and resource-ledger decisions.
-- **Phase 107:** narrow research for fixture licensing, provenance, tool pinning, and independent oracle design.
+- **Phase 108:** verify MoonBit generic continuation/export ergonomics; freeze the signed RTL pen-delta projection with hand-derived cases; freeze empty-input validation/charge behavior and the complete stage precedence matrix.
+- **Phase 109:** enumerate every offset base, cardinality relation, sortedness rule, selected/unselected validation depth, GDEF absence outcome, and 32-bit extension bound.
+- **Phase 111:** freeze the complete allowed ValueFormat mask, both-glyph application, PairPos next-probe rule in both directions, and class-0 matrix semantics.
+- **Phase 112:** derive the work/bytes/allocations/allocation-size ledger from actual loops and retained representations; do not reuse CFF limits mechanically.
+- **Phase 113:** inspect and bind the exact Source Sans selected path, provision and hash the extracted HarfBuzz executable, select explicit cluster/shaper/output options, and close every license/provenance field before recording a baseline.
 
-Phase with established patterns where broad research can be skipped:
+Phase with sufficiently standard patterns to skip a separate research pass:
 
-- **Phase 106:** use targeted repository inspection during planning; closed outline dispatch, `Path2`, retained roots, collection selection, budgets, mutation guards, and four-target-compatible APIs are already established.
+- **Phase 110:** once Phases 108–109 freeze direction, lookup ordering, filtering, and normalized facts, SingleSubst/LigatureSubst execution is directly specified and should proceed from generated executable cases rather than another broad research cycle.
+
+## Critical Risks and Mitigations
+
+1. **Wrong relative-offset base or narrowed range** — use typed table-local windows and base-specific helpers; keep offsets/counts in checked `UInt64`; test sibling/header/non-contiguous/overflow/one-short destinations, including extension offsets above `0xFFFF`.
+2. **Plausible success after wrong ordering or unsupported behavior** — select features first, union/deduplicate lookup indices, execute LookupList order, honor stored subtable preference, and fail every selected unsupported path without legacy/best-effort fallback.
+3. **Incorrect filtering, ligature consumption, or cluster provenance** — validate GDEF classes, traverse through ignored glyphs with matched-index lists, delete only participating components, and freeze scalar-origin clusters for combining/repeated/supplementary/RTL cases.
+4. **PairPos and signed arithmetic errors** — validate PairSet/Coverage equality, strict second-glyph order, class-0 bounds, checked matrix extent, allowed bits, next-probe behavior, and every accumulated `Int64` result.
+5. **Unbounded execution despite bounded tables** — separate parser and executor limits; charge failed probes, filtered skips, lookup applications, binary-search steps, compaction, metrics, and positioning; preflight cross-products explicitly.
+6. **Partial authority or stale publication** — retain all profile/run facts privately, compose charges immutably, check source revision at frozen stages and immediately before commit, charge caller and ancestors once, then publish once.
+7. **Oracle or fixture drift** — keep hand-derived generated facts normative, use direct pinned `hb-shape` only as comparison, record every tool/adapter/argument/input/output digest, and preserve font licenses beside exact bytes.
+8. **False complex-script claim** — describe the product as a Latin-style closed lookup profile, not general OpenType or multilingual shaping; selected deferred script stages return capability failure.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | MEDIUM | Exact local toolchain/module/dependency facts are strong; current oracle versions and external format findings are official but classified MEDIUM by the research seam, and final tool hashes remain to be pinned. |
-| Features | MEDIUM | Static CFF1 table stakes and deferrals converge across OpenType/Adobe sources and local contracts; obscure valid compatibility forms still require Phase 104–105 policy fixtures. |
-| Architecture | HIGH for integration; MEDIUM for VM details | Existing `Font`, TTC adapter, budgets, revision guards, table windows, metrics, and cubic `Path2` make the integration design concrete; PRNG, FontMatrix, seac, and exact fixed-point rules remain planning decisions. |
-| Pitfalls | MEDIUM overall; HIGH for local atomicity/TTC risks | Failure modes map directly to format rules and shipped MNF contracts; real CID corpus coverage is not yet frozen. |
+|---|---|---|
+| Production stack and dependency graph | HIGH | Accepted local RFC boundaries, current manifests, and the shipped four-target toolchain directly establish the module design |
+| Toolchain and runtime portability | HIGH | Exact MoonBit identities and target lanes already underpin v0.34 qualification |
+| Closed OpenType profile | MEDIUM | Official OpenType 1.9.1 is authoritative and research agrees on the core; extension/GDEF inclusion resolves the licensed-fixture disagreement but still needs exact selected-path fixtures |
+| Public features and exclusions | HIGH | PROJECT.md and MILESTONE-CONTEXT.md explicitly define the single-font horizontal slice and exclusions |
+| Architecture and transaction model | MEDIUM | Strongly grounded in shipped MNF budget/mutation patterns; exact MoonBit continuation syntax and allocation accounting remain implementation questions |
+| RTL order and numeric semantics | MEDIUM | The recommended pen-order/signed-delta contract is coherent and oracle-compatible, but must be frozen with hand-derived cases before implementation |
+| Pitfalls and security/resource model | MEDIUM-HIGH | Risks recur across normative layout structure and existing MNF hostile-input experience; exact work coefficients depend on final loops |
+| Licensed/oracle qualification | MEDIUM | Retained font/tool identities are known; extracted executable digest, exact Source Sans selected path, and canonical oracle options remain to be locked |
 
-**Overall confidence:** MEDIUM. The four-phase roadmap and product boundary are clear; the open work is concentrated in explicit semantic policies and qualification provenance rather than stack or module selection.
+**Overall confidence:** MEDIUM
 
 ### Gaps to Address
 
-- **Type 2 deterministic numeric contract:** specify Q16.16 rounding, overflow, `div`/`mul`/`sqrt`, matrix composition, and final `Double` conversion with exact generated vectors before Phase 105 implementation.
-- **`random` policy:** choose a project-owned PRNG, `initialRandomSeed` interpretation, per-glyph reset, and cross-target oracle facts.
-- **Deprecated `endchar` composition:** either implement bounded, non-nested name-keyed StandardEncoding seac semantics or return one stable recognized unsupported outcome; never accept partial geometry.
-- **DICT duplicate/default policy:** freeze exact behavior per typed Top/Font/Private schema and test every structural singleton.
-- **Metrics mismatch evidence:** retain the resolved `hmtx` authority rule and add shared-CFF collection fixtures whose face-local `hmtx` differs, proving Type 2 width validation does not silently replace or invalidate public metrics.
-- **Licensed CID fixture:** select an immutable redistributable multi-FD CFF1 CJK asset or deterministic derivative and record parent/derivative lineage, license/notice, hashes, recipe, and oracle versions.
-- **Admission performance ceiling:** validate all-glyph bounds cost on named Latin and CJK workloads before optimizing; preserve compact offsets/bounds and exact work preflight.
-- **Error and budget precedence:** freeze state/revision, caller input/range, resource, malformed data, and recognized capability ordering with multi-fault standalone and collection vectors.
+- **MoonBit continuation ergonomics:** preserve the semantic one-commit transaction even if the generic `PreparedLayout[T]` syntax/API shape must change in Phase 108.
+- **RTL signed-delta fixture:** validate the recommended negative RTL pen-advance convention and GPOS adjustment sign with hand-derived generated cases before public API freeze.
+- **Source Sans reachability:** confirm the exact script/language/feature selection reaches only GPOS 9→2 plus admitted flags; do not infer complete coverage from table presence.
+- **GDEF absence category:** planning must freeze whether an admitted ignore flag without usable GlyphClassDef is reported as malformed `Data` (recommended) and bind exact diagnostics.
+- **Exact allocation representation:** bytes/allocation counts and maximum allocation size depend on whether Coverage/ClassDef/pair facts are compact arrays or alternate bounded structures.
+- **Oracle provisioning:** the official archive is pinned in research, but the extracted `hb-shape` digest and complete invocation identity must be recorded after provisioning.
+- **Layout 1.1 hostile matrix:** enumerate null versus non-null FeatureVariations offsets and ensure selected/unselected variable behavior never widens v0.35.
+- **Performance representation:** no cache or target-specific optimization should be chosen until Phase 112 closes charged complexity and Phase 113 closes semantic evidence.
 
 ## Sources
 
-### Primary project sources (HIGH confidence)
+### Primary Standards and Official Documentation
 
-- [Project definition and v0.34 milestone](../PROJECT.md) — binding goal, active requirements, static CFF1 scope, deferrals, and compatibility constraints.
-- [`STACK.md`](STACK.md), [`FEATURES.md`](FEATURES.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and [`PITFALLS.md`](PITFALLS.md) — detailed stack, capability, design, failure, and phase research synthesized here.
-- [RFC 0004: `mb-font` Charter](../../docs/rfcs/0004-mb-font.md) — font/outline ownership, `mb-canvas` raster boundary, shaping boundary, and portability policy.
-- Repository `mb-font` admission, directory, metrics, outline, collection, limits, fixture, and qualification sources plus `mb-core` byte, checked, budget, error, and `Path2` sources — existing integration authority.
+- [OpenType 1.9.1 specification index](https://learn.microsoft.com/en-us/typography/opentype/spec) — normative layout tables and version.
+- [OpenType layout common table formats](https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2) — Script/LangSys/Feature/Lookup order, flags, Coverage, ClassDef, and offset relationships.
+- [OpenType GSUB](https://learn.microsoft.com/en-us/typography/opentype/spec/gsub) — single, ligature, extension, and logical-order behavior.
+- [OpenType GPOS](https://learn.microsoft.com/en-us/typography/opentype/spec/gpos) — PairPos, ValueRecords, extension, accumulation, and pair traversal.
+- [OpenType GDEF](https://learn.microsoft.com/en-us/typography/opentype/spec/gdef) — glyph classes and lookup filtering.
+- [OpenType recommendations](https://learn.microsoft.com/en-us/typography/opentype/spec/recom) — modern GPOS versus legacy `kern` guidance.
+- [Unicode 17 core specification, Chapter 3](https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/) — scalar-value definition.
+- [UAX #9](https://www.unicode.org/reports/tr9/), [UAX #24](https://www.unicode.org/reports/tr24/), and [UAX #29](https://www.unicode.org/reports/tr29/) — bidi, script-property, and grapheme boundaries that v0.35 does not infer.
+- [MoonBit 0.10.4 release](https://www.moonbitlang.com/updates/2026/07/13/moonbit-0-10-4-release) and [MoonBit toolchain documentation](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — pinned compiler/tool and target behavior.
+- [fontTools 4.63.0 release](https://github.com/fonttools/fonttools/releases/tag/4.63.0) — host-only fixture/inspection identity.
+- [HarfBuzz 14.2.1 release](https://github.com/harfbuzz/harfbuzz/releases/tag/14.2.1), [shaping API](https://harfbuzz.github.io/harfbuzz-hb-shape.html), and [cluster behavior](https://harfbuzz.github.io/working-with-harfbuzz-clusters.html) — host-only semantic comparison and explicit cluster/direction controls.
 
-### Authoritative format sources (MEDIUM confidence under the research seam)
+### Local Project Authorities
 
-- [OpenType Specification 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/) — current OpenType authority and version.
-- [OpenType font file and collections](https://learn.microsoft.com/en-us/typography/opentype/spec/otff) — `OTTO`, common tables, profile separation, TTC/OTC sharing, and root-relative table records.
-- [OpenType CFF table](https://learn.microsoft.com/en-us/typography/opentype/spec/cff) — one-font CFF FontSet, Type 2 requirement, OpenType GID identity, `maxp` cardinality, and collection integration.
-- [OpenType CFF2 table](https://learn.microsoft.com/en-us/typography/opentype/spec/cff2) — authoritative contrast for the CFF2/variable deferral.
-- [Adobe Technical Note #5176: Compact Font Format](https://adobe-type-tools.github.io/font-tech-notes/pdfs/5176.CFF.pdf) — Header, INDEX, DICT, charset, Encoding, Private DICT, Subrs, CID, FDArray, FDSelect, and FontMatrix.
-- [Adobe Technical Note #5177: Type 2 Charstring Format](https://adobe-type-tools.github.io/font-tech-notes/pdfs/5177.Type2.pdf) — operators, numbers, stack/transient limits, subroutine bias/depth, hints/masks, flex, seac, and termination.
-- [WOFF 1.0](https://www.w3.org/TR/WOFF/) and [WOFF 2.0](https://www.w3.org/TR/WOFF2/) — compression and table-reconstruction boundaries supporting explicit deferral.
-
-### Qualification and compatibility sources (MEDIUM confidence)
-
-- [fontTools CFF library](https://fonttools.readthedocs.io/en/latest/cffLib/index.html) and [fontTools 4.63.0](https://github.com/fonttools/fonttools/releases/tag/4.63.0) — host-only CFF inspection, deterministic subset support, and one semantic oracle.
-- [AFDKO command-line tools](https://adobe-type-tools.github.io/afdko/CommandLineHowTo.html) and [AFDKO 5.0.1](https://github.com/adobe-type-tools/afdko/releases/tag/5.0.1) — independent CFF-specialist `tx`, `spot`, and `makeotf` qualification.
-- [OpenType Sanitizer 9.2.0](https://chromium.googlesource.com/external/ots/+/refs/tags/v9.2.0) — independent structural sanitizer/transcoder, not a semantic source of truth.
-- [Adobe Source Sans](https://github.com/adobe-fonts/source-sans), [Source Serif](https://github.com/adobe-fonts/source-serif), and [Source Han Serif](https://github.com/adobe-fonts/source-han-serif) — candidate OFL-1.1 static name-keyed and CID-keyed licensed fixtures; exact assets remain to be selected and pinned.
+- [PROJECT.md](../PROJECT.md) — current v0.35 goal, active requirements, constraints, and v0.34 compatibility baseline.
+- [MILESTONE-CONTEXT.md](../MILESTONE-CONTEXT.md) — selected vertical slice, explicit exclusions, and carried-forward safety/portability constraints.
+- [STACK.md](STACK.md) — exact toolchain, module graph, optimal extension/GDEF profile, numeric model, and qualification tool identities.
+- [FEATURES.md](FEATURES.md) — table stakes, user-visible acceptance, feature interactions, anti-features, and initial four-phase proposal.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — opaque transactional seam, ownership boundaries, data flow, limits, and initial four-phase build order.
+- [PITFALLS.md](PITFALLS.md) — ranked semantic/parser/resource/qualification risks and the refined 108–113 phase separation.
+- `docs/rfcs/0004-mb-font.md` and `docs/rfcs/0005-mb-text.md` — accepted module ownership and dependency boundaries.
+- Existing `modules/mb-core`, `modules/mb-font`, retained licensed fixture manifests, and v0.34 qualification artifacts — shipped implementation and evidence patterns.
 
 ---
-*Research completed: 2026-07-28*
+*Research completed: 2026-07-30*
+*Ready for requirements: yes*
 *Ready for roadmap: yes*
