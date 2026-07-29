@@ -20,8 +20,9 @@ fn text_shape_layout_unavailable() -> @error.CoreError {
 }
 
 ///|
-fn validate_and_snapshot_scalars(
+fn validate_and_snapshot_scalars_with_probe(
   scalars : Array[Int],
+  after_snapshot : () -> Unit,
 ) -> Result[Array[Int], @error.CoreError] {
   let mut index = 0UL
   for scalar in scalars {
@@ -30,7 +31,16 @@ fn validate_and_snapshot_scalars(
     }
     index = index + 1UL
   }
-  Ok(scalars.copy())
+  let snapshot = scalars.copy()
+  after_snapshot()
+  Ok(snapshot)
+}
+
+///|
+fn validate_and_snapshot_scalars(
+  scalars : Array[Int],
+) -> Result[Array[Int], @error.CoreError] {
+  validate_and_snapshot_scalars_with_probe(scalars, fn() { () })
 }
 
 ///|

@@ -38,10 +38,15 @@ fn validate_tag_bytes(
 }
 
 ///|
+fn copy_tag_bytes(value : Bytes) -> Bytes {
+  Bytes::from_array(value.to_array())
+}
+
+///|
 pub fn ScriptTag::new(value : Bytes) -> Result[ScriptTag, @error.CoreError] {
   match validate_tag_bytes(value, "text-script-tag-new", "script-tag") {
     Err(error) => Err(error)
-    Ok(_) => Ok({ bytes_value: value })
+    Ok(_) => Ok({ bytes_value: copy_tag_bytes(value) })
   }
 }
 
@@ -64,7 +69,7 @@ pub fn LanguageTag::new(value : Bytes) -> Result[LanguageTag, @error.CoreError] 
   if value == b"dflt" || value == b"DFLT" {
     return Err(text_tag_error("text-language-tag-new", "language-default"))
   }
-  Ok({ bytes_value: value })
+  Ok({ bytes_value: copy_tag_bytes(value) })
 }
 
 ///|
