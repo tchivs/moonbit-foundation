@@ -177,7 +177,7 @@ Two existing gaps must be resolved before the public contract freezes. First, `R
 | Library / Tool | Version | Purpose | When to Use |
 |----------------|---------|---------|-------------|
 | `moon.work` workspace resolution | Current project file | Coordinate local independent modules without path dependencies | Add `./modules/mb-text` so local `mb-core` and `mb-font` versions resolve while publication units stay separate. [VERIFIED: `moon.work`; CITED: https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html] |
-| Existing `CoreError` model | `mb-core@0.1.0` | Stable category, code, operation, and bounded context | Reuse for all caller, state, data, capability, and resource outcomes; do not add a text-only error hierarchy. [VERIFIED: `modules/mb-core/error/error.mbt`; VERIFIED: D-16] |
+| Existing `CoreError` model | `mb-core@0.1.0` | Stable category, code, operation, and bounded context | Reuse for all caller, state, data, capability, and resource outcomes; do not add a text-only error hierarchy. [VERIFIED: `modules/mb-core/error/core_error.mbt`; VERIFIED: D-16] |
 | Generated contract fixtures | Test-only, repository-owned | Exercise transaction and run invariants without real OpenType layout parsing | Use in Phase 108 for LTR/RTL, ligature cluster, mutation, precedence, and charge tests. [VERIFIED: phase boundary; VERIFIED: `108-CONTEXT.md` Specific Ideas] |
 
 ### Alternatives Considered
@@ -361,7 +361,7 @@ pub fn ResourceCharge::checked_add(
 ) -> Result[ResourceCharge, @error.CoreError]
 ```
 
-Bind overflow to category `Resource`, code `ArithmeticOverflow`, operation `resource-charge-add`, and the exact failing dimension as context. This is a phase recommendation consistent with existing `CoreError` conventions. [VERIFIED: `modules/mb-core/error/error.mbt`; recommended context contract]
+Bind overflow to category `Resource`, code `ArithmeticOverflow`, operation `resource-charge-add`, and the exact failing dimension as context. This is a phase recommendation consistent with existing `CoreError` conventions. [VERIFIED: `modules/mb-core/error/core_error.mbt`; recommended context contract]
 
 ### Pattern 3: Same-Font Glyph Identity
 
@@ -513,7 +513,7 @@ Existing private callbacks such as `_after_lookup`, `_after_decode`, and `before
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
 | Hierarchical resource authority | A text-specific counter or rollback log | Existing `Budget::preflight` + one `Budget::charge` | Existing code already checks all ancestors before mutating any window. [VERIFIED: `modules/mb-core/budget/budget.mbt`] |
-| Error hierarchy | New shaping exceptions or string-only failures | Existing `CoreError` category/code/operation/context | D-16 requires stable shared errors and current accessors already support contract testing. [VERIFIED: D-16; VERIFIED: `modules/mb-core/error/error.mbt`] |
+| Error hierarchy | New shaping exceptions or string-only failures | Existing `CoreError` category/code/operation/context | D-16 requires stable shared errors and current accessors already support contract testing. [VERIFIED: D-16; VERIFIED: `modules/mb-core/error/core_error.mbt`] |
 | Scope lifetime system | Global transaction registry or persistent token table | Shared private `active` flag with `defer` invalidation | The repository already uses this callback-scoped pattern for `BudgetScope`. [VERIFIED: `modules/mb-core/budget/budget.mbt`] |
 | Font identity registry | Global incrementing IDs | Private owner `Font` reference + `physical_equal` | Avoids ambient state and remains portable. [VERIFIED: local MoonBit API; VERIFIED: project constraints] |
 | Tag parser | General string normalization or locale resolver | Exact four-byte checked value constructors | OpenType Tags have a fixed byte representation, and automatic locale/script behavior is out of scope. [CITED: https://learn.microsoft.com/en-us/typography/opentype/spec/otff; VERIFIED: D-09] |
@@ -818,7 +818,7 @@ ASVS 5.0.0 is an application-security verification standard; this library phase 
 
 - `modules/mb-core/budget/budget.mbt` — `ResourceCharge`, hierarchical preflight/charge, `BudgetScope::with_depth[T]`, active-scope invalidation.
 - `modules/mb-core/checked/checked.mbt` — existing unsigned checked arithmetic and missing signed helpers.
-- `modules/mb-core/error/error.mbt` — stable categories, codes, operations, and bounded contexts.
+- `modules/mb-core/error/core_error.mbt` — stable categories, codes, operations, and bounded contexts.
 - `modules/mb-font/font/font.mbt` — retained revision authority, current numeric-only `GlyphId`, metadata/glyph query guards, mutation probes.
 - `modules/mb-font/font/limits.mbt` — validated private semantic-limit pattern.
 - `moon.work`, module manifests, `policy/foundation.json`, `scripts/quality/Assert-Policy.ps1`, `scripts/quality/Invoke-MoonQuality.ps1` — workspace and governance integration.
