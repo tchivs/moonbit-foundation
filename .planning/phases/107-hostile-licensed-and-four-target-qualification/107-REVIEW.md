@@ -1,8 +1,8 @@
 ---
 phase: 107-hostile-licensed-and-four-target-qualification
-reviewed: 2026-07-29T13:47:20Z
+reviewed: 2026-07-29T16:17:06Z
 depth: standard
-files_reviewed: 37
+files_reviewed: 38
 files_reviewed_list:
   - fixtures/font/cff/host-toolchain.lock.json
   - fixtures/font/cff-oracle-tools.json
@@ -25,6 +25,7 @@ files_reviewed_list:
   - benchmarks/font-cff/moon.pkg
   - benchmarks/font-cff/generated_cff_evidence.mbt
   - benchmarks/font-cff/cff_qualification_wbtest.mbt
+  - benchmarks/font-cff/cff_runtime_semantics.mbt
   - modules/mb-font/font/cff_cid_fixture_wbtest.mbt
   - modules/mb-font/font/cff_hostile_fixture_wbtest.mbt
   - modules/mb-font/font/font_qualification_test.mbt
@@ -42,69 +43,76 @@ files_reviewed_list:
   - scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1
   - scripts/quality/Test-BenchmarkQualification.ps1
 findings:
-  critical: 3
+  critical: 2
   warning: 0
   info: 0
-  total: 3
+  total: 2
 status: issues_found
 ---
 
-# Phase 107：代码复审报告
+# Phase 107：代码复审报告（迭代 3）
 
-**审查时间：** 2026-07-29T13:47:20Z
+**审查时间：** 2026-07-29T16:17:06Z
 **深度：** standard
-**审查文件：** 37
+**审查文件：** 38
 **状态：** issues_found
 
 ## Summary
 
-复审覆盖原 36 个 Phase 107 源文件以及本轮新增的 runtime oracle，并检查 `d494a489..f9704660` 与七个修复提交。原 CR-01 已关闭：AFDKO 路径现在独立解析 ROS、FDArray 和 FDSelect，并与 fontTools 对 CID keying、ROS、FD 数量/选择结果做严格 agreement。原 CR-04 也已关闭：四目标分别执行 MoonBit runtime tracer，实际输出摘要进入 equality-bearing `runtime_observations`。
+本轮覆盖原 36 个 Phase 107 文件、第二轮加入的 runtime oracle，以及本轮新增的共享 runtime serializer；检查了 `919edff4..f975345f` 和提交 `e00d3b62`、`7f4181ea`、`fd2c885a`、`edb03d37`、`8b0b937e`。
 
-只读验证中，生成器 `-Check`、FontQualification `-ContractOnly`、native baseline `-Audit` 和 font policy gate 均通过；已提交四目标 evidence 的文件摘要相符、`equal=true`，每个目标有四个实际 runtime observation。这些 gate 没有发现下面三项真实性与数据安全缺陷。结论仍是 **BLOCKER**：原 CR-02、CR-03、CR-05 未关闭，当前证据不能用于发布资格。
+原 AFDKO 问题保持关闭：独立适配器仍从 CFF 字节解析 ROS、FDArray、FDSelect、used FD 和 selected FD。原四目标 runtime 问题也保持关闭：目标 tracer 实际序列化 mappings、metrics、bounds 和完整 path commands/坐标。Benchmark 修复闭合了同次调用输出、独立 fontTools oracle、严格四行顺序、八次一致性和 baseline 原始 payload；三文件 provenance transaction 也具备精确目标、old/new SHA、普通异常 rollback、FailFast roll-forward 和残留清理。本轮未在这两部分发现新的 Critical 或 Warning。
+
+只读验证结果：generator `-Check`、provenance、FontQualification `-ContractOnly` 和 native focused tracer 均通过；native 实际为 `275/275`、53 hostile rows 和 4 runtime observations。专用 `-CheckPrivateEvidenceMirrors` 则立即失败。Baseline `-Audit` 未重跑，因为其 clean-tree gate 按设计拒绝 orchestrator 保留的 `.planning/config.json` 与 `107-REVIEW-FIX.md` 未暂存状态；已直接检查 committed baseline schema、八组原始输出及 digest 关系，未执行禁止的 `-Record`。
+
+结论仍为 **BLOCKER**：hostile 修复把至少 19 行的 B8 绑定到未参与操作的预算，并且破坏了 canonical source/mirror gate；主资格运行仍错误地通过这两项。
 
 ## Narrative Findings (AI reviewer)
 
 ## Critical Issues
 
-### CR-01：53 行 hostile coverage 仍由测试名推断，未逐行执行 canonical outcome
+### CR-01：Type 2 hostile 行把无关 Budget 的 B8 当作实际操作观察
 
-**Classification:** BLOCKER  
-**File:** `scripts/quality/Invoke-FontQualification.ps1:893-929`
-**Related:** `fixtures/font/cff-qualification-cases.json:602-605`; `modules/mb-font/font/cff_type2_fixture_wbtest.mbt:542-582`
+**Classification:** BLOCKER
+**File:** `modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:282-308`
+**Related:** `modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:364-535,769-806`
 
-**Issue:** Runner 从每行 `source` 提取文件名和测试名，只要该测试恰好通过一次，就无条件把该行的 `outcome_bound`、`publication_bound` 和 `b8_bound` 全部设为 `true`。53 行实际上只映射到 21 个不同测试。更直接的反例是 `mutation-selected-face` 与 `mutation-final-commit` 都映射到 542 行的 staging 测试，但该测试只验证两 glyph 的访问顺序、charge 和未提交 budget；它没有注入 selected-face 或 final-commit revision mutation，也没有比较 canonical row 的 category/code/operation/payload/context/GID/publication/B8。于是这些 mutation 行未执行仍被 evidence 宣称完全绑定，其他共享测试名的行也有同样问题。
+**Issue:** `cff_qualification_observe_type2_row` 和前十个 semantic-limit 分支先通过 `type2_vm_wb_run*` / `type2_fixture_run` 完成真实 Type 2 操作，再把已经产生的 `Result` 传给 `cff_qualification_emit_type2_observation`。该 emitter 到此时才新建 ancestor/caller Budget，并立即读取其 before/after；这对 Budget 从未传入被观察的操作。`mutation-type2-fetch` 同样创建 caller/ancestor 后直接调用不接受该 Budget 的 VM，再输出未参与操作的 B8。因此至少 19 个 canonical row 的 outcome 来自真实操作，但 caller/ancestor B8 来自另一条无关状态线。全部值恰好保持 `[4096,32,16384,0,0,0,0,16384]`，所以 53-row comparison 与 native `275/275` 都会接受这项伪绑定。
 
-**Fix:** 为 53 个 canonical row 建立显式 dispatcher。每行必须触发对应入口和故障窗口，收集真实 outcome/publication/caller+ancestor B8，再逐字段与该行比较。Runner 应消费每行产生的唯一 row ID 和 observed payload，而不是从通过的测试名推断覆盖：
+**Fix:** 让 tracer 在创建 caller child 后，通过实际消费该 child 的 staging/admission/outline 入口执行每一行，再从同一 caller 与 ancestor 读取 after。不要接受预先计算的 `Result`：
 
-```powershell
-if ($observed.id -cne $row.id -or
-    (ConvertTo-CanonicalJson $observed.outcome) -cne
-    (ConvertTo-CanonicalJson $row.outcome)) {
-  throw "Hostile row observation drifted: $($row.id)"
+```moonbit
+fn observe_with_budget(
+  run : (@budget.Budget) -> Result[Type2VmResult, @error.CoreError],
+) -> Unit raise {
+  let (ancestor, caller) = cff_qualification_standard_hostile_budget()
+  let caller_before = caller.remaining()
+  let ancestor_before = ancestor.remaining()
+  let result = run(caller) // the observed operation must consume this child
+  // emit result plus caller.remaining() and ancestor.remaining()
 }
 ```
 
-### CR-02：baseline Record 仍复制 corpus 摘要，没有散列该次 benchmark 的实际输出
+对纯 VM 边界应通过 `type2_stage_all_glyphs` 或实际 admission wrapper 连接 Budget；若某行定义上没有 B8 authority，则 corpus 必须显式表达不可适用，而不能制造一个未参与调用的 Budget 快照。增加一个负向探针，使 outcome 正确但 B8 来自另一 Budget 时必然失败。
 
-**Classification:** BLOCKER  
-**File:** `scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1:440-477`
-**Related:** `benchmarks/font-cff/cff_bench.mbt:76-88,136-143`
+### CR-02：hostile 修复破坏 canonical source locator，并留下 21 行陈旧 private mirror
 
-**Issue:** `Get-CffBenchmarkWorkloads` 直接把 corpus 的 `correctness_output_sha256` 复制为 baseline 的 `correctness_sha256`。Benchmark 本身只把该 corpus 字符串与另一个生成常量比较；outline workload 对运行结果只要求 `path.length() > 0`。它从未序列化或散列本次 native 运行产生的 mappings、metrics、path commands 和坐标。因此路径坐标等实际输出发生回归但仍非空时，`-Record` 会继续发布不变的“correctness”摘要。新四目标 tracer 确实散列了真实输出，但 baseline 录制通道既不调用该 tracer，也未把 tracer 源纳入自身 source identity，不能替代此处缺失的观察。
+**Classification:** BLOCKER
+**File:** `fixtures/font/cff-qualification-cases.json:537-605`
+**Related:** `modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:1068,1655-1709`; `scripts/fixtures/Generate-FontQualification.ps1:4416-4436,6737-6747`
 
-**Fix:** 在 warmup/timing 之前用与计时 workload 相同的 native 实现生成稳定序列化输出，对该次输出计算 SHA-256，并与独立 oracle 摘要严格比较；baseline 只保存这个 observed digest。将共享 serializer/tracer 源加入 baseline source inventory，避免 benchmark 与资格 tracer 漂移。
+**Issue:** `e00d3b62` 在 hostile 文件既有测试之前插入了约 991 行 tracer，但 corpus 仍把 structural rows 指向旧 locator `cff_hostile_fixture_wbtest.mbt:77:cff_structural_exact_and_one_short_cases`；真实测试现在位于 1068 行。执行专用 `-CheckPrivateEvidenceMirrors` 会在第一行报 `source assertion locator drifted`。即使先修 locator，嵌入在 1655-1709 行的 `// hostile` private mirror 仍有 21/53 行与当前 corpus 不同，包括修复提交调整的 requested/limit/context/B8 值。主 `-Check` 只重建 generated evidence，未调用 `Assert-CffPrivateEvidenceMirrors`，所以 generator `-Check` 与 native focused tracer 都在 canonical source trace 已失效时通过。
 
-### CR-03：可捕获的发布失败会删除已覆盖的 canonical qualification，造成数据丢失
+**Fix:** 从真实测试符号重新生成全部 53 个 source locators，运行 `-MaterializePrivateEvidenceMirrors` 刷新整个 marker region，再要求：
 
-**Classification:** BLOCKER  
-**File:** `scripts/fixtures/Generate-FontQualification.ps1:5963-5995`
+```powershell
+./scripts/fixtures/Generate-FontQualification.ps1 -CheckPrivateEvidenceMirrors
+```
 
-**Issue:** Provenance 更新先用 `Move-Item -Force` 覆盖每个 canonical `qualification.json`，并把目标加入 `$published`。若第二个替换、manifest 替换或注入 failpoint 随后抛出普通异常，catch 会删除 `$published` 中的目标，而不是恢复覆盖前的文件。结果是原本有效的 canonical qualification 被永久删除。新增 durable journal 处理进程终止窗口，但没有保护这个 provenance 文件替换路径的普通异常；因此原 CR-05 的“失败保持旧状态/可恢复事务”保证仍不成立。
-
-**Fix:** 将两个 qualification 和 manifest 纳入同一个 journaled replace 协议。覆盖前保留同卷 backup，并在 journal 中记录精确允许的目标、旧/新摘要和步骤；每步 flush 后推进 journal。捕获异常时恢复旧文件，重启时幂等 roll-forward 或 rollback。任何 catch 都不得简单删除一个已存在并被覆盖的 canonical destination。
+通过后才允许 qualification。将 `Assert-CffPrivateEvidenceMirrors` 纳入普通 `-Check`（以及 FontQualification 前置 gate），并增加 locator-shift 与单字段 mirror drift 负向探针，防止后续插入代码再次静默切断 canonical source trace。
 
 ---
 
-_Reviewed: 2026-07-29T13:47:20Z_
+_Reviewed: 2026-07-29T16:17:06Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
