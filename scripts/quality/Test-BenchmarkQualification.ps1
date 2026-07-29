@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+  [switch]$ContractOnly
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -9,6 +11,111 @@ $baseline = Join-Path $repoRoot 'release/qualification/ppm-native-release-baseli
 $benchmarkRoot = Join-Path $repoRoot 'benchmarks/ppm'
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('mnf-benchmark-negative-' + [Guid]::NewGuid().ToString('N'))
 $null = New-Item -ItemType Directory -Force -Path $tempRoot
+$cffHarness = Join-Path $repoRoot 'scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1'
+$cffBenchmark = Join-Path $repoRoot 'benchmarks/font-cff/cff_bench.mbt'
+$benchmarkWorkspace = Join-Path $repoRoot 'benchmarks/moon.work'
+
+function Assert-ExactText([string]$Actual, [string]$Expected, [string]$Label) {
+  $normalized = $Actual.Replace("`r`n", "`n").Replace("`r", "`n")
+  if ($normalized -cne $Expected) {
+    throw "$Label drifted from the exact closed contract."
+  }
+}
+
+function Assert-CffBenchmarkSourceContract {
+  $expectedWorkspace = @'
+members = [
+  "../modules/mb-core",
+  "../modules/mb-color",
+  "../modules/mb-image",
+  "../modules/mb-font",
+  "./ppm",
+  "./font-cff",
+]
+'@.Replace("`r`n", "`n") + "`n"
+  Assert-ExactText (Get-Content -Raw -LiteralPath $benchmarkWorkspace) `
+    $expectedWorkspace 'CFF benchmark workspace'
+
+  if (-not (Test-Path -LiteralPath $cffBenchmark -PathType Leaf)) {
+    throw 'CFF benchmark source is missing.'
+  }
+  $source = Get-Content -Raw -LiteralPath $cffBenchmark
+  $tests = @(
+    [regex]::Matches(
+      $source,
+      '(?m)^test "bench cff/(?<name>[^"]+)" \(b : @bench[.]T\) \{$'
+    ) | ForEach-Object { $_.Groups['name'].Value }
+  )
+  $expectedTests = @(
+    'latin-full-admission',
+    'cjk-full-admission',
+    'latin-fixed-outline-batch',
+    'cjk-high-gid-multi-fd-outline-batch'
+  )
+  if (($tests -join "`n") -cne ($expectedTests -join "`n")) {
+    throw 'CFF benchmark workload names or source order drifted.'
+  }
+  if ([regex]::Matches($source, '@bench[.]T').Count -ne 4) {
+    throw 'CFF benchmark source must contain exactly four benchmark tests.'
+  }
+  foreach ($required in @(
+      'cff_evidence_source_sans_payload()',
+      'cff_evidence_source_han_payload()',
+      'cff_evidence_workloads()',
+      'cff_benchmark_budget()',
+      'b.bench(fn()',
+      'b.keep('
+    )) {
+    if (-not $source.Contains($required)) {
+      throw "CFF benchmark source is missing required contract: $required"
+    }
+  }
+  if ($source -cmatch '(?i)\b(?:read_file|open_file|filesystem|ffi|extern)\b' -or
+      $source -cmatch '(?m)^\s*(?:let|const)\s+\w+\s*=\s*\[(?:\s*(?:b)?''\\x[0-9A-Fa-f]{2}'',?){16,}') {
+    throw 'CFF benchmark source duplicates payload bytes or performs runtime I/O/FFI.'
+  }
+  if ($source -cmatch '(?i)\b(?:reset|reuse|shared_budget|mutable_budget)\b') {
+    throw 'CFF benchmark source contains a forbidden Budget reuse/reset seam.'
+  }
+}
+
+function Assert-CffBenchmarkHarnessContract {
+  if (-not (Test-Path -LiteralPath $cffHarness -PathType Leaf)) {
+    throw 'CFF native baseline harness is missing.'
+  }
+  $source = Get-Content -Raw -LiteralPath $cffHarness
+  foreach ($required in @(
+      "[switch]`$CheckWorkspaceResolution",
+      "[switch]`$ContractOnly",
+      "[switch]`$Record",
+      "[switch]`$Audit",
+      "`$nativeCommand = 'moon -C benchmarks bench font-cff/cff_bench.mbt --release --target native --frozen'",
+      'one excluded warmup',
+      'seven retained',
+      'sample_standard_deviation_ms',
+      'coefficient_of_variation',
+      'observation_only'
+    )) {
+    if (-not $source.Contains($required)) {
+      throw "CFF native baseline harness is missing required contract: $required"
+    }
+  }
+  foreach ($forbidden in @(
+      '[string]$Command',
+      '[string]$Target',
+      '[string]$Workload',
+      '[string]$Output',
+      '[int]$SampleCount',
+      '--package',
+      '--file',
+      '--index'
+    )) {
+    if ($source.Contains($forbidden)) {
+      throw "CFF native baseline harness exposes forbidden caller control: $forbidden"
+    }
+  }
+  & $cffHarness -ContractOnly
+}
 
 function Assert-BenchmarkIdentity {
   $manifestPath = Join-Path $benchmarkRoot 'moon.mod.json'
@@ -74,6 +181,12 @@ function Invoke-ExpectedFailure([string]$Id, [scriptblock]$Mutate) {
 }
 
 try {
+  Assert-CffBenchmarkSourceContract
+  Assert-CffBenchmarkHarnessContract
+  if ($ContractOnly) {
+    Write-Host 'CFF benchmark qualification contract passed.'
+    return
+  }
   Assert-BenchmarkIdentity
   $positive = Join-Path $tempRoot 'canonical-positive.json'
   Write-CanonicalBaselineCopy -Path $positive -Mutate $null
