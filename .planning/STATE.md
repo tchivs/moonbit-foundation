@@ -5,15 +5,15 @@ milestone_name: CFF Outline Foundation
 current_phase: 107
 current_phase_name: hostile-licensed-and-four-target-qualification
 status: executing
-stopped_at: Completed 107-01-PLAN.md
-last_updated: "2026-07-29T02:47:22.085Z"
+stopped_at: Completed 107-02-PLAN.md
+last_updated: "2026-07-29T03:09:31.549Z"
 last_activity: 2026-07-29
 last_activity_desc: Phase 107 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 18
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 ## Current Position
 
 Phase: 107 (hostile-licensed-and-four-target-qualification) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-07-29 — Phase 107 execution started
 
-Progress: [███████░░░] 72%
+Progress: [████████░░] 78%
 
 ## Milestone Metrics
 
@@ -74,6 +74,10 @@ Progress: [███████░░░] 72%
 - [Phase 107]: Committed oracle identities exclude machine-local paths; the ignored validated handoff is the sole executable path authority.
 - [Phase 107]: OTS is structural-only while fontTools and AFDKO remain independent semantic readers.
 - [Phase 107]: Hostile outcomes carry literal error, GID, publication, and B8 facts; consumers cannot derive expected outcomes.
+- [Phase 107]: Licensed CFF intake accepts only the literal summary-bound 107-01 handoff path and digest; ambient toolchain input is ignored.
+- [Phase 107]: Source Sans license bytes come from the exact official 3.052R tag because the official OTF archive omits a license member.
+- [Phase 107]: Semantic reader agreement normalizes only reader-specific contour-close rendering while validating keying and the complete CFF profile independently.
+- [Phase 107]: Upstream OTF and license records remain external/OFL-1.1; reconstructed qualification metadata is generated/Apache-2.0.
 
 ### Pending Todos
 
@@ -95,8 +99,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-29T02:47:22.063Z
-Stopped at: Completed 107-01-PLAN.md
+Last session: 2026-07-29T03:09:31.528Z
+Stopped at: Completed 107-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -124,3 +128,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 106 P02 | 17min | 2 tasks | 5 files |
 | Phase 106 P03 | 31min | 2 tasks | 7 files |
 | Phase 107 P01 | 58min | 3 tasks | 9 files |
+| Phase 107 P02 | 13min | 3 tasks | 10 files |
