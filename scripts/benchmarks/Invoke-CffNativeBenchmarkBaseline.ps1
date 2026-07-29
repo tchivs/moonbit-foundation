@@ -1396,8 +1396,8 @@ function New-CffBenchmarkContractEvidence {
         name = $workloadNames[$workloadIndex]
         mean_ms = $mean
         sigma_ms = 0.01
-        minimum_ms = $mean - 0.01
-        maximum_ms = $mean + 0.01
+        minimum_ms = [Math]::Round($mean - 0.01, 9)
+        maximum_ms = [Math]::Round($mean + 0.01, 9)
         batch_size = 1
         runs = 64
       }

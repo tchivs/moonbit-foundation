@@ -2498,7 +2498,7 @@
           {"path":"scripts/quality/Assert-Policy.ps1","length":230803,"sha256":"bea98304003e31fe98b283efd23b3b587c15a63ec2ea833664fe94fb001fb21c"},
           {"path":"scripts/quality/Invoke-FontQualification.ps1","length":55092,"sha256":"8ab53d7915c9e780531989ed319f2373789095f9f39baa5e4fdc7a8d5d5f766d"},
           {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":10454,"sha256":"953e13afc353ad40a15282e1e6439876e4fbb0d1b51dcee7a4d5752a4f65eff4"},
-          {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":65326,"sha256":"198ade8c849753fe7684ce800f956d10ba482d59390b249e44221c60d2f7c42a"},
+          {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":65362,"sha256":"5ac13fd9846c6c9caf92fa6d25a84f3cb90b8ec6b32fe1bf223e0253c72df1f7"},
           {"path":"scripts/quality/Test-BenchmarkQualification.ps1","length":8102,"sha256":"204901288f0b1691fe1ea0efd3e3ad3165c6349e094a20c3ffb26bbae14ffbec"}
         ],
         "native_benchmark_baseline": {
