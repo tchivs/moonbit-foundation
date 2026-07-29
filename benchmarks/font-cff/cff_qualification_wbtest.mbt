@@ -36,4 +36,9 @@ test "cff evidence/single private payload and fact carrier" {
   inspect(cff_evidence_hostile_rows().length(), content="53")
   inspect(cff_evidence_targets().length(), content="4")
   inspect(cff_evidence_workloads().length(), content="4")
+  inspect(cff_evidence_public_workflow_ids().length(), content="12")
+  inspect(cff_evidence_compatibility_lock_ids().length(), content="2")
+  inspect(cff_evidence_b8_order().length(), content="8")
+  inspect(cff_evidence_generated_workflows().length(), content="6")
+  inspect(cff_evidence_precedence_facts().length(), content="2")
 }

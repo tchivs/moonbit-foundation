@@ -17,6 +17,9 @@ param(
   [switch]$CheckProvenance,
   [switch]$CheckEvidencePackage,
   [switch]$CheckPublicPrivateBoundary,
+  [switch]$CheckPrivateOracleFacts,
+  [switch]$CheckPrivateEvidenceMirrors,
+  [switch]$CheckSinglePayloadOwner,
   [ValidateSet('js', 'wasm', 'wasm-gc', 'native')]
   [string]$Target = 'native',
   [string]$ExecutionHandoffPath,
@@ -54,6 +57,7 @@ $CffEvidenceRoot = Join-Path $RepositoryRoot 'benchmarks/font-cff'
 $CffEvidenceManifestPath = Join-Path $CffEvidenceRoot 'moon.mod.json'
 $CffEvidencePackagePath = Join-Path $CffEvidenceRoot 'moon.pkg'
 $CffEvidenceWbtestPath = Join-Path $CffEvidenceRoot 'cff_qualification_wbtest.mbt'
+$CffGeneratedEvidencePath = Join-Path $CffEvidenceRoot 'generated_cff_evidence.mbt'
 $CffCoreManifestPath = Join-Path $RepositoryRoot 'modules/mb-core/moon.mod.json'
 $CffFontManifestPath = Join-Path $RepositoryRoot 'modules/mb-font/moon.mod.json'
 $CffCoreManifestSha256 =
@@ -2830,7 +2834,7 @@ function Get-FontCollectionManifestRecords {
 function Assert-FontCollectionManifestContract {
   $manifest = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json
   $records = @($manifest.records)
-  if ($records.Count -ne 14) {
+  if ($records.Count -lt 14) {
     throw 'Font collection manifest records are missing, duplicated, or reordered.'
   }
   $prefixJson = ConvertTo-StableJson @($records[0..10])
@@ -2858,7 +2862,7 @@ function Update-OrCheckFontCollectionManifest {
   }
   $manifest = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json
   $records = @($manifest.records)
-  if ($records.Count -eq 14) {
+  if ($records.Count -ge 14) {
     $prefixJson = ConvertTo-StableJson @($records[0..10])
     $prefixSha256 = Get-FontQualificationSha256 -Bytes $Utf8NoBom.GetBytes($prefixJson)
     if ($prefixSha256 -cne $PreCollectionManifestRecordsSha256) {
@@ -2868,7 +2872,9 @@ function Update-OrCheckFontCollectionManifest {
     if ((@($records[11..13].id) -join "`0") -cne ($expectedIds -join "`0")) {
       throw 'Refusing to update reordered font collection manifest records.'
     }
-    $manifest.records = @($records[0..10]) + @(Get-FontCollectionManifestRecords)
+    $suffix = if ($records.Count -gt 14) { @($records[14..($records.Count - 1)]) } else { @() }
+    $manifest.records =
+      @($records[0..10]) + @(Get-FontCollectionManifestRecords) + $suffix
     [IO.File]::WriteAllText($ManifestPath, (ConvertTo-StableJson $manifest), $Utf8NoBom)
     Assert-FontCollectionManifestContract
     return
@@ -3416,6 +3422,538 @@ function Write-FontQualificationGeneratedSource {
     return
   }
   [IO.File]::WriteAllBytes($GeneratedSourcePath, $renderedBytes)
+}
+
+function ConvertTo-CffMoonString {
+  param([AllowNull()][object]$Value)
+  if ($null -eq $Value) {
+    return '""'
+  }
+  return ($Value | ConvertTo-Json -Compress)
+}
+
+function Add-CffEvidenceByteBody {
+  param(
+    [Parameter(Mandatory)][AllowEmptyCollection()][AllowEmptyString()]
+    [Collections.Generic.List[string]]$Rows,
+    [Parameter(Mandatory)][string]$Prefix,
+    [Parameter(Mandatory)][byte[]]$Bytes,
+    [Parameter(Mandatory)][string]$ExpectedSha256
+  )
+  if ((Get-FontQualificationSha256 -Bytes $Bytes) -cne $ExpectedSha256) {
+    throw "CFF evidence payload '$Prefix' digest drifted before rendering."
+  }
+  $chunkCount = [Math]::Ceiling($Bytes.Length / [double]$GeneratedChunkSize)
+  for ($chunk = 0; $chunk -lt $chunkCount; $chunk++) {
+    $start = $chunk * $GeneratedChunkSize
+    $length = [Math]::Min($GeneratedChunkSize, $Bytes.Length - $start)
+    $builder = [Text.StringBuilder]::new($length * 4)
+    for ($index = 0; $index -lt $length; $index++) {
+      [void]$builder.AppendFormat('\x{0:x2}', $Bytes[$start + $index])
+    }
+    $Rows.Add('///|')
+    $Rows.Add(('fn _cff_evidence_{0}_chunk_{1:d4}() -> Bytes {{' -f $Prefix, $chunk))
+    $Rows.Add(('  b"{0}"' -f $builder.ToString()))
+    $Rows.Add('}')
+    $Rows.Add('')
+  }
+  $Rows.Add('///|')
+  $Rows.Add(("fn cff_evidence_{0}_payload() -> Bytes {{" -f $Prefix))
+  $Rows.Add('  _cff_evidence_join_bytes([')
+  for ($chunk = 0; $chunk -lt $chunkCount; $chunk++) {
+    $Rows.Add(('    _cff_evidence_{0}_chunk_{1:d4}(),' -f $Prefix, $chunk))
+  }
+  $Rows.Add('  ])')
+  $Rows.Add('}')
+  $Rows.Add('')
+}
+
+function Get-CffEvidenceInputs {
+  $cases = Get-Content -LiteralPath $CffQualificationCasesPath -Raw |
+    ConvertFrom-Json -Depth 100
+  $licensed = @(
+    Get-Content -LiteralPath (
+      Join-Path $CffLicensedFixtureRoot 'source-sans-3.052r/qualification.json'
+    ) -Raw | ConvertFrom-Json -Depth 100
+    Get-Content -LiteralPath (
+      Join-Path $CffLicensedFixtureRoot 'source-han-serif-2.003r/qualification.json'
+    ) -Raw | ConvertFrom-Json -Depth 100
+  )
+  foreach ($record in $licensed) {
+    if (-not [bool]$record.semantic_oracles.exact_normalized_agreement) {
+      throw "Licensed evidence lacks exact two-reader agreement: $($record.font.path)"
+    }
+    $fontPath = Join-Path $RepositoryRoot ([string]$record.font.path)
+    Assert-ExactBytesIdentity `
+      "licensed evidence $($record.font.path)" `
+      ([IO.File]::ReadAllBytes($fontPath)) `
+      ([int64]$record.font.length) `
+      ([string]$record.font.sha256)
+  }
+  return [ordered]@{ cases = $cases; licensed = $licensed }
+}
+
+function Get-CffGeneratedEvidenceText {
+  $inputs = Get-CffEvidenceInputs
+  $cases = $inputs.cases
+  $licensed = @($inputs.licensed)
+  $sans = $licensed[0]
+  $han = $licensed[1]
+  $sansBytes = [IO.File]::ReadAllBytes((Join-Path $RepositoryRoot $sans.font.path))
+  $hanBytes = [IO.File]::ReadAllBytes((Join-Path $RepositoryRoot $han.font.path))
+  $generatedBytes = [Convert]::FromBase64String($CffGeneratedTracerBase64)
+  Assert-ExactBytesIdentity `
+    'generated CFF evidence seed' `
+    $generatedBytes `
+    $CffGeneratedTracerLength `
+    $CffGeneratedTracerSha256
+
+  $rows = [Collections.Generic.List[string]]::new()
+  $rows.Add('// Generated by scripts/fixtures/Generate-FontQualification.ps1. Do not edit.')
+  $rows.Add('// font-cff1-v3 carrier-public: package-private evidence and closed facts')
+  $rows.Add("// Source Sans SHA-256: $($sans.font.sha256)")
+  $rows.Add("// Source Han SHA-256: $($han.font.sha256)")
+  $rows.Add("// Literal chunk size: $GeneratedChunkSize bytes")
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('priv struct CffEvidencePathCommand {')
+  $rows.Add('  op : String')
+  $rows.Add('  points : Array[Int]')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('priv struct CffEvidencePublicFact {')
+  $rows.Add('  id : String')
+  $rows.Add('  scalar : Int')
+  $rows.Add('  gid : Int')
+  $rows.Add('  advance : Int')
+  $rows.Add('  lsb : Int')
+  $rows.Add('  kerning : Int')
+  $rows.Add('  bounds : Array[Int]')
+  $rows.Add('  path : Array[CffEvidencePathCommand]')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('priv struct CffEvidenceHostileRow {')
+  $rows.Add('  group : String')
+  $rows.Add('  id : String')
+  $rows.Add('  source : String')
+  $rows.Add('  category : String')
+  $rows.Add('  code : String')
+  $rows.Add('  operation : String')
+  $rows.Add('  requested : Int?')
+  $rows.Add('  limit : Int?')
+  $rows.Add('  context : String')
+  $rows.Add('  gid : Int?')
+  $rows.Add('  publication : String')
+  $rows.Add('  caller_before : Array[Int]')
+  $rows.Add('  caller_after : Array[Int]')
+  $rows.Add('  ancestor_before : Array[Int]')
+  $rows.Add('  ancestor_after : Array[Int]')
+  $rows.Add('  boundary_pair : String?')
+  $rows.Add('  boundary_kind : String')
+  $rows.Add('  boundary_dimension : String')
+  $rows.Add('  boundary_applicable : Bool')
+  $rows.Add('  boundary_reason : String')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('priv struct CffEvidenceWorkload {')
+  $rows.Add('  id : String')
+  $rows.Add('  fixture_id : String')
+  $rows.Add('  operation : String')
+  $rows.Add('  gids : Array[Int]')
+  $rows.Add('  correctness_input : String')
+  $rows.Add('  correctness_input_sha256 : String')
+  $rows.Add('  timing : Bool')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('priv struct CffEvidenceClosedFact {')
+  $rows.Add('  id : String')
+  $rows.Add('  canonical_json : String')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn _cff_evidence_join_bytes(parts : Array[Bytes]) -> Bytes {')
+  $rows.Add('  let mut capacity = 0')
+  $rows.Add('  for part in parts {')
+  $rows.Add('    capacity += part.length()')
+  $rows.Add('  }')
+  $rows.Add('  let output : Array[Byte] = Array::new(capacity~)')
+  $rows.Add('  for part in parts {')
+  $rows.Add('    output.push_iter(part.iter())')
+  $rows.Add('  }')
+  $rows.Add('  Bytes::from_array(output)')
+  $rows.Add('}')
+  $rows.Add('')
+  Add-CffEvidenceByteBody `
+    -Rows $rows `
+    -Prefix 'source_sans' `
+    -Bytes $sansBytes `
+    -ExpectedSha256 ([string]$sans.font.sha256)
+  Add-CffEvidenceByteBody `
+    -Rows $rows `
+    -Prefix 'source_han' `
+    -Bytes $hanBytes `
+    -ExpectedSha256 ([string]$han.font.sha256)
+
+  $generatedLiteral = [Text.StringBuilder]::new($generatedBytes.Length * 4)
+  foreach ($byte in $generatedBytes) {
+    [void]$generatedLiteral.AppendFormat('\x{0:x2}', $byte)
+  }
+  $rows.Add('///|')
+  $rows.Add('fn _cff_evidence_generated_name_body() -> Bytes {')
+  $rows.Add(('  b"{0}"' -f $generatedLiteral.ToString()))
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_generated_name_otf() -> Bytes {')
+  $rows.Add('  _cff_evidence_generated_name_body()')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_generated_cid_otf() -> Bytes {')
+  $rows.Add('  cff_evidence_source_han_payload()')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn _cff_evidence_put_u32(output : Array[Byte], offset : Int, value : UInt64) -> Unit {')
+  $rows.Add('  output[offset] = ((value >> 24) & 0xffUL).to_byte()')
+  $rows.Add('  output[offset + 1] = ((value >> 16) & 0xffUL).to_byte()')
+  $rows.Add('  output[offset + 2] = ((value >> 8) & 0xffUL).to_byte()')
+  $rows.Add('  output[offset + 3] = (value & 0xffUL).to_byte()')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn _cff_evidence_read_u32(input : Bytes, offset : Int) -> UInt64 {')
+  $rows.Add('  (input[offset].to_uint64() << 24) |')
+  $rows.Add('  (input[offset + 1].to_uint64() << 16) |')
+  $rows.Add('  (input[offset + 2].to_uint64() << 8) |')
+  $rows.Add('  input[offset + 3].to_uint64()')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_generated_shared_ttc() -> Bytes {')
+  $rows.Add('  let standalone = _cff_evidence_generated_name_body()')
+  $rows.Add('  let directory_size = 156')
+  $rows.Add('  let data_offset = 332')
+  $rows.Add('  let output = Array::make(standalone.length() + 176, b''\x00'')')
+  $rows.Add('  _cff_evidence_put_u32(output, 0, 0x74746366UL)')
+  $rows.Add('  _cff_evidence_put_u32(output, 4, 0x00010000UL)')
+  $rows.Add('  _cff_evidence_put_u32(output, 8, 2UL)')
+  $rows.Add('  _cff_evidence_put_u32(output, 12, 20UL)')
+  $rows.Add('  _cff_evidence_put_u32(output, 16, 176UL)')
+  $rows.Add('  for index = 0; index < directory_size; index = index + 1 {')
+  $rows.Add('    output[20 + index] = standalone[index]')
+  $rows.Add('    output[176 + index] = standalone[index]')
+  $rows.Add('  }')
+  $rows.Add('  for record = 0; record < 9; record = record + 1 {')
+  $rows.Add('    let field = 12 + record * 16 + 8')
+  $rows.Add('    let adjusted = _cff_evidence_read_u32(standalone, field) + 176UL')
+  $rows.Add('    _cff_evidence_put_u32(output, 20 + field, adjusted)')
+  $rows.Add('    _cff_evidence_put_u32(output, 176 + field, adjusted)')
+  $rows.Add('  }')
+  $rows.Add('  for index = directory_size; index < standalone.length(); index = index + 1 {')
+  $rows.Add('    output[data_offset + index - directory_size] = standalone[index]')
+  $rows.Add('  }')
+  $rows.Add('  Bytes::from_array(output)')
+  $rows.Add('}')
+  $rows.Add('')
+
+  $facts = [Collections.Generic.List[object]]::new()
+  foreach ($fact in @($cases.expected_facts)) {
+    $facts.Add([ordered]@{
+      id = [string]$fact.id
+      scalar = [int]$fact.mapping.scalar
+      gid = [int]$fact.mapping.gid
+      advance = [int]$fact.metric.advance
+      lsb = [int]$fact.metric.lsb
+      kerning = [int]$fact.kerning
+      bounds = @(
+        [int]$fact.bounds.x_min, [int]$fact.bounds.y_min,
+        [int]$fact.bounds.x_max, [int]$fact.bounds.y_max
+      )
+      path = @($fact.path)
+    })
+  }
+  foreach ($record in $licensed) {
+    $projection = $record.semantic_oracles.normalized_projection
+    $facts.Add([ordered]@{
+      id = 'licensed-' + [IO.Path]::GetFileNameWithoutExtension([string]$record.font.path)
+      scalar = 0x41
+      gid = [int]$projection.gid
+      advance = [int]$projection.advance
+      lsb = [int]$projection.lsb
+      kerning = 0
+      bounds = @($projection.bounds)
+      path = @($projection.commands)
+    })
+  }
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_public_facts() -> Array[CffEvidencePublicFact] {')
+  $rows.Add('  [')
+  foreach ($fact in $facts) {
+    $rows.Add('    {')
+    $rows.Add("      id: $(ConvertTo-CffMoonString $fact.id),")
+    $rows.Add("      scalar: $($fact.scalar),")
+    $rows.Add("      gid: $($fact.gid),")
+    $rows.Add("      advance: $($fact.advance),")
+    $rows.Add("      lsb: $($fact.lsb),")
+    $rows.Add("      kerning: $($fact.kerning),")
+    $rows.Add("      bounds: [$(@($fact.bounds) -join ', ')],")
+    $rows.Add('      path: [')
+    foreach ($command in @($fact.path)) {
+      $rows.Add('        {')
+      $rows.Add("          op: $(ConvertTo-CffMoonString $command.op),")
+      $rows.Add("          points: [$(@($command.points) -join ', ')],")
+      $rows.Add('        },')
+    }
+    $rows.Add('      ],')
+    $rows.Add('    },')
+  }
+  $rows.Add('  ]')
+  $rows.Add('}')
+  $rows.Add('')
+
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_hostile_rows() -> Array[CffEvidenceHostileRow] {')
+  $rows.Add('  [')
+  foreach ($group in @($cases.hostile_groups)) {
+    foreach ($row in @($group.rows)) {
+      $requested = if ($null -eq $row.payload.requested) { 'None' } else {
+        "Some($([int]$row.payload.requested))"
+      }
+      $limit = if ($null -eq $row.payload.limit) { 'None' } else {
+        "Some($([int]$row.payload.limit))"
+      }
+      $gid = if ($null -eq $row.gid) { 'None' } else { "Some($([int]$row.gid))" }
+      $pair = if ($null -eq $row.boundary.pair_id) { 'None' } else {
+        "Some($(ConvertTo-CffMoonString $row.boundary.pair_id))"
+      }
+      $applicable = if ([bool]$row.boundary.applicable) { 'true' } else { 'false' }
+      $rows.Add('    {')
+      $rows.Add("      group: $(ConvertTo-CffMoonString $group.id),")
+      $rows.Add("      id: $(ConvertTo-CffMoonString $row.id),")
+      $rows.Add("      source: $(ConvertTo-CffMoonString $row.source),")
+      $rows.Add("      category: $(ConvertTo-CffMoonString $row.category),")
+      $rows.Add("      code: $(ConvertTo-CffMoonString $row.code),")
+      $rows.Add("      operation: $(ConvertTo-CffMoonString $row.operation),")
+      $rows.Add("      requested: $requested,")
+      $rows.Add("      limit: $limit,")
+      $rows.Add("      context: $(ConvertTo-CffMoonString $row.context),")
+      $rows.Add("      gid: $gid,")
+      $rows.Add("      publication: $(ConvertTo-CffMoonString $row.publication),")
+      $rows.Add("      caller_before: [$(@($row.caller_before) -join ', ')],")
+      $rows.Add("      caller_after: [$(@($row.caller_after) -join ', ')],")
+      $rows.Add("      ancestor_before: [$(@($row.ancestor_before) -join ', ')],")
+      $rows.Add("      ancestor_after: [$(@($row.ancestor_after) -join ', ')],")
+      $rows.Add("      boundary_pair: $pair,")
+      $rows.Add("      boundary_kind: $(ConvertTo-CffMoonString $row.boundary.kind),")
+      $rows.Add("      boundary_dimension: $(ConvertTo-CffMoonString $row.boundary.dimension),")
+      $rows.Add("      boundary_applicable: $applicable,")
+      $rows.Add("      boundary_reason: $(ConvertTo-CffMoonString $row.boundary.reason),")
+      $rows.Add('    },')
+    }
+  }
+  $rows.Add('  ]')
+  $rows.Add('}')
+  $rows.Add('')
+
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_targets() -> Array[String] {')
+  $rows.Add("  [$(@($cases.targets | ForEach-Object { ConvertTo-CffMoonString $_ }) -join ', ')]")
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_workloads() -> Array[CffEvidenceWorkload] {')
+  $rows.Add('  [')
+  foreach ($workload in @($cases.workloads)) {
+    $timing = if ([bool]$workload.timing) { 'true' } else { 'false' }
+    $rows.Add('    {')
+    $rows.Add("      id: $(ConvertTo-CffMoonString $workload.id),")
+    $rows.Add("      fixture_id: $(ConvertTo-CffMoonString $workload.fixture_id),")
+    $rows.Add("      operation: $(ConvertTo-CffMoonString $workload.operation),")
+    $rows.Add("      gids: [$(@($workload.gids) -join ', ')],")
+    $rows.Add("      correctness_input: $(ConvertTo-CffMoonString $workload.correctness_input),")
+    $rows.Add("      correctness_input_sha256: $(ConvertTo-CffMoonString $workload.correctness_input_sha256),")
+    $rows.Add("      timing: $timing,")
+    $rows.Add('    },')
+  }
+  $rows.Add('  ]')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_public_workflow_ids() -> Array[String] {')
+  $rows.Add("  [$(@($cases.public_workflow_ids | ForEach-Object { ConvertTo-CffMoonString $_ }) -join ', ')]")
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_compatibility_lock_ids() -> Array[String] {')
+  $rows.Add("  [$(@($cases.compatibility_lock_ids | ForEach-Object { ConvertTo-CffMoonString $_ }) -join ', ')]")
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_b8_order() -> Array[String] {')
+  $rows.Add("  [$(@($cases.b8_order | ForEach-Object { ConvertTo-CffMoonString $_ }) -join ', ')]")
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_generated_workflows() -> Array[CffEvidenceClosedFact] {')
+  $rows.Add('  [')
+  foreach ($workflow in @($cases.generated_workflows)) {
+    $json = $workflow | ConvertTo-Json -Compress -Depth 100
+    $rows.Add('    {')
+    $rows.Add("      id: $(ConvertTo-CffMoonString $workflow.id),")
+    $rows.Add("      canonical_json: $(ConvertTo-CffMoonString $json),")
+    $rows.Add('    },')
+  }
+  $rows.Add('  ]')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_precedence_facts() -> Array[CffEvidenceClosedFact] {')
+  $rows.Add('  [')
+  foreach ($precedence in @($cases.precedence_cases)) {
+    $json = $precedence | ConvertTo-Json -Compress -Depth 100
+    $rows.Add('    {')
+    $rows.Add("      id: $(ConvertTo-CffMoonString $precedence.id),")
+    $rows.Add("      canonical_json: $(ConvertTo-CffMoonString $json),")
+    $rows.Add('    },')
+  }
+  $rows.Add('  ]')
+  $rows.Add('}')
+  return (($rows -join "`n") + "`n")
+}
+
+function Write-CffGeneratedEvidenceSource {
+  param([switch]$CheckOnly)
+  $expected = Get-CffGeneratedEvidenceText
+  $expectedBytes = $Utf8NoBom.GetBytes($expected)
+  if ($CheckOnly) {
+    if (-not (Test-Path -LiteralPath $CffGeneratedEvidencePath -PathType Leaf)) {
+      throw "Generated CFF evidence source is missing: $CffGeneratedEvidencePath"
+    }
+    $actual = [IO.File]::ReadAllBytes($CffGeneratedEvidencePath)
+    if (-not [Linq.Enumerable]::SequenceEqual(
+        [byte[]]$expectedBytes,
+        [byte[]]$actual
+      )) {
+      throw "Generated CFF evidence source drifted: $CffGeneratedEvidencePath"
+    }
+    return
+  }
+  [IO.File]::WriteAllBytes($CffGeneratedEvidencePath, $expectedBytes)
+}
+
+function Assert-CffPrivateRegion {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Marker,
+    [Parameter(Mandatory)][string[]]$ExpectedRows
+  )
+  $text = [IO.File]::ReadAllText($Path, $Utf8NoBom).Replace("`r`n", "`n")
+  $begin = "// $Marker`:begin"
+  $end = "// $Marker`:end"
+  $beginCount = ([regex]::Matches($text, [regex]::Escape($begin))).Count
+  $endCount = ([regex]::Matches($text, [regex]::Escape($end))).Count
+  if ($beginCount -eq 0 -and $endCount -eq 0) {
+    return
+  }
+  if ($beginCount -ne 1 -or $endCount -ne 1) {
+    throw "Private evidence region markers are missing or duplicated in $Path."
+  }
+  $expected = (@($begin) + $ExpectedRows + @($end)) -join "`n"
+  if (-not $text.Contains($expected, [StringComparison]::Ordinal)) {
+    throw "Private evidence region drifted or was consumer-completed in $Path."
+  }
+}
+
+function Assert-CffPrivateOracleFacts {
+  $inputs = Get-CffEvidenceInputs
+  $facts = @(
+    foreach ($record in @($inputs.licensed)) {
+      $projection = $record.semantic_oracles.normalized_projection
+      '// fact ' + (
+        [ordered]@{
+          source_sha256 = [string]$record.font.sha256
+          scalar = [string]$projection.scalar
+          gid = [int]$projection.gid
+          advance = [int]$projection.advance
+          lsb = [int]$projection.lsb
+          bounds = @($projection.bounds)
+          commands = @($projection.commands)
+          authority = 'two-reader-exact-normalized-agreement'
+        } | ConvertTo-Json -Compress -Depth 100
+      )
+    }
+  )
+  Assert-CffPrivateRegion `
+    -Path (Join-Path $RepositoryRoot 'modules/mb-font/font/cff_cid_fixture_wbtest.mbt') `
+    -Marker 'font-cff1-v3 private fd oracle' `
+    -ExpectedRows $facts
+  Write-Host 'CFF private FD/oracle facts are canonical and region-exact.'
+}
+
+function Assert-CffPrivateEvidenceMirrors {
+  $inputs = Get-CffEvidenceInputs
+  $rows = @(
+    foreach ($group in @($inputs.cases.hostile_groups)) {
+      foreach ($row in @($group.rows)) {
+        Assert-CffQualificationSourceLocator ([string]$row.source) "CFF hostile row $($row.id)"
+        '// hostile ' + (
+          [ordered]@{ group = [string]$group.id; row = $row } |
+            ConvertTo-Json -Compress -Depth 100
+        )
+      }
+    }
+  )
+  Assert-CffPrivateRegion `
+    -Path (Join-Path $RepositoryRoot 'modules/mb-font/font/cff_hostile_fixture_wbtest.mbt') `
+    -Marker 'font-cff1-v3 private hostile' `
+    -ExpectedRows $rows
+  if ($rows.Count -ne 53) {
+    throw "CFF private hostile mirror count drifted: $($rows.Count)."
+  }
+  Write-Host 'CFF private hostile/mutation/B8 mirror facts are canonical and region-exact.'
+}
+
+function Assert-CffSinglePayloadOwner {
+  Write-CffGeneratedEvidenceSource -CheckOnly
+  $source = [IO.File]::ReadAllText($CffGeneratedEvidencePath, $Utf8NoBom)
+  foreach ($prefix in @('source_sans', 'source_han')) {
+    $bodyCount = ([regex]::Matches(
+        $source,
+        "fn cff_evidence_${prefix}_payload\(\) -> Bytes"
+      )).Count
+    if ($bodyCount -ne 1) {
+      throw "CFF evidence '$prefix' has $bodyCount payload bodies instead of one."
+    }
+  }
+  $firstSans = [IO.File]::ReadAllBytes(
+    (Join-Path $CffLicensedFixtureRoot 'source-sans-3.052r/SourceSans3-Regular.otf')
+  )[0..31]
+  $firstHan = [IO.File]::ReadAllBytes(
+    (Join-Path $CffLicensedFixtureRoot 'source-han-serif-2.003r/SourceHanSerifJP-Regular.otf')
+  )[0..31]
+  foreach ($identity in @($firstSans, $firstHan)) {
+    $needle = (($identity | ForEach-Object { '\x{0:x2}' -f $_ }) -join '')
+    $owners = @(
+      Get-ChildItem -LiteralPath $RepositoryRoot -Recurse -File -Filter '*.mbt' |
+        Where-Object {
+          $_.FullName -notmatch '[\\/](?:_build|target)[\\/]' -and
+          [IO.File]::ReadAllText($_.FullName, $Utf8NoBom).Contains(
+            $needle,
+            [StringComparison]::Ordinal
+          )
+        }
+    )
+    if ($owners.Count -ne 1 -or
+        $owners[0].FullName -cne $CffGeneratedEvidencePath) {
+      throw "Licensed CFF literal prefix has non-canonical owners: $($owners.FullName -join ', ')."
+    }
+  }
+  Write-Host 'Licensed CFF literal payloads have exactly one package-private MoonBit owner.'
 }
 
 function Test-FontQualificationInputs {
@@ -4760,10 +5298,16 @@ supported_targets = "+js+wasm+wasm-gc+native"
     throw 'CFF evidence package imports, aliases, targets, or export boundary drifted.'
   }
   $sourceText = (Get-Content -Raw -LiteralPath $WbtestPath).Replace("`r`n", "`n")
-  if ($sourceText -cmatch '(?m)^\s*pub(?:\([^)]*\))?\s+') {
+  $carrierText = if (Test-Path -LiteralPath $CffGeneratedEvidencePath -PathType Leaf) {
+    (Get-Content -Raw -LiteralPath $CffGeneratedEvidencePath).Replace("`r`n", "`n")
+  } else {
+    ''
+  }
+  $closedText = $sourceText + "`n" + $carrierText
+  if ($closedText -cmatch '(?m)^\s*pub(?:\([^)]*\))?\s+') {
     throw 'CFF evidence package must not export fixture or evidence symbols.'
   }
-  if ($sourceText -cmatch
+  if ($closedText -cmatch
       '(?i)\b(?:read_file|write_file|open_file|filesystem|subprocess|process|network|http|foreign|extern|ffi)\b') {
     throw 'CFF evidence package contains a forbidden runtime I/O, process, network, or FFI seam.'
   }
@@ -5029,6 +5573,18 @@ if ($CheckPublicPrivateBoundary) {
   Write-Host 'CFF evidence public/private boundary is exact and closed.'
   return
 }
+if ($CheckPrivateOracleFacts) {
+  Assert-CffPrivateOracleFacts
+  return
+}
+if ($CheckPrivateEvidenceMirrors) {
+  Assert-CffPrivateEvidenceMirrors
+  return
+}
+if ($CheckSinglePayloadOwner) {
+  Assert-CffSinglePayloadOwner
+  return
+}
 
 if ($CheckContracts -or $CheckGeneratedRecipes -or $CheckOracleAdapters -or
     $CheckSchemaNegatives -or $CheckHostileInventory -or $CheckOutcomeTrace -or
@@ -5083,6 +5639,7 @@ if ($Check) {
     -CasesDocument $casesDocument `
     -CollectionCasesDocument $collectionCasesDocument `
     -CheckOnly
+  Write-CffGeneratedEvidenceSource -CheckOnly
 } else {
   Update-OrCheckCasesManifest
   Write-FontQualificationGeneratedSource `
@@ -5091,6 +5648,7 @@ if ($Check) {
     -Oracle $oracle `
     -CasesDocument $casesDocument `
     -CollectionCasesDocument $collectionCasesDocument
+  Write-CffGeneratedEvidenceSource
 }
 Assert-FontCollectionManifestContract
 Assert-FontCollectionGeneratedSourceContract
