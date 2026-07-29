@@ -94,6 +94,8 @@ The CJK specimen is `SubsetOTF/JP/SourceHanSerifJP-Regular.otf` from Adobe's off
 
 **Primary recommendation:** preserve the three strict D-23 slices but implement them as five smaller dependent plans: reader/generated-vector contracts; atomic licensed intake/generated mirror; public/hostile/glyf evidence; v3 correctness/policy/CI/docs; and the separate native baseline. This preserves producer-before-consumer ordering while keeping executor context and task-commit boundaries sound. [VERIFIED: 107-CONTEXT D-23; plan-checker stall resolution, 2026-07-29]
 
+The single licensed-payload owner is resolved as a non-published evidence module at `benchmarks/font-cff`. Its package-private generated source contains the Latin/CJK bytes once; black-box four-target qualification tests and native benchmark closures live in the same package and consume that source. `benchmarks/moon.work` includes both `../modules/mb-font` and `./font-cff`, so the evidence module always resolves the tracked local runtime rather than a registry copy. Production `mb-font` keeps no licensed CFF byte literal or fixture API; private hostile evidence remains in the existing `mb-font/font` white-box suite. [VERIFIED: 107-CONTEXT D-01/D-10/D-19; plan-checker stall resolution, 2026-07-29]
+
 ## Architectural Responsibility Map
 
 | Capability | Primary tier | Secondary tier | Rationale |
@@ -354,33 +356,45 @@ Threats to test explicitly are asset/tool substitution, oracle self-reference, h
 
 ## Plan Slices
 
-### 107-01 — Canonical fixtures, licensed intake, provenance, and oracle
+### 107-01 — Oracle/tool contracts and canonical corpus
 
 1. Freeze the ordered generated corpus schema and hand-derived name/CID facts.
-2. Run the blocking official Source candidate intake; select nothing until exact Latin and CJK profile/license/hash facts pass.
-3. Select/pin two independent readers and OTS, including legitimacy and executable/package/archive digests.
-4. Generate canonical binaries/oracles/manifest lineage and one portable MoonBit mirror; make `-Check` reconstruct all committed outputs without network mutation.
-5. Freeze fixture, oracle, case, command, workload, tool, notice, and source identities.
+2. Implement the two pinned independent reader adapters, closed output schema, anti-alias/self-oracle gates, and OTS structural-only contract.
+3. Freeze the complete hostile/limit applicability table and exact per-operation outcomes before any mirror consumes it.
 
-**Exit gate:** every exact specimen/profile/license/tool fact reproduces and both readers agree on the closed projection; otherwise stop. [VERIFIED: 107-CONTEXT D-03-D-10/D-23]
+**Exit gate:** generated corpus and hostile outcomes are complete and both reader families can emit the closed projection without sharing `mb-font` or a semantic backend. [VERIFIED: 107-CONTEXT D-03-D-06/D-09/D-23]
 
-### 107-02 — Public workflows, hostile/atomicity matrix, and glyf lock
+### 107-02 — Atomic licensed intake and single portable mirror
 
-1. Add generated/licensed standalone and selected-collection public facts.
-2. Promote the exact ordered hostile groups from existing builders.
-3. Freeze complete errors, smallest GIDs, publication state, and all eight caller/ancestor dimensions.
-4. Freeze static-glyf standalone/collection semantic fingerprints and named focused assertion identities.
+1. Verify and promote the exact resolved Source Sans/Source Han specimens, licenses, hashes, profiles, FD facts, and two-reader agreement.
+2. Generate provenance/oracles/manifest facts and the single package-private payload mirror in `benchmarks/font-cff`; make `-Check` reconstruct all committed outputs without network mutation.
+3. Render the canonical generated/hostile schema into the evidence package and freeze fixture, oracle, workload, tool, notice, and source identities.
 
-**Dependency:** consumes only frozen 107-01 identities. **Exit gate:** every focused public/white-box identity passes on all four targets before v3 consumers are finalized. [VERIFIED: 107-CONTEXT D-05/D-11-D-14/D-23]
+**Dependency:** consumes only frozen 107-01 schemas/adapters. **Exit gate:** every exact specimen/profile/license/tool fact reproduces, both readers agree, and exactly one non-production payload source exists. [VERIFIED: 107-CONTEXT D-07-D-10/D-23]
 
-### 107-03 — v3 evidence, policy/CI/docs, and native baseline
+### 107-03 — Public workflows, hostile/atomicity matrix, and glyf lock
+
+1. Add generated/licensed standalone and selected-collection black-box facts in the evidence package, limited to observable mappings, metrics, bounds, and paths.
+2. Compare FD/local-environment oracle facts only in an existing private white-box assertion; do not widen public API.
+3. Consume every canonical hostile row unchanged and freeze complete errors, smallest GIDs, publication state, all eight caller/ancestor dimensions, and static-glyf fingerprints.
+
+**Dependency:** consumes frozen 107-02 identities/mirror. **Exit gate:** all focused public/white-box identities pass without public/runtime expansion. [VERIFIED: 107-CONTEXT D-05/D-11-D-14/D-23]
+
+### 107-04 — v3 evidence, policy, CI, and documentation
 
 1. Advance the existing runner/boundary to fresh v3 identities and exact nested schemas.
-2. Refresh final live source/test inventories and retain API/dependency/import/capability locks.
-3. Update the existing CI job and documentation; measure before any timeout change.
-4. Record four equality-bearing correctness workloads and create the separate native 1+7 observation baseline/read-only audit.
+2. Run the `benchmarks/font-cff` public qualification tests independently on all targets alongside the existing `mb-font` private/full suites.
+3. Refresh final source/test inventories and retain API/dependency/import/capability locks, the existing 20-minute timeout, and documentation.
 
-**Dependency:** consumes frozen 107-01 fixture/oracle/workload identities and 107-02 assertion/fingerprint identities. **Exit gate:** exactly four equal ordered semantic records, green policy/boundary negatives, clean baseline reconstruction, and no public/runtime expansion. [VERIFIED: 107-CONTEXT D-15-D-23]
+**Dependency:** consumes frozen 107-01 through 107-03 identities. **Exit gate:** exactly four equal ordered semantic records and green policy/boundary negatives. [VERIFIED: 107-CONTEXT D-15-D-18/D-23]
+
+### 107-05 — Native observation-only baseline
+
+1. Add `@bench.T` workloads to the same evidence package that owns the single payload; assert correctness outside measured closures.
+2. Record one excluded warmup plus seven retained native release captures from tracked inputs, then commit the baseline.
+3. Run the read-only clean-worktree audit only at plan verification after the baseline commit.
+
+**Dependency:** consumes tracked fixtures/oracles/workload identities and fresh carrier correctness output, never ignored v3 artifacts. **Exit gate:** clean baseline reconstruction with no threshold, backend timing comparison, or marketing claim. [VERIFIED: 107-CONTEXT D-19-D-23]
 
 ## State of the Art
 
