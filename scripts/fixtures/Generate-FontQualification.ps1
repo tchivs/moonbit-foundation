@@ -5132,6 +5132,13 @@ function Get-CffCanonicalDestinationSnapshot {
       }
     }
   }
+  $snapshot['fixtures/manifest.json'] = if (
+    Test-Path -LiteralPath $ManifestPath -PathType Leaf
+  ) {
+    Get-CffFileSha256 $ManifestPath
+  } else {
+    '<missing>'
+  }
   return ($snapshot | ConvertTo-Json -Compress)
 }
 
@@ -5178,8 +5185,21 @@ function Read-CffLicensedTransaction {
     ConvertFrom-Json -Depth 20
   if ($transaction.schema -cne 'cff-licensed-intake-transaction/1.0.0' -or
       [string]::IsNullOrWhiteSpace([string]$transaction.transaction_id) -or
-      $transaction.phase -cnotin @('prepared','bundles-published')) {
+      $transaction.phase -cnotin @(
+        'prepared',
+        'bundles-published',
+        'provenance-prepared',
+        'provenance-publishing',
+        'provenance-published'
+      )) {
     throw 'Licensed CFF intake transaction journal is malformed.'
+  }
+  if ($transaction.phase -like 'provenance-*' -and
+      ($transaction.PSObject.Properties.Name -cnotcontains
+          'provenance_replacements' -or
+        $transaction.PSObject.Properties.Name -cnotcontains
+          'provenance_steps_completed')) {
+    throw 'Licensed CFF provenance transaction journal is incomplete.'
   }
   return $transaction
 }
@@ -5206,6 +5226,239 @@ function Invoke-CffLicensedPublicationFailPoint {
   }
   if ($env:MNF_CFF_INTAKE_FAIL_AFTER_STEP -ceq $Step) {
     throw "Injected licensed CFF publication interruption after '$Step'."
+  }
+}
+
+function Write-CffLicensedDurableBytes {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][byte[]]$Bytes
+  )
+  $stream = [IO.FileStream]::new(
+    $Path,
+    [IO.FileMode]::Create,
+    [IO.FileAccess]::Write,
+    [IO.FileShare]::None,
+    4096,
+    [IO.FileOptions]::WriteThrough
+  )
+  try {
+    $stream.Write($Bytes, 0, $Bytes.Length)
+    $stream.Flush($true)
+  } finally {
+    $stream.Dispose()
+  }
+}
+
+function Get-CffLicensedProvenanceTargets {
+  $targets = @(
+    Join-Path $CffLicensedFixtureRoot `
+      'source-sans-3.052r/qualification.json'
+    Join-Path $CffLicensedFixtureRoot `
+      'source-han-serif-2.003r/qualification.json'
+    $ManifestPath
+  )
+  @($targets | ForEach-Object { [IO.Path]::GetFullPath($_) })
+}
+
+function Assert-CffLicensedProvenanceReplacement {
+  param(
+    [Parameter(Mandatory)]$Entry,
+    [Parameter(Mandatory)][int]$Index,
+    [Parameter(Mandatory)][string]$TransactionId
+  )
+  $targets = @(Get-CffLicensedProvenanceTargets)
+  if ($targets.Count -ne 3 -or $Index -lt 0 -or $Index -ge $targets.Count) {
+    throw 'Licensed CFF provenance target inventory drifted.'
+  }
+  $target = [IO.Path]::GetFullPath([string]$Entry.target)
+  $stage = [IO.Path]::GetFullPath([string]$Entry.stage)
+  $backup = [IO.Path]::GetFullPath([string]$Entry.backup)
+  if ($target -cne $targets[$Index] -or
+      $stage -cne "$target.cff-stage-$TransactionId" -or
+      $backup -cne "$target.cff-backup-$TransactionId" -or
+      [string]$Entry.new_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      ([bool]$Entry.existed_before -and
+        [string]$Entry.old_sha256 -cnotmatch '^[0-9a-f]{64}$') -or
+      (-not [bool]$Entry.existed_before -and
+        [string]$Entry.old_sha256 -cne '<missing>')) {
+    throw "Licensed CFF provenance replacement $Index is malformed."
+  }
+  [ordered]@{
+    target = $target
+    stage = $stage
+    backup = $backup
+    existed_before = [bool]$Entry.existed_before
+    old_sha256 = [string]$Entry.old_sha256
+    new_sha256 = [string]$Entry.new_sha256
+  }
+}
+
+function Remove-CffLicensedProvenanceArtifacts {
+  param([Parameter(Mandatory)]$Transaction)
+  if ($Transaction.PSObject.Properties.Name -cnotcontains
+      'provenance_replacements') {
+    return
+  }
+  $entries = @($Transaction.provenance_replacements)
+  for ($index = 0; $index -lt $entries.Count; $index++) {
+    $entry = Assert-CffLicensedProvenanceReplacement `
+      $entries[$index] $index ([string]$Transaction.transaction_id)
+    foreach ($path in @($entry.stage,$entry.backup)) {
+      if (Test-Path -LiteralPath $path -PathType Leaf) {
+        Remove-Item -LiteralPath $path -Force
+      }
+    }
+  }
+}
+
+function New-CffLicensedProvenanceTransaction {
+  param(
+    [Parameter(Mandatory)]$Transaction,
+    [Parameter(Mandatory)][object[]]$Publications
+  )
+  if ($Transaction.phase -cne 'bundles-published' -or
+      $Publications.Count -ne 3) {
+    throw 'Licensed CFF provenance publication requires the completed bundle phase.'
+  }
+  $targets = @(Get-CffLicensedProvenanceTargets)
+  $entries = @()
+  $artifacts = [Collections.Generic.List[string]]::new()
+  try {
+    for ($index = 0; $index -lt $targets.Count; $index++) {
+      $target = $targets[$index]
+      if ([IO.Path]::GetFullPath([string]$Publications[$index].target) -cne
+          $target) {
+        throw "Licensed CFF provenance publication target drifted at $index."
+      }
+      $stage = "$target.cff-stage-$($Transaction.transaction_id)"
+      $backup = "$target.cff-backup-$($Transaction.transaction_id)"
+      $existed = Test-Path -LiteralPath $target -PathType Leaf
+      $oldSha = if ($existed) {
+        $oldBytes = [IO.File]::ReadAllBytes($target)
+        Write-CffLicensedDurableBytes $backup $oldBytes
+        $artifacts.Add($backup)
+        Get-CffFileSha256 $target
+      } else {
+        '<missing>'
+      }
+      $newBytes = $Utf8NoBom.GetBytes([string]$Publications[$index].text)
+      Write-CffLicensedDurableBytes $stage $newBytes
+      $artifacts.Add($stage)
+      $newSha = Get-CffFileSha256 $stage
+      $entries += [pscustomobject][ordered]@{
+        target = $target
+        stage = $stage
+        backup = $backup
+        existed_before = $existed
+        old_sha256 = $oldSha
+        new_sha256 = $newSha
+      }
+    }
+    $Transaction | Add-Member -NotePropertyName provenance_replacements `
+      -NotePropertyValue $entries -Force
+    $Transaction | Add-Member -NotePropertyName provenance_steps_completed `
+      -NotePropertyValue 0 -Force
+    $Transaction.phase = 'provenance-prepared'
+    Write-CffLicensedTransaction $Transaction
+  } catch {
+    foreach ($path in $artifacts) {
+      if (Test-Path -LiteralPath $path -PathType Leaf) {
+        Remove-Item -LiteralPath $path -Force
+      }
+    }
+    throw
+  }
+}
+
+function Restore-CffLicensedProvenanceTransaction {
+  param([Parameter(Mandatory)]$Transaction)
+  $entries = @($Transaction.provenance_replacements)
+  for ($index = $entries.Count - 1; $index -ge 0; $index--) {
+    $entry = Assert-CffLicensedProvenanceReplacement `
+      $entries[$index] $index ([string]$Transaction.transaction_id)
+    if ($entry.existed_before) {
+      if (-not (Test-Path -LiteralPath $entry.backup -PathType Leaf) -or
+          (Get-CffFileSha256 $entry.backup) -cne $entry.old_sha256) {
+        throw "Licensed CFF provenance backup drifted at $index."
+      }
+      $rollback = "$($entry.target).cff-rollback-$($Transaction.transaction_id)"
+      try {
+        Write-CffLicensedDurableBytes $rollback `
+          ([IO.File]::ReadAllBytes($entry.backup))
+        if (Test-Path -LiteralPath $entry.target -PathType Leaf) {
+          [IO.File]::Replace($rollback, $entry.target, $null, $true)
+        } else {
+          [IO.File]::Move($rollback, $entry.target)
+        }
+      } finally {
+        if (Test-Path -LiteralPath $rollback -PathType Leaf) {
+          Remove-Item -LiteralPath $rollback -Force
+        }
+      }
+      if ((Get-CffFileSha256 $entry.target) -cne $entry.old_sha256) {
+        throw "Licensed CFF provenance rollback drifted at $index."
+      }
+    } elseif (Test-Path -LiteralPath $entry.target -PathType Leaf) {
+      if ((Get-CffFileSha256 $entry.target) -cne $entry.new_sha256) {
+        throw "Refusing to remove an unknown provenance target at $index."
+      }
+      Remove-Item -LiteralPath $entry.target -Force
+    }
+  }
+  $Transaction.phase = 'bundles-published'
+  $Transaction.provenance_steps_completed = 0
+  Write-CffLicensedTransaction $Transaction
+  Remove-CffLicensedProvenanceArtifacts $Transaction
+  $Transaction.PSObject.Properties.Remove('provenance_replacements')
+  $Transaction.PSObject.Properties.Remove('provenance_steps_completed')
+}
+
+function Resume-CffLicensedProvenancePublication {
+  param([Parameter(Mandatory)]$Transaction)
+  $entries = @($Transaction.provenance_replacements)
+  if ($entries.Count -ne 3) {
+    throw 'Licensed CFF provenance transaction must replace exactly three files.'
+  }
+  try {
+    for ($index = 0; $index -lt $entries.Count; $index++) {
+      $entry = Assert-CffLicensedProvenanceReplacement `
+        $entries[$index] $index ([string]$Transaction.transaction_id)
+      $targetSha = if (Test-Path -LiteralPath $entry.target -PathType Leaf) {
+        Get-CffFileSha256 $entry.target
+      } else {
+        '<missing>'
+      }
+      if ($targetSha -cne $entry.new_sha256) {
+        if ($targetSha -cne $entry.old_sha256 -or
+            -not (Test-Path -LiteralPath $entry.stage -PathType Leaf) -or
+            (Get-CffFileSha256 $entry.stage) -cne $entry.new_sha256) {
+          throw "Licensed CFF provenance transaction cannot advance target $index."
+        }
+        if ($entry.existed_before) {
+          [IO.File]::Replace($entry.stage, $entry.target, $null, $true)
+        } else {
+          [IO.File]::Move($entry.stage, $entry.target)
+        }
+      }
+      if ((Get-CffFileSha256 $entry.target) -cne $entry.new_sha256) {
+        throw "Licensed CFF provenance target digest drifted at $index."
+      }
+      $Transaction.phase = 'provenance-publishing'
+      $Transaction.provenance_steps_completed = $index + 1
+      Write-CffLicensedTransaction $Transaction
+      $step = if ($index -lt 2) {
+        "qualification-$($index + 1)"
+      } else {
+        'manifest'
+      }
+      Invoke-CffLicensedPublicationFailPoint $step
+    }
+    $Transaction.phase = 'provenance-published'
+    Write-CffLicensedTransaction $Transaction
+  } catch {
+    Restore-CffLicensedProvenanceTransaction $Transaction
+    throw
   }
 }
 
@@ -5242,6 +5495,7 @@ function Resume-CffLicensedBundlePublication {
 function Complete-CffLicensedTransaction {
   param([Parameter(Mandatory)]$Transaction)
   Update-OrCheckCffLicensedProvenance -CheckOnly
+  Remove-CffLicensedProvenanceArtifacts $Transaction
   $stageRoot = Assert-CffLicensedTransactionPath `
     ([string]$Transaction.stage_root) 'stage root'
   Remove-Item -LiteralPath $CffLicensedTransactionPath -Force
@@ -5264,8 +5518,14 @@ function Resume-CffLicensedIntakeTransaction {
   if ($null -eq $transaction) {
     return $false
   }
-  Resume-CffLicensedBundlePublication $transaction
-  Update-OrCheckCffLicensedProvenance
+  if ($transaction.phase -like 'provenance-*') {
+    Resume-CffLicensedProvenancePublication $transaction
+    Update-OrCheckCffLicensedProvenance -CheckOnly
+    Complete-CffLicensedTransaction $transaction
+  } else {
+    Resume-CffLicensedBundlePublication $transaction
+    Update-OrCheckCffLicensedProvenance
+  }
   Write-Host (
     "Recovered licensed CFF intake transaction $($transaction.transaction_id)."
   )
@@ -5455,8 +5715,39 @@ function Invoke-CffPublicationRecoveryChecks {
       throw "Licensed CFF process-termination recovery drifted at '$step'."
     }
   }
+  foreach ($step in @('qualification-1','qualification-2','manifest')) {
+    $old = $env:MNF_CFF_INTAKE_FAIL_AFTER_STEP
+    try {
+      $env:MNF_CFF_INTAKE_FAIL_AFTER_STEP = $step
+      & $pwsh -NoProfile -File $scriptPath -Intake `
+        -ExecutionHandoffPath $handoff *> $null
+      $exitCode = $LASTEXITCODE
+    } finally {
+      $env:MNF_CFF_INTAKE_FAIL_AFTER_STEP = $old
+    }
+    if ($exitCode -eq 0 -or
+        -not (Test-Path -LiteralPath $CffLicensedTransactionPath -PathType Leaf)) {
+      throw "Licensed CFF ordinary-failure probe did not persist '$step'."
+    }
+    if ((Get-CffCanonicalDestinationSnapshot $Records) -cne $before) {
+      throw "Licensed CFF ordinary-failure rollback drifted at '$step'."
+    }
+    if (-not (Resume-CffLicensedIntakeTransaction)) {
+      throw "Licensed CFF ordinary-failure probe did not recover '$step'."
+    }
+    $transactionArtifacts = @(
+      Get-ChildItem -LiteralPath $CffLicensedFixtureRoot -Recurse -File |
+        Where-Object Name -match '[.]cff-(?:stage|backup|rollback)-'
+    )
+    if ((Test-Path -LiteralPath $CffLicensedTransactionPath) -or
+        $transactionArtifacts.Count -ne 0 -or
+        (Get-CffCanonicalDestinationSnapshot $Records) -cne $before) {
+      throw "Licensed CFF ordinary-failure cleanup drifted at '$step'."
+    }
+  }
   Write-Host (
-    'Licensed CFF process-termination recovery passed after every publication step.'
+    'Licensed CFF process-termination roll-forward and ordinary-failure ' +
+    'rollback passed after every publication step.'
   )
 }
 
@@ -5960,48 +6251,27 @@ function Update-OrCheckCffLicensedProvenance {
   $manifestText = (
     ($manifest | ConvertTo-Json -Depth 100).Replace("`r`n", "`n") + "`n"
   )
-  $transaction = [guid]::NewGuid().ToString('N')
-  $published = [Collections.Generic.List[string]]::new()
-  $temporaryFiles = [Collections.Generic.List[string]]::new()
-  try {
+  if ($null -eq $activeTransaction -or
+      $activeTransaction.phase -cne 'bundles-published') {
+    throw 'Licensed CFF provenance replacement requires its intake journal.'
+  }
+  $publications = @(
     foreach ($record in @($set.specimens)) {
       $destination = Get-CffLicensedDestination $record
-      $path = Join-Path $destination.directory 'qualification.json'
-      $temporary = "$path.tmp-$transaction"
-      [IO.File]::WriteAllText(
-        $temporary,
-        [string]$set.rendered[[string]$record.id],
-        $Utf8NoBom
-      )
-      $temporaryFiles.Add($temporary)
+      [pscustomobject][ordered]@{
+        target = Join-Path $destination.directory 'qualification.json'
+        text = [string]$set.rendered[[string]$record.id]
+      }
     }
-    $manifestTemporary = "$ManifestPath.tmp-$transaction"
-    [IO.File]::WriteAllText($manifestTemporary, $manifestText, $Utf8NoBom)
-    $temporaryFiles.Add($manifestTemporary)
-    foreach ($temporary in @($temporaryFiles | Select-Object -SkipLast 1)) {
-      $destination = $temporary.Substring(0, $temporary.Length - (5 + $transaction.Length))
-      Move-Item -LiteralPath $temporary -Destination $destination -Force
-      $published.Add($destination)
-      Invoke-CffLicensedPublicationFailPoint (
-        "qualification-$($published.Count)"
-      )
+    [pscustomobject][ordered]@{
+      target = $ManifestPath
+      text = $manifestText
     }
-    Move-Item -LiteralPath $manifestTemporary -Destination $ManifestPath -Force
-    Invoke-CffLicensedPublicationFailPoint 'manifest'
-  } catch {
-    foreach ($path in $published) {
-      if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
-    }
-    throw
-  } finally {
-    foreach ($path in $temporaryFiles) {
-      if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
-    }
-  }
+  )
+  New-CffLicensedProvenanceTransaction $activeTransaction $publications
+  Resume-CffLicensedProvenancePublication $activeTransaction
   Update-OrCheckCffLicensedProvenance -CheckOnly
-  if ($null -ne $activeTransaction) {
-    Complete-CffLicensedTransaction $activeTransaction
-  }
+  Complete-CffLicensedTransaction $activeTransaction
 }
 
 function Assert-CffProvenanceArtifacts {
