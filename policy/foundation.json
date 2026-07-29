@@ -2391,7 +2391,7 @@
             "wasm-gc",
             "native"
           ],
-          "portable_source_semantic_sha256": "9800479f8bae72581077928790e0e4c0d373ad9e9ec761b1aa5c374d90a4947f",
+          "portable_source_semantic_sha256": "bf0f6ae2f249247911dcb2885973f2c6ccf752926e9e2c0d40a66749757d3920",
           "capability_negative_contract_sha256": "a5e91f9e1728ada382186c166fd17d53299a0fb1b151a38177a62547f7e23344"
         }
       ],
@@ -2439,7 +2439,7 @@
           {"path":"modules/mb-font/font/cff_dict.mbt","length":32276,"sha256":"4dda557685912b9775b176f74d5bd281daeab5a57bb47cfb5f952d6cc5e95313"},
           {"path":"modules/mb-font/font/cff_keying.mbt","length":36600,"sha256":"929ca25528b4eea898852d6d593650903f2c9147beed934583e96b4cb86d101e"},
           {"path":"modules/mb-font/font/cff_type2_fixed.mbt","length":19581,"sha256":"d38f211521eedee717377ae049afe160c0deea74648aa1770bf1ea7a7da88c22"},
-          {"path":"modules/mb-font/font/cff_type2.mbt","length":64452,"sha256":"43f7cdc8a44aec90b74559bfcb600bd32b9dae240919bc2bf399fef0bc7ef26e"},
+          {"path":"modules/mb-font/font/cff_type2.mbt","length":64590,"sha256":"d7c3ade12fdba8c7d23aaa60cf9a3279342f44e0a0d839249713e9e2f2c7a919"},
           {"path":"modules/mb-font/font/cff_type2_bounds.mbt","length":14203,"sha256":"aac38996d708d8424a9cb3fb70c7e0b2d6c12fce6ad15bfe37472b3752e633a9"},
           {"path":"modules/mb-font/font/cff_type2_path.mbt","length":7786,"sha256":"c40af154e4b2054a0359fef18506a7220aadc526adb178f6826d605f0b543491"},
           {"path":"modules/mb-font/font/cff_admission.mbt","length":50258,"sha256":"407658bef7fa8ccfd2f70df087b15af8049ba023e975ea80a72b50f0618aa4be"}
@@ -2448,7 +2448,7 @@
           {"path":"modules/mb-font/font/cff_admission_wbtest.mbt","length":21505,"sha256":"d05a558a1e168bf68945a34ddc863b8c520dbe08ceb50c150ab3b49bccea1b39"},
           {"path":"modules/mb-font/font/cff_cid_fixture_wbtest.mbt","length":12849,"sha256":"5ab7e149371167224bc6ee687e2cf182f3e4cb135daf010d1d9a590c0a2cc956"},
           {"path":"modules/mb-font/font/cff_dict_wbtest.mbt","length":12546,"sha256":"2aedbbe7de3ca86becfff10cf8639da94fd6aa93120647163a234bd4a9a56474"},
-          {"path":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt","length":88065,"sha256":"e8e1d19e624bacb858205fe2eb396e62b68f459750e53a425580f109df2e6a91"},
+          {"path":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt","length":88056,"sha256":"bc979acd9ca2cf3409d116e766b2b240921313795e28d25c3e7bdc3aaf58e923"},
           {"path":"modules/mb-font/font/cff_index_wbtest.mbt","length":2502,"sha256":"de9a109dfccf019788fb8c3fdc08fa118c50f68d892562cf84851c6dd297f004"},
           {"path":"modules/mb-font/font/cff_keying_wbtest.mbt","length":4735,"sha256":"599b30b2b30e68443b41f15d3c0db886c9d5503840f6a5bfae55ff1c37a52159"},
           {"path":"modules/mb-font/font/cff_name_keyed_fixture_wbtest.mbt","length":11274,"sha256":"ae5d5b0a4ac923fbbd1204892a2e99310f5d19eb7d0714733d683603a5841ef0"},
@@ -2456,7 +2456,7 @@
           {"path":"modules/mb-font/font/cff_type2_fixed_wbtest.mbt","length":13747,"sha256":"674e39d6f40bad6f52e86707569c06fdcd850d06991c4cb35e9bbf620cc02239"},
           {"path":"modules/mb-font/font/cff_type2_fixture_wbtest.mbt","length":24331,"sha256":"9a478018b25b0f545e74c1f2dac0fcb47336be4f55dd36573f9019fb508e7efa"},
           {"path":"modules/mb-font/font/cff_type2_path_wbtest.mbt","length":17156,"sha256":"d6f3ea580556b881fcb9537f0b44c5a1f51b390cc1d0e76458d6f731ae619478"},
-          {"path":"modules/mb-font/font/cff_type2_wbtest.mbt","length":8440,"sha256":"e42912734bc73dae73e58cb5fbb9ca0d05a3faf2372ed914c27a8d3a29320dbd"},
+          {"path":"modules/mb-font/font/cff_type2_wbtest.mbt","length":8728,"sha256":"057b8ea12f0ca91feaa3b456640894f344a9aabdfaf71c3701bcd9764ed3d87b"},
           {"path":"modules/mb-font/font/collection_test.mbt","length":100452,"sha256":"62f33692017e8bffad6d871d3d1ff67557b82e74da3b3e62f0bc566437730f48"},
           {"path":"modules/mb-font/font/collection_wbtest.mbt","length":51584,"sha256":"b03f5a58ede55223c0e56e47481a5f27391d00c1fcec129e2bb557225550cab5"},
           {"path":"modules/mb-font/font/font_qualification_hostile_test.mbt","length":52354,"sha256":"1f419c568d95515218292711c356405d7b65fd0efc8c75aa8d1f7671e84777e9"},
@@ -2469,7 +2469,7 @@
         "evidence_sources": [
           {"path":"benchmarks/font-cff/moon.mod.json","length":262,"sha256":"4103bc450bb8dec7708823d8dd60644d08fdd35a0850d826fce82342c940d018"},
           {"path":"benchmarks/font-cff/moon.pkg","length":256,"sha256":"a22026ab3a2d0a6cea938f029f56a511495234bb57fb62ba3fe2ad32d87b9218"},
-          {"path":"benchmarks/font-cff/generated_cff_evidence.mbt","length":26432299,"sha256":"6a9b40e256bdf262da4d5a798f4b303f5dd0ebe5962a82f09ea792bccc2405da"},
+          {"path":"benchmarks/font-cff/generated_cff_evidence.mbt","length":26432302,"sha256":"d533c6f54f6a83e16d6c43527f9f8b73ccd63e15dfab032de57e2af5c397d0fb"},
           {"path":"benchmarks/font-cff/cff_qualification_wbtest.mbt","length":13438,"sha256":"23730b4678e6658c31547a2bb0e2e6f42524aa2e2b56181f161e6d3904602ccc"},
           {"path":"benchmarks/moon.work","length":139,"sha256":"2562fdf6d4dba04d48b32b207764edb6076c1772d0e53ef1e1712e82ebf93895"},
           {"path":"benchmarks/font-cff/cff_runtime_semantics.mbt","length":5792,"sha256":"d7a2f21212bb9ee058ec55797612b2d28bf52eb034df0789176378b7ca56d970"},
@@ -2477,7 +2477,7 @@
         ],
         "fixture_sources": [
           {"path":"fixtures/manifest.json","length":14222,"sha256":"1251a3c02a0ce98898fbab2445214a5a2b4af4319c117d26db34d706b8c0f890"},
-          {"path":"fixtures/font/cff-qualification-cases.json","length":49789,"sha256":"f40e7eb30bc887338bc3cb03f93ae88423deb18dd889a071b631a6efd4cbece4"},
+          {"path":"fixtures/font/cff-qualification-cases.json","length":49792,"sha256":"e6ede29984b048a51837e317796bf3baf5a5cfbb7a226d60502b36c72da1c16b"},
           {"path":"fixtures/font/cff-oracle-tools.json","length":3644,"sha256":"d002025e3d01dca766db6c94f471711ef2997b7d4ef623e0afd3c7e459804349"},
           {"path":"fixtures/font/cff/host-toolchain.lock.json","length":2858,"sha256":"670a357041d61e8315f930e08951de878aca49d92f384824e8f759eeea221bc5"},
           {"path":"fixtures/font/source-sans-3.052r/SourceSans3-Regular.otf","length":334924,"sha256":"08df266400933d3178d081a45f94a08814c3e55b4b7dd2e0ff69cb1329f13ab6"},

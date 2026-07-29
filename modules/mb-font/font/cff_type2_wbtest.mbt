@@ -226,14 +226,24 @@ test "Type 2 width is accepted only in the first legal width position" {
   ).unwrap()
   inspect(move_width.width.unwrap().raw, content="6619136")
 
-  type2_vm_wb_assert_data(
-    type2_vm_wb_run_with(
-      b"\x8d\x8e\x01\x8c\x0e",
-      32768000L,
-      6553600L,
-      0L,
-      type2_vm_wb_limits(65535UL, 65535UL),
-    ),
+  let duplicate_width = type2_vm_wb_run_with(
+    b"\x8d\x8e\x01\x8c\x0e",
+    32768000L,
+    6553600L,
+    0L,
+    type2_vm_wb_limits(65535UL, 65535UL),
+  ).unwrap_err()
+  inspect(
+    duplicate_width.category() == @error.ErrorCategory::Data,
+    content="true",
+  )
+  inspect(
+    duplicate_width.operation() == Some("font-cff-type2"),
+    content="true",
+  )
+  inspect(
+    duplicate_width.context() == Some("font-cff-type2-width-duplicate"),
+    content="true",
   )
 }
 

@@ -1277,6 +1277,11 @@ fn Type2Vm::execute_endchar(self : Type2Vm) -> Result[Unit, @error.CoreError] {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
+  } else if self.stack.length() == 1 {
+    match self.resolve_width(true) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
   }
   if self.stack.length() == 4 {
     return Err(type2_capability_error("font-cff-type2-seac"))
