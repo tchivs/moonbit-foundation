@@ -118,7 +118,7 @@ Each TDD task was committed as RED then GREEN; the exact-payload promotion was o
 
 ## Decisions Made
 
-- Used only the ignored handoff at `artifacts/release-qualification/phase-107/107-01-host-toolchain-handoff.json` with SHA-256 `340e878b488ae3bec90a6b55c380d85cd33673611ce5258c4291d46ffc45dc3e`.
+- Used only the ignored handoff at `artifacts/release-qualification/phase-107/107-01-host-toolchain-handoff.json` with SHA-256 `08731c546b88f29f175d8c1d513d9741ccf1e69b1027241cf6e7e83449fb3bdf`.
 - Kept reader-specific glyph naming and contour-close formatting outside the agreement projection while retaining exact source, mapping, metric, bounds, and geometry equality; complete name/CID keying and FD facts remain separately exact.
 - Preserved upstream authorship/licensing for the four payload/notice files and project authorship/Apache-2.0 only for the two generated qualification documents.
 

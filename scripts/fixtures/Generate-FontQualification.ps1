@@ -50,7 +50,7 @@ $CffAfdkoAdapterPath = Join-Path $RepositoryRoot 'scripts/fixtures/oracles/Invok
 $CffExecutionHandoffRelativePath =
   'artifacts/release-qualification/phase-107/107-01-host-toolchain-handoff.json'
 $CffExecutionHandoffSha256 =
-  '340e878b488ae3bec90a6b55c380d85cd33673611ce5258c4291d46ffc45dc3e'
+  '08731c546b88f29f175d8c1d513d9741ccf1e69b1027241cf6e7e83449fb3bdf'
 $CffExecutionHandoffSchema = 'mnf-phase107-host-toolchain-handoff/1.0.0'
 $CffLicensedRetrievalDate = '2026-07-29'
 $CffLicensedFixtureRoot = Join-Path $RepositoryRoot 'fixtures/font'
@@ -4776,7 +4776,7 @@ function Get-CffArchiveCachePath {
       $bytes = [IO.File]::ReadAllBytes($temporary)
       Assert-ExactBytesIdentity "$($Record.id) archive" $bytes `
         ([long]$Record.archive.length) ([string]$Record.archive.sha256)
-      Move-Item -LiteralPath $temporary -Destination $destination
+      Move-Item -LiteralPath $temporary -Destination $destination -Force
     } finally {
       if (Test-Path -LiteralPath $temporary) {
         Remove-Item -LiteralPath $temporary -Force
@@ -5009,6 +5009,12 @@ function Get-CffReaderAgreementProjection {
     bounds = @($Value.bounds)
     commands = @($Value.commands | Where-Object { $_.op -cne 'Close' })
     cff_profile = $Value.cff_profile
+    keying = $Value.keying
+    ros = $Value.ros
+    fd_count = $Value.fd_count
+    used_fds = @($Value.used_fds)
+    selected_fd = $Value.selected_fd
+    fd_select_format = $Value.fd_select_format
   }
 }
 
@@ -5039,7 +5045,23 @@ function Invoke-CffLicensedOracleAgreement {
       ($right | ConvertTo-Json -Depth 20 -Compress)) {
     throw "Independent licensed CFF semantic readers disagree: $($Record.id)"
   }
+  $expectedRos = if ($Record.profile.keying -ceq 'cid') {
+    @('Adobe', 'Identity', 0)
+  } else {
+    $null
+  }
   if ($fontTools.keying -cne $Record.profile.keying -or
+      $afdko.keying -cne $Record.profile.keying -or
+      [string]($fontTools.ros | ConvertTo-Json -Compress) -cne
+        [string]($expectedRos | ConvertTo-Json -Compress) -or
+      [string]($afdko.ros | ConvertTo-Json -Compress) -cne
+        [string]($expectedRos | ConvertTo-Json -Compress) -or
+      [string]$fontTools.fd_count -cne [string]$Record.profile.fd_count -or
+      [string]$afdko.fd_count -cne [string]$Record.profile.fd_count -or
+      (@($fontTools.used_fds) -join ',') -cne
+        (@($Record.profile.used_fds) -join ',') -or
+      (@($afdko.used_fds) -join ',') -cne
+        (@($Record.profile.used_fds) -join ',') -or
       $fontTools.source_sha256 -cne $Record.member.sha256) {
     throw "Licensed CFF reader profile/source drifted: $($Record.id)"
   }
@@ -5678,14 +5700,22 @@ function Update-OrCheckCffLicensedProvenance {
         $qualificationPresent -contains $false) {
       throw 'Refusing partial licensed CFF provenance publication.'
     }
-    $canonicalManifest = (
-      ($manifest | ConvertTo-Json -Depth 100).Replace("`r`n", "`n") + "`n"
+    $expectedById = @{}
+    foreach ($row in $expectedManifest) {
+      $expectedById[[string]$row.id] = $row
+    }
+    $manifest.records = @(
+      foreach ($row in @($manifest.records)) {
+        if ($expectedById.ContainsKey([string]$row.id)) {
+          $expectedById[[string]$row.id]
+        } else {
+          $row
+        }
+      }
     )
-    [IO.File]::WriteAllText($ManifestPath, $canonicalManifest, $Utf8NoBom)
-    Update-OrCheckCffLicensedProvenance -CheckOnly
-    return
+  } else {
+    $manifest.records = @($manifest.records) + $expectedManifest
   }
-  $manifest.records = @($manifest.records) + $expectedManifest
   $manifestText = (
     ($manifest | ConvertTo-Json -Depth 100).Replace("`r`n", "`n") + "`n"
   )
@@ -5709,7 +5739,7 @@ function Update-OrCheckCffLicensedProvenance {
     $temporaryFiles.Add($manifestTemporary)
     foreach ($temporary in @($temporaryFiles | Select-Object -SkipLast 1)) {
       $destination = $temporary.Substring(0, $temporary.Length - (5 + $transaction.Length))
-      Move-Item -LiteralPath $temporary -Destination $destination
+      Move-Item -LiteralPath $temporary -Destination $destination -Force
       $published.Add($destination)
     }
     Move-Item -LiteralPath $manifestTemporary -Destination $ManifestPath -Force

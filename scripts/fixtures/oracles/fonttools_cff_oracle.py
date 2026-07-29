@@ -78,7 +78,21 @@ def main() -> int:
         bounds = [_number(value) for value in bounds_pen.bounds]
 
     top_dict = font["CFF "].cff.topDictIndex[0]
-    keying = "cid" if getattr(top_dict, "ROS", None) else "name"
+    ros_value = getattr(top_dict, "ROS", None)
+    ros = list(ros_value) if ros_value else None
+    keying = "cid" if ros else "name"
+    if ros:
+        fd_array = list(top_dict.FDArray)
+        fd_select = list(top_dict.FDSelect.gidArray)
+        fd_count: int | None = len(fd_array)
+        used_fds = sorted(set(fd_select))
+        selected_fd: int | None = int(fd_select[gid])
+        fd_select_format: int | None = int(top_dict.FDSelect.format)
+    else:
+        fd_count = None
+        used_fds = []
+        selected_fd = None
+        fd_select_format = None
     source = font_path.read_bytes()
     result = {
         "schema": "cff-semantic-reader/1.0.0",
@@ -93,6 +107,11 @@ def main() -> int:
         "commands": commands,
         "cff_profile": "CFF1",
         "keying": keying,
+        "ros": ros,
+        "fd_count": fd_count,
+        "used_fds": used_fds,
+        "selected_fd": selected_fd,
+        "fd_select_format": fd_select_format,
         "reader": "fonttools",
         "reader_version": fonttools_version,
     }

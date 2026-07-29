@@ -244,14 +244,43 @@
           ]
         }
       ],
-      "cff_profile": "CFF1"
+      "cff_profile": "CFF1",
+      "keying": "cid",
+      "ros": [
+        "Adobe",
+        "Identity",
+        0
+      ],
+      "fd_count": 18,
+      "used_fds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "selected_fd": 14,
+      "fd_select_format": 3
     },
     "readers": [
       {
         "id": "fonttools",
         "version": "4.63.0",
         "package_sha256": "59ac449f8cca9b4ffa08d2e7bbadad87ce710d69d1eda5c3c1ce579baa987272",
-        "adapter_sha256": "3b9078807826b77437b8472a84012591d3203174b7cc644abff3234a47fd31eb",
+        "adapter_sha256": "56fb015bf2a424056134a3ca1c8610821972009938ed36585f8c8073a5f49179",
         "invoked_identities": [
           {
             "id": "runtime.cpython",
@@ -259,7 +288,7 @@
           },
           {
             "id": "fonttools-adapter",
-            "sha256": "3b9078807826b77437b8472a84012591d3203174b7cc644abff3234a47fd31eb"
+            "sha256": "56fb015bf2a424056134a3ca1c8610821972009938ed36585f8c8073a5f49179"
           }
         ],
         "projection": {
@@ -422,6 +451,34 @@
           ],
           "cff_profile": "CFF1",
           "keying": "cid",
+          "ros": [
+            "Adobe",
+            "Identity",
+            0
+          ],
+          "fd_count": 18,
+          "used_fds": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17
+          ],
+          "selected_fd": 14,
+          "fd_select_format": 3,
           "reader": "fonttools",
           "reader_version": "4.63.0"
         }
@@ -430,7 +487,7 @@
         "id": "afdko",
         "version": "5.0.1",
         "package_sha256": "c5aca7e9c8ed8ad3f411ba9e60cdcc5e820ca2326efc8332168fec995600c15a",
-        "adapter_sha256": "9bca4f8daa0e3eea94c814f62acd1489c17ff1e645e5d7eadad16cf49cc134d3",
+        "adapter_sha256": "94fa3cda6068e8a48a2a43f781cc35fe0ff7054bd9ea8cb9751b5e1ce245b134",
         "invoked_identities": [
           {
             "id": "runtime.cpython",
@@ -438,7 +495,7 @@
           },
           {
             "id": "afdko-adapter",
-            "sha256": "9bca4f8daa0e3eea94c814f62acd1489c17ff1e645e5d7eadad16cf49cc134d3"
+            "sha256": "94fa3cda6068e8a48a2a43f781cc35fe0ff7054bd9ea8cb9751b5e1ce245b134"
           },
           {
             "id": "tx-runner",
@@ -600,7 +657,35 @@
             }
           ],
           "cff_profile": "CFF1",
-          "keying": "name",
+          "keying": "cid",
+          "ros": [
+            "Adobe",
+            "Identity",
+            0
+          ],
+          "fd_count": 18,
+          "used_fds": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17
+          ],
+          "selected_fd": 14,
+          "fd_select_format": 3,
           "reader": "afdko",
           "reader_version": "5.0.1"
         }
@@ -616,11 +701,11 @@
   },
   "host_chain": {
     "handoff_schema": "mnf-phase107-host-toolchain-handoff/1.0.0",
-    "handoff_sha256": "340e878b488ae3bec90a6b55c380d85cd33673611ce5258c4291d46ffc45dc3e",
+    "handoff_sha256": "08731c546b88f29f175d8c1d513d9741ccf1e69b1027241cf6e7e83449fb3bdf",
     "manifest_sha256": "6ff664ca0e03ae75388947a6dd4a80626d11cf61198ef2934d5808ef908ceaa9",
     "lock_sha256": "670a357041d61e8315f930e08951de878aca49d92f384824e8f759eeea221bc5",
     "sdk_inventory_sha256": "d4dcf1d9d1fae39bcd4f6e1daea4cea5e49d4a4da26b8d6fa1c0c6bef7f20e50",
-    "invoked_identities_sha256": "5da3a3c6f295930a80eb14698d2a9ffc96fc35e4ed9f4326f460436cae79a4ca",
+    "invoked_identities_sha256": "2a32df8fc925871c81776d0a21c19ad8a7d6352eacb2d8a8053ac8dcaf22307d",
     "preflight_validated": true,
     "provisioning_validated": true
   }

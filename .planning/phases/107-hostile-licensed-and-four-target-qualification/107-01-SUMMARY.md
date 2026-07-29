@@ -115,12 +115,12 @@ Each TDD task was committed atomically as RED then GREEN:
 ## Execution handoff
 
 - **Path:** `artifacts/release-qualification/phase-107/107-01-host-toolchain-handoff.json`
-- **SHA-256:** `340e878b488ae3bec90a6b55c380d85cd33673611ce5258c4291d46ffc45dc3e`
+- **SHA-256:** `08731c546b88f29f175d8c1d513d9741ccf1e69b1027241cf6e7e83449fb3bdf`
 - **Schema:** `mnf-phase107-host-toolchain-handoff/1.0.0`
 - **Caller manifest SHA-256:** `6ff664ca0e03ae75388947a6dd4a80626d11cf61198ef2934d5808ef908ceaa9`
 - **Lock SHA-256:** `670a357041d61e8315f930e08951de878aca49d92f384824e8f759eeea221bc5`
 - **SDK inventory SHA-256:** `d4dcf1d9d1fae39bcd4f6e1daea4cea5e49d4a4da26b8d6fa1c0c6bef7f20e50`
-- **Invoked identities SHA-256:** `5da3a3c6f295930a80eb14698d2a9ffc96fc35e4ed9f4326f460436cae79a4ca`
+- **Invoked identities SHA-256:** `2a32df8fc925871c81776d0a21c19ad8a7d6352eacb2d8a8053ac8dcaf22307d`
 - **Provisioned tools root:** `D:\AI-Data\temp\Admin\mnf-cff-host-feedback-f8a889ccef664ab586c39652e6bdb228`
 - **provisioning_validated:** `true`
 
