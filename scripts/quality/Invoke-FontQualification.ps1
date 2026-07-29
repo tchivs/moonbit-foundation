@@ -1940,13 +1940,13 @@ function Invoke-FontQualification {
 
   Push-Location $RepositoryRoot
   try {
+    & ./scripts/fixtures/Generate-FontQualification.ps1 -Check
+    if (-not $?) {
+      throw 'Font qualification generator and private evidence gate failed.'
+    }
     if ($ContractOnly) {
       Invoke-FontQualificationContractNegatives
       return
-    }
-    & ./scripts/fixtures/Generate-FontQualification.ps1 -Check
-    if (-not $?) {
-      throw 'Font qualification generator check failed.'
     }
     if (-not $TracerOnly) {
       . ./scripts/quality/Assert-Policy.ps1

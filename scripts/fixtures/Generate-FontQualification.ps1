@@ -4343,7 +4343,7 @@ function Assert-CffPrivateRegion {
   $beginCount = ([regex]::Matches($text, [regex]::Escape($begin))).Count
   $endCount = ([regex]::Matches($text, [regex]::Escape($end))).Count
   if ($beginCount -eq 0 -and $endCount -eq 0) {
-    return
+    throw "Private evidence region is missing from $Path."
   }
   if ($beginCount -ne 1 -or $endCount -ne 1) {
     throw "Private evidence region markers are missing or duplicated in $Path."
@@ -4413,7 +4413,7 @@ function Assert-CffPrivateOracleFacts {
   Write-Host 'CFF private FD/oracle facts are canonical and region-exact.'
 }
 
-function Assert-CffPrivateEvidenceMirrors {
+function Get-CffPrivateEvidenceMirrorRows {
   $inputs = Get-CffEvidenceInputs
   $rows = @(
     foreach ($group in @($inputs.cases.hostile_groups)) {
@@ -4426,29 +4426,132 @@ function Assert-CffPrivateEvidenceMirrors {
       }
     }
   )
+  if ($rows.Count -ne 53) {
+    throw "CFF private hostile mirror count drifted: $($rows.Count)."
+  }
+  return @($rows)
+}
+
+function Assert-CffPrivateEvidenceMirrors {
+  $rows = @(Get-CffPrivateEvidenceMirrorRows)
   Assert-CffPrivateRegion `
     -Path (Join-Path $RepositoryRoot 'modules/mb-font/font/cff_hostile_fixture_wbtest.mbt') `
     -Marker 'font-cff1-v3 private hostile' `
     -ExpectedRows $rows
-  if ($rows.Count -ne 53) {
-    throw "CFF private hostile mirror count drifted: $($rows.Count)."
-  }
   Write-Host 'CFF private hostile/mutation/B8 mirror facts are canonical and region-exact.'
 }
 
-function Set-CffPrivateEvidenceMirrors {
+function Invoke-CffPrivateEvidenceMirrorNegatives {
   $inputs = Get-CffEvidenceInputs
-  $rows = @(
-    foreach ($group in @($inputs.cases.hostile_groups)) {
-      foreach ($row in @($group.rows)) {
-        Assert-CffQualificationSourceLocator ([string]$row.source) "CFF hostile row $($row.id)"
-        '// hostile ' + (
-          [ordered]@{ group = [string]$group.id; row = $row } |
-            ConvertTo-Json -Compress -Depth 100
+  $first = @($inputs.cases.hostile_groups)[0].rows[0]
+  if ([string]$first.source -cnotmatch '^(.+\.mbt):([0-9]+):(.+)$') {
+    throw 'Private mirror negative probe source locator is malformed.'
+  }
+  $staleLocator = '{0}:{1}:{2}' -f $Matches[1], ([int]$Matches[2] + 1), $Matches[3]
+  $locatorRejected = $false
+  try {
+    Assert-CffQualificationSourceLocator $staleLocator 'stale locator negative probe'
+  } catch {
+    $locatorRejected = $_.Exception.Message -clike '*source assertion locator drifted*'
+  }
+  if (-not $locatorRejected) {
+    throw 'Official private evidence gate accepted a stale source locator.'
+  }
+
+  $rows = @(Get-CffPrivateEvidenceMirrorRows)
+  $sourcePath = Join-Path $RepositoryRoot 'modules/mb-font/font/cff_hostile_fixture_wbtest.mbt'
+  $temporaryPath = Join-Path ([IO.Path]::GetTempPath()) (
+    'mnf-cff-private-mirror-negative-' + [Guid]::NewGuid().ToString('N') + '.mbt'
+  )
+  try {
+    $text = [IO.File]::ReadAllText($sourcePath, $Utf8NoBom).Replace("`r`n", "`n")
+    if (-not $text.Contains($rows[0], [StringComparison]::Ordinal)) {
+      throw 'Private mirror negative probe could not find its canonical row.'
+    }
+    $tampered = $text.Replace(
+      $rows[0],
+      $rows[0].Replace('"publication":"none"', '"publication":"drift"'),
+      [StringComparison]::Ordinal
+    )
+    [IO.File]::WriteAllText($temporaryPath, $tampered, $Utf8NoBom)
+    $mirrorRejected = $false
+    try {
+      Assert-CffPrivateRegion `
+        -Path $temporaryPath `
+        -Marker 'font-cff1-v3 private hostile' `
+        -ExpectedRows $rows
+    } catch {
+      $mirrorRejected = $_.Exception.Message -clike '*Private evidence region drifted*'
+    }
+    if (-not $mirrorRejected) {
+      throw 'Official private evidence gate accepted a one-field mirror drift.'
+    }
+  } finally {
+    if (Test-Path -LiteralPath $temporaryPath) {
+      Remove-Item -LiteralPath $temporaryPath -Force
+    }
+  }
+  Write-Host 'CFF private locator and one-field mirror negative probes passed.'
+}
+
+function Set-CffQualificationSourceLocators {
+  $text = [IO.File]::ReadAllText(
+    $CffQualificationCasesPath,
+    $Utf8NoBom
+  ).Replace("`r`n", "`n")
+  $document = $text |
+    ConvertFrom-Json -Depth 100
+  $rowCount = 0
+  foreach ($group in @($document.hostile_groups)) {
+    foreach ($row in @($group.rows)) {
+      $rowCount++
+      $locator = [string]$row.source
+      if ($locator -cnotmatch '^(.+\.mbt):([0-9]+):(.+)$') {
+        throw "CFF hostile row $($row.id) source locator is not exact."
+      }
+      $relativePath = [string]$Matches[1]
+      $testName = [string]$Matches[3]
+      $path = Join-Path $RepositoryRoot $relativePath
+      if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "CFF hostile row $($row.id) source file is missing."
+      }
+      $lines = @(Get-Content -LiteralPath $path)
+      $matchingLines = @(
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+          if ($lines[$index].Trim() -ceq "test `"$testName`" {") {
+            $index + 1
+          }
+        }
+      )
+      if ($matchingLines.Count -ne 1) {
+        throw "CFF hostile row $($row.id) source assertion is missing or duplicated."
+      }
+      $updated = "$relativePath`:$($matchingLines[0])`:$testName"
+      if ($text.Contains($locator, [StringComparison]::Ordinal)) {
+        $text = $text.Replace(
+          $locator,
+          $updated,
+          [StringComparison]::Ordinal
         )
+      } elseif (-not $text.Contains($updated, [StringComparison]::Ordinal)) {
+        throw "CFF hostile row $($row.id) source locator text is missing."
       }
     }
+  }
+  if ($rowCount -ne 53) {
+    throw "CFF hostile source locator count drifted: $rowCount."
+  }
+  [IO.File]::WriteAllText(
+    $CffQualificationCasesPath,
+    ($text.TrimEnd("`n") + "`n"),
+    $Utf8NoBom
   )
+  Write-Host 'CFF hostile source locators refreshed from exact test declarations.'
+}
+
+function Set-CffPrivateEvidenceMirrors {
+  Set-CffQualificationSourceLocators
+  $rows = @(Get-CffPrivateEvidenceMirrorRows)
   $path = Join-Path $RepositoryRoot 'modules/mb-font/font/cff_hostile_fixture_wbtest.mbt'
   $text = [IO.File]::ReadAllText($path, $Utf8NoBom).Replace("`r`n", "`n")
   $marker = 'font-cff1-v3 private hostile'
@@ -6735,6 +6838,8 @@ Update-OrCheckFontCollectionArtifacts `
 $collectionCasesDocument = Read-FontCollectionQualificationCases
 Update-OrCheckFontCollectionManifest -CheckOnly:$Check
 if ($Check) {
+  Assert-CffPrivateEvidenceMirrors
+  Invoke-CffPrivateEvidenceMirrorNegatives
   Update-OrCheckCasesManifest -CheckOnly
   Write-FontQualificationGeneratedSource `
     -FontBytes $fontBytes `
