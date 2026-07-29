@@ -11,6 +11,24 @@ pub struct FontShapeScope {
 }
 
 ///|
+priv struct FontShapeTransactionProbes {
+  post_structure : () -> Unit
+  post_capability : () -> Unit
+  post_complete_staging : () -> Unit
+  before_final_guard : () -> Unit
+}
+
+///|
+fn font_shape_transaction_noop_probes() -> FontShapeTransactionProbes {
+  FontShapeTransactionProbes::{
+    post_structure: fn() { () },
+    post_capability: fn() { () },
+    post_complete_staging: fn() { () },
+    before_final_guard: fn() { () },
+  }
+}
+
+///|
 fn font_shape_scope_closed_error() -> @error.CoreError {
   @error.CoreError::new(
     @error.ErrorCategory::State,
@@ -58,19 +76,49 @@ pub fn[T] Font::with_shape_transaction(
     @error.CoreError,
   ],
 ) -> Result[T, @error.CoreError] {
+  self.with_shape_transaction_probes(
+    budget,
+    @budget.ResourceCharge::none(),
+    font_shape_transaction_noop_probes(),
+    body,
+  )
+}
+
+///|
+fn[T] Font::with_shape_transaction_probes(
+  self : Font,
+  budget : @budget.Budget,
+  font_charge : @budget.ResourceCharge,
+  probes : FontShapeTransactionProbes,
+  body : (FontShapeScope) -> Result[
+    (T, @budget.ResourceCharge),
+    @error.CoreError,
+  ],
+) -> Result[T, @error.CoreError] {
   match self.require_revision("font-shape-transaction") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let scope = FontShapeScope::{
-    font: self,
-    active: true,
-    font_charge: @budget.ResourceCharge::none(),
-  }
+  let scope = FontShapeScope::{ font: self, active: true, font_charge }
   defer scope.close()
+  (probes.post_structure)()
+  match self.require_revision("font-shape-transaction") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  (probes.post_capability)()
+  match self.require_revision("font-shape-transaction") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let (value, text_charge) = match body(scope) {
     Err(error) => return Err(error)
     Ok(staged) => staged
+  }
+  (probes.post_complete_staging)()
+  match self.require_revision("font-shape-transaction") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   let combined = match scope.font_charge.checked_add(text_charge) {
     Err(error) => return Err(error)
@@ -80,6 +128,7 @@ pub fn[T] Font::with_shape_transaction(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  (probes.before_final_guard)()
   match self.require_revision("font-shape-transaction") {
     Err(error) => return Err(error)
     Ok(_) => ()

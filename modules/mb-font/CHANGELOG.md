@@ -90,6 +90,15 @@ Compatibility status: candidate. No stable API or public release is claimed.
 - A separate observation-only native baseline owned by Wave 6, without a
   threshold, comparison, verdict, ranking, superiority, release, or stability
   claim.
+- Opaque `GlyphId` values now retain private physical `Font` ownership, so
+  aliases of one font remain compatible while distinct same-range fonts fail
+  before glyph table or budget work.
+- Additive `Font::with_shape_transaction[T]` request authority with the exact
+  generic tuple callback, checked combined charge, whole-hierarchy preflight,
+  final retained-source guard, and sole budget commit. A scope may nominally
+  escape through generic `T` or closure capture, but shared runtime
+  invalidation makes every later operation fail as closed; no static lifetime
+  enforcement is claimed.
 
 ### Fixed
 

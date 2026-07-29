@@ -4283,7 +4283,7 @@ fn font_test_assert_glyph_owner_error(
 
 ///|
 test "same-range glyph authority accepts aliases and rejects distinct Fonts before work" {
-  let source = font_test_horizontal_metric_truetype()
+  let source = font_test_minimal_truetype()
   let first_owner = font_test_owner(source)
   let first = Font::open(
     first_owner.view(),

@@ -55,11 +55,12 @@ pub struct FontLineMetrics {
 }
 
 ///|
-/// An opaque glyph identity admitted by `Font::glyph_id`.
+/// An opaque glyph identity admitted by one physical `Font`.
 ///
-/// A receiving `Font` still validates the numeric value because an identifier
-/// may have originated from a different font.
+/// The private owner binding rejects numerically valid identifiers from every
+/// distinct font before range checks or table access.
 pub struct GlyphId {
+  priv owner : Font
   priv value_value : UInt64
 }
 
@@ -567,6 +568,29 @@ fn font_glyph_id_error(
 }
 
 ///|
+fn font_glyph_owner_error(operation : String) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::InvalidInput,
+    @error.ErrorCode::InvalidRange,
+    operation~,
+    context="font-glyph-owner",
+  )
+}
+
+///|
+fn Font::require_glyph_owner(
+  self : Font,
+  glyph : GlyphId,
+  operation : String,
+) -> Result[Unit, @error.CoreError] {
+  if physical_equal(self, glyph.owner) {
+    Ok(())
+  } else {
+    Err(font_glyph_owner_error(operation))
+  }
+}
+
+///|
 fn font_unicode_scalar_error() -> @error.CoreError {
   @error.CoreError::new(
     @error.ErrorCategory::InvalidInput,
@@ -612,7 +636,7 @@ fn Font::glyph_for_scalar_after_lookup(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  Ok({ value_value: value })
+  Ok(GlyphId::{ owner: self, value_value: value })
 }
 
 ///|
@@ -631,7 +655,7 @@ pub fn Font::glyph_id(
       font_glyph_id_error("font-glyph-id", value, num_glyphs),
     )
   } else {
-    Ok({ value_value: value })
+    Ok(GlyphId::{ owner: self, value_value: value })
   }
 }
 
@@ -646,6 +670,10 @@ pub fn Font::horizontal_metrics(
   glyph : GlyphId,
 ) -> Result[GlyphHorizontalMetrics, @error.CoreError] {
   match self.require_revision("font-query") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match self.require_glyph_owner(glyph, "font-horizontal-metrics") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -712,6 +740,14 @@ fn Font::kerning_after_lookup(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  match self.require_glyph_owner(left, "font-kerning") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match self.require_glyph_owner(right, "font-kerning") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let num_glyphs = self.num_glyphs()
   if left.value_value >= num_glyphs {
     return Err(
@@ -765,6 +801,10 @@ fn Font::outline_after_decode(
   after_decode : () -> Unit,
 ) -> Result[@math.Path2, @error.CoreError] {
   match self.require_revision("font-outline") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match self.require_glyph_owner(glyph, "font-outline") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }

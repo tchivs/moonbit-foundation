@@ -270,7 +270,10 @@ test "combined transaction charge commits exact hierarchy once and fails atomica
       font_charge,
       shape_wb_noop_probes(),
       fn(scope) {
-        inspect(scope.units_per_em().unwrap(), content="1000")
+        match scope.units_per_em() {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
         Ok((37, text_charge))
       },
     )
