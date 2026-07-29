@@ -2446,6 +2446,20 @@ function Write-U32BE {
   $Bytes[$Offset + 3] = [byte]($Value -band 0xFF)
 }
 
+function Write-U16BE {
+  param(
+    [Parameter(Mandatory)][byte[]]$Bytes,
+    [Parameter(Mandatory)][int]$Offset,
+    [Parameter(Mandatory)][uint64]$Value
+  )
+  if ($Offset -lt 0 -or $Offset + 2 -gt $Bytes.Length -or
+      $Value -gt [uint16]::MaxValue) {
+    throw "Oracle u16 write range or value is invalid at $Offset."
+  }
+  $Bytes[$Offset] = [byte](($Value -shr 8) -band 0xFF)
+  $Bytes[$Offset + 1] = [byte]($Value -band 0xFF)
+}
+
 function New-FontQualificationDejaVuTtc {
   param([Parameter(Mandatory)][byte[]]$FontBytes)
 
@@ -3493,6 +3507,458 @@ function Get-CffEvidenceInputs {
   return [ordered]@{ cases = $cases; licensed = $licensed }
 }
 
+function ConvertTo-CffEvidenceClosedPath {
+  param(
+    [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Commands
+  )
+  $closed = [Collections.Generic.List[object]]::new()
+  $contourOpen = $false
+  foreach ($command in $Commands) {
+    $op = [string]$command.op
+    if ($op -ceq 'MoveTo' -and $contourOpen) {
+      $closed.Add([ordered]@{ op = 'Close'; points = @() })
+      $contourOpen = $false
+    }
+    $closed.Add($command)
+    if ($op -ceq 'MoveTo') {
+      $contourOpen = $true
+    } elseif ($op -ceq 'Close') {
+      $contourOpen = $false
+    }
+  }
+  if ($contourOpen) {
+    $closed.Add([ordered]@{ op = 'Close'; points = @() })
+  }
+  return @($closed)
+}
+
+function Add-CffEvidenceU16 {
+  param(
+    [Parameter(Mandatory)][AllowEmptyCollection()]
+    [Collections.Generic.List[byte]]$Output,
+    [Parameter(Mandatory)][uint64]$Value
+  )
+  if ($Value -gt [uint16]::MaxValue) {
+    throw "CFF evidence u16 value exceeds range: $Value"
+  }
+  $Output.Add([byte](($Value -shr 8) -band 0xFF))
+  $Output.Add([byte]($Value -band 0xFF))
+}
+
+function Add-CffEvidenceU32 {
+  param(
+    [Parameter(Mandatory)][AllowEmptyCollection()]
+    [Collections.Generic.List[byte]]$Output,
+    [Parameter(Mandatory)][uint64]$Value
+  )
+  if ($Value -gt [uint32]::MaxValue) {
+    throw "CFF evidence u32 value exceeds range: $Value"
+  }
+  $Output.Add([byte](($Value -shr 24) -band 0xFF))
+  $Output.Add([byte](($Value -shr 16) -band 0xFF))
+  $Output.Add([byte](($Value -shr 8) -band 0xFF))
+  $Output.Add([byte]($Value -band 0xFF))
+}
+
+function Add-CffEvidenceBytes {
+  param(
+    [Parameter(Mandatory)][AllowEmptyCollection()]
+    [Collections.Generic.List[byte]]$Output,
+    [Parameter(Mandatory)][AllowEmptyCollection()][byte[]]$Bytes
+  )
+  foreach ($byte in $Bytes) {
+    $Output.Add($byte)
+  }
+}
+
+function New-CffEvidenceIndex {
+  param(
+    [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Objects
+  )
+  $output = [Collections.Generic.List[byte]]::new()
+  Add-CffEvidenceU16 $output $Objects.Count
+  if ($Objects.Count -eq 0) {
+    return ,([byte[]]$output.ToArray())
+  }
+  $next = 1
+  $offsets = [Collections.Generic.List[int]]::new()
+  $offsets.Add($next)
+  foreach ($object in $Objects) {
+    $bytes = [byte[]]$object
+    $next += $bytes.Length
+    if ($next -gt 255) {
+      throw 'CFF evidence INDEX exceeds the canonical one-byte offset envelope.'
+    }
+    $offsets.Add($next)
+  }
+  $output.Add([byte]1)
+  foreach ($offset in $offsets) {
+    $output.Add([byte]$offset)
+  }
+  foreach ($object in $Objects) {
+    Add-CffEvidenceBytes $output ([byte[]]$object)
+  }
+  return ,([byte[]]$output.ToArray())
+}
+
+function Add-CffEvidenceDictU32 {
+  param(
+    [Parameter(Mandatory)][AllowEmptyCollection()]
+    [Collections.Generic.List[byte]]$Output,
+    [Parameter(Mandatory)][uint64]$Value
+  )
+  $Output.Add([byte]0x1D)
+  Add-CffEvidenceU32 $Output $Value
+}
+
+function New-CffEvidenceCidTopDict {
+  param(
+    [Parameter(Mandatory)][uint64]$Charset,
+    [Parameter(Mandatory)][uint64]$CharStrings,
+    [Parameter(Mandatory)][uint64]$FdArray,
+    [Parameter(Mandatory)][uint64]$FdSelect
+  )
+  $output = [Collections.Generic.List[byte]]::new()
+  Add-CffEvidenceDictU32 $output $Charset
+  $output.Add([byte]0x0F)
+  foreach ($value in 1UL, 2UL, 2UL) {
+    Add-CffEvidenceDictU32 $output $value
+  }
+  $output.Add([byte]0x0C)
+  $output.Add([byte]0x1E)
+  Add-CffEvidenceDictU32 $output $CharStrings
+  $output.Add([byte]0x11)
+  Add-CffEvidenceDictU32 $output $FdArray
+  $output.Add([byte]0x0C)
+  $output.Add([byte]0x24)
+  Add-CffEvidenceDictU32 $output $FdSelect
+  $output.Add([byte]0x0C)
+  $output.Add([byte]0x25)
+  return ,([byte[]]$output.ToArray())
+}
+
+function New-CffEvidenceCidFontDict {
+  param(
+    [Parameter(Mandatory)][uint64]$PrivateOffset,
+    [Parameter(Mandatory)][bool]$CustomMatrix
+  )
+  $output = [Collections.Generic.List[byte]]::new()
+  Add-CffEvidenceDictU32 $output 2UL
+  Add-CffEvidenceDictU32 $output $PrivateOffset
+  $output.Add([byte]0x12)
+  if ($CustomMatrix) {
+    foreach ($value in 2UL, 0UL, 0UL, 2UL, 0UL, 0UL) {
+      Add-CffEvidenceDictU32 $output $value
+    }
+    $output.Add([byte]0x0C)
+    $output.Add([byte]0x07)
+  }
+  return ,([byte[]]$output.ToArray())
+}
+
+function New-CffEvidenceCidTable {
+  $header = [byte[]](0x01, 0x00, 0x04, 0x04)
+  $nameObjects = [Collections.Generic.List[object]]::new()
+  $nameObjects.Add([byte[]][Text.Encoding]::ASCII.GetBytes('CID'))
+  $name = New-CffEvidenceIndex $nameObjects.ToArray()
+  $strings = New-CffEvidenceIndex ([object[]]::new(0))
+  $globalSubrs = New-CffEvidenceIndex ([object[]]::new(0))
+  $cidProgram = [byte[]](
+    0xB8, 0x8B, 0x15,
+    0xD6, 0x1C, 0x01, 0x5E, 0x05,
+    0xB3, 0xA9, 0xD1, 0x8B, 0xD6, 0x1C, 0xFE, 0x84, 0x08,
+    0x0E
+  )
+  $charStringObjects = [Collections.Generic.List[object]]::new()
+  $charStringObjects.Add([byte[]](0x0E))
+  $charStringObjects.Add([byte[]](0x0E))
+  $charStringObjects.Add($cidProgram)
+  $charStrings = New-CffEvidenceIndex $charStringObjects.ToArray()
+  $charset = [byte[]](0x00, 0x00, 0x64, 0x00, 0x65)
+  $fdSelect = [byte[]](0x00, 0x00, 0x00, 0x01)
+  $placeholderTop = New-CffEvidenceCidTopDict 0UL 0UL 0UL 0UL
+  $placeholderTopObjects = [Collections.Generic.List[object]]::new()
+  $placeholderTopObjects.Add($placeholderTop)
+  $placeholderTopIndex = New-CffEvidenceIndex $placeholderTopObjects.ToArray()
+  $afterGlobal = $header.Length + $name.Length + $placeholderTopIndex.Length +
+    $strings.Length + $globalSubrs.Length
+  $charStringsOffset = $afterGlobal
+  $charsetOffset = $charStringsOffset + $charStrings.Length
+  $fdSelectOffset = $charsetOffset + $charset.Length
+  $fdArrayOffset = $fdSelectOffset + $fdSelect.Length
+  $placeholderFdObjects = [Collections.Generic.List[object]]::new()
+  $placeholderFdObjects.Add((New-CffEvidenceCidFontDict 0UL $false))
+  $placeholderFdObjects.Add((New-CffEvidenceCidFontDict 0UL $true))
+  $placeholderFdArray = New-CffEvidenceIndex $placeholderFdObjects.ToArray()
+  $privateZeroOffset = $fdArrayOffset + $placeholderFdArray.Length
+  $privateOneOffset = $privateZeroOffset + 4
+  $fdObjects = [Collections.Generic.List[object]]::new()
+  $fdObjects.Add((New-CffEvidenceCidFontDict $privateZeroOffset $false))
+  $fdObjects.Add((New-CffEvidenceCidFontDict $privateOneOffset $true))
+  $fdArray = New-CffEvidenceIndex $fdObjects.ToArray()
+  $top = New-CffEvidenceCidTopDict `
+    $charsetOffset $charStringsOffset $fdArrayOffset $fdSelectOffset
+  $topObjects = [Collections.Generic.List[object]]::new()
+  $topObjects.Add($top)
+  $topIndex = New-CffEvidenceIndex $topObjects.ToArray()
+  $output = [Collections.Generic.List[byte]]::new()
+  foreach ($part in @(
+      $header, $name, $topIndex, $strings, $globalSubrs, $charStrings,
+      $charset, $fdSelect, $fdArray,
+      [byte[]](0x8D, 0x13, 0x00, 0x00),
+      [byte[]](0x8D, 0x13, 0x00, 0x00)
+    )) {
+    Add-CffEvidenceBytes $output ([byte[]]$part)
+  }
+  return ,([byte[]]$output.ToArray())
+}
+
+function New-CffEvidenceCmap {
+  param(
+    [Parameter(Mandatory)][uint64]$Scalar,
+    [Parameter(Mandatory)][uint64]$Gid
+  )
+  $output = [byte[]]::new(40)
+  Write-U16BE $output 0 0UL
+  Write-U16BE $output 2 1UL
+  Write-U16BE $output 4 3UL
+  Write-U16BE $output 6 10UL
+  Write-U32BE $output 8 12UL
+  Write-U16BE $output 12 12UL
+  Write-U16BE $output 14 0UL
+  Write-U32BE $output 16 28UL
+  Write-U32BE $output 20 0UL
+  Write-U32BE $output 24 1UL
+  Write-U32BE $output 28 $Scalar
+  Write-U32BE $output 32 $Scalar
+  Write-U32BE $output 36 $Gid
+  return ,$output
+}
+
+function New-CffEvidenceHmtx {
+  param(
+    [Parameter(Mandatory)][object[]]$Metrics
+  )
+  $output = [byte[]]::new($Metrics.Count * 4)
+  for ($index = 0; $index -lt $Metrics.Count; $index++) {
+    Write-U16BE $output ($index * 4) ([uint64]$Metrics[$index][0])
+    $lsb = [int]$Metrics[$index][1]
+    Write-U16BE $output ($index * 4 + 2) ([uint16]$lsb)
+  }
+  return ,$output
+}
+
+function New-CffEvidenceKern {
+  param(
+    [Parameter(Mandatory)][uint64]$Left,
+    [Parameter(Mandatory)][uint64]$Right,
+    [Parameter(Mandatory)][int]$Value
+  )
+  if ($Value -lt [int16]::MinValue -or $Value -gt [int16]::MaxValue) {
+    throw "CFF evidence kern value exceeds range: $Value"
+  }
+  $output = [byte[]]::new(24)
+  Write-U16BE $output 0 0UL
+  Write-U16BE $output 2 1UL
+  Write-U16BE $output 4 0UL
+  Write-U16BE $output 6 20UL
+  Write-U16BE $output 8 1UL
+  Write-U16BE $output 10 1UL
+  Write-U16BE $output 12 6UL
+  Write-U16BE $output 14 0UL
+  Write-U16BE $output 16 0UL
+  Write-U16BE $output 18 $Left
+  Write-U16BE $output 20 $Right
+  Write-U16BE $output 22 ([uint64]($Value -band 0xFFFF))
+  return ,$output
+}
+
+function Get-CffEvidenceSfntRecords {
+  param([Parameter(Mandatory)][byte[]]$Bytes)
+  $count = [int](Read-U16BE $Bytes 4)
+  $records = [Collections.Generic.List[object]]::new()
+  for ($index = 0; $index -lt $count; $index++) {
+    $recordOffset = 12 + $index * 16
+    $tag = [Text.Encoding]::ASCII.GetString($Bytes, $recordOffset, 4)
+    $offset = [int](Read-U32BE $Bytes ($recordOffset + 8))
+    $length = [int](Read-U32BE $Bytes ($recordOffset + 12))
+    if ($offset -lt 0 -or $length -lt 0 -or $offset + $length -gt $Bytes.Length) {
+      throw "CFF evidence SFNT table '$tag' exceeds source."
+    }
+    $table = [byte[]]::new($length)
+    [Array]::Copy($Bytes, $offset, $table, 0, $length)
+    $records.Add([pscustomobject]@{
+      tag = $tag
+      checksum = [uint64](Read-U32BE $Bytes ($recordOffset + 4))
+      offset = $offset
+      length = $length
+      bytes = $table
+    })
+  }
+  return @($records)
+}
+
+function New-CffEvidenceSfnt {
+  param(
+    [Parameter(Mandatory)][byte[]]$Base,
+    [Parameter(Mandatory)][Collections.IDictionary]$Replacements
+  )
+  $tables = [Collections.Generic.List[object]]::new()
+  $seen = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::Ordinal
+  )
+  foreach ($record in Get-CffEvidenceSfntRecords $Base) {
+    $bytes = if ($Replacements.Contains($record.tag)) {
+      [byte[]]$Replacements[$record.tag]
+    } else {
+      [byte[]]$record.bytes
+    }
+    $tables.Add([pscustomobject]@{ tag = $record.tag; bytes = $bytes })
+    [void]$seen.Add($record.tag)
+  }
+  foreach ($entry in $Replacements.GetEnumerator()) {
+    $tag = [string]$entry.Key
+    if (-not $seen.Contains($tag)) {
+      if ($tag.Length -ne 4) {
+        throw "CFF evidence SFNT tag must be four bytes: '$tag'"
+      }
+      $tables.Add([pscustomobject]@{ tag = $tag; bytes = [byte[]]$entry.Value })
+    }
+  }
+  $ordered = @($tables)
+  for ($left = 0; $left -lt $ordered.Count; $left++) {
+    for ($right = $left + 1; $right -lt $ordered.Count; $right++) {
+      if ([StringComparer]::Ordinal.Compare(
+          [string]$ordered[$left].tag,
+          [string]$ordered[$right].tag
+        ) -gt 0) {
+        $swap = $ordered[$left]
+        $ordered[$left] = $ordered[$right]
+        $ordered[$right] = $swap
+      }
+    }
+  }
+  $count = $ordered.Count
+  $power = 1
+  $selector = 0
+  while ($power * 2 -le $count) {
+    $power *= 2
+    $selector++
+  }
+  $directoryLength = 12 + $count * 16
+  $offset = $directoryLength
+  foreach ($table in $ordered) {
+    $offset = ($offset + 3) -band -4
+    $table | Add-Member -NotePropertyName offset -NotePropertyValue $offset
+    $offset += $table.bytes.Length
+  }
+  $output = [byte[]]::new((($offset + 3) -band -4))
+  Write-U32BE $output 0 0x4F54544FUL
+  Write-U16BE $output 4 $count
+  Write-U16BE $output 6 ($power * 16)
+  Write-U16BE $output 8 $selector
+  Write-U16BE $output 10 ($count * 16 - $power * 16)
+  $headOffset = -1
+  for ($index = 0; $index -lt $count; $index++) {
+    $table = $ordered[$index]
+    $recordOffset = 12 + $index * 16
+    $tagBytes = [Text.Encoding]::ASCII.GetBytes($table.tag)
+    [Array]::Copy($tagBytes, 0, $output, $recordOffset, 4)
+    $tableBytes = [byte[]]$table.bytes.Clone()
+    if ($table.tag -ceq 'head') {
+      if ($tableBytes.Length -lt 12) {
+        throw 'CFF evidence head table is too short.'
+      }
+      Write-U32BE $tableBytes 8 0UL
+      $headOffset = [int]$table.offset
+    }
+    $checksum = Get-FontQualificationTableChecksum `
+      -Bytes $tableBytes -Offset 0 -Length $tableBytes.Length
+    Write-U32BE $output ($recordOffset + 4) $checksum
+    Write-U32BE $output ($recordOffset + 8) $table.offset
+    Write-U32BE $output ($recordOffset + 12) $tableBytes.Length
+    [Array]::Copy($tableBytes, 0, $output, $table.offset, $tableBytes.Length)
+  }
+  if ($headOffset -lt 0) {
+    throw 'CFF evidence SFNT lacks head.'
+  }
+  $sum = Get-FontQualificationTableChecksum `
+    -Bytes $output -Offset 0 -Length $output.Length
+  Write-U32BE $output ($headOffset + 8) ((0xB1B0AFBAUL - $sum) -band 0xFFFFFFFFUL)
+  return ,$output
+}
+
+function New-CffEvidenceSharedTtc {
+  param(
+    [Parameter(Mandatory)][byte[]]$FaceZero,
+    [Parameter(Mandatory)][byte[]]$FaceOne
+  )
+  $faces = @(
+    @(Get-CffEvidenceSfntRecords $FaceZero),
+    @(Get-CffEvidenceSfntRecords $FaceOne)
+  )
+  if ($faces[0].Count -ne $faces[1].Count) {
+    throw 'CFF evidence shared TTC face table counts differ.'
+  }
+  $count = $faces[0].Count
+  $directoryLength = 12 + $count * 16
+  $faceOffsets = [int[]](20, (20 + $directoryLength))
+  $dataOffset = 20 + 2 * $directoryLength
+  $blobs = [Collections.Generic.List[object]]::new()
+  $blobOffsets = @{}
+  for ($faceIndex = 0; $faceIndex -lt 2; $faceIndex++) {
+    foreach ($record in $faces[$faceIndex]) {
+      $key = if ($record.tag -ceq 'CFF ') {
+        'shared:CFF '
+      } else {
+        "face$faceIndex`:$($record.tag)"
+      }
+      if (-not $blobOffsets.ContainsKey($key)) {
+        $dataOffset = ($dataOffset + 3) -band -4
+        $blobOffsets[$key] = $dataOffset
+        $blobs.Add([pscustomobject]@{
+          key = $key
+          offset = $dataOffset
+          bytes = [byte[]]$record.bytes
+        })
+        $dataOffset += $record.length
+      }
+    }
+  }
+  $output = [byte[]]::new((($dataOffset + 3) -band -4))
+  Write-U32BE $output 0 0x74746366UL
+  Write-U32BE $output 4 0x00010000UL
+  Write-U32BE $output 8 2UL
+  Write-U32BE $output 12 $faceOffsets[0]
+  Write-U32BE $output 16 $faceOffsets[1]
+  for ($faceIndex = 0; $faceIndex -lt 2; $faceIndex++) {
+    $source = if ($faceIndex -eq 0) { $FaceZero } else { $FaceOne }
+    [Array]::Copy($source, 0, $output, $faceOffsets[$faceIndex], $directoryLength)
+    for ($recordIndex = 0; $recordIndex -lt $count; $recordIndex++) {
+      $record = $faces[$faceIndex][$recordIndex]
+      $key = if ($record.tag -ceq 'CFF ') {
+        'shared:CFF '
+      } else {
+        "face$faceIndex`:$($record.tag)"
+      }
+      Write-U32BE `
+        $output `
+        ($faceOffsets[$faceIndex] + 12 + $recordIndex * 16 + 8) `
+        ([uint64]$blobOffsets[$key])
+    }
+  }
+  foreach ($blob in $blobs) {
+    [Array]::Copy(
+      [byte[]]$blob.bytes,
+      0,
+      $output,
+      [int]$blob.offset,
+      ([byte[]]$blob.bytes).Length
+    )
+  }
+  return ,$output
+}
+
 function Get-CffGeneratedEvidenceText {
   $inputs = Get-CffEvidenceInputs
   $cases = $inputs.cases
@@ -3507,6 +3973,36 @@ function Get-CffGeneratedEvidenceText {
     $generatedBytes `
     $CffGeneratedTracerLength `
     $CffGeneratedTracerSha256
+  $generatedNameBytes = New-CffEvidenceSfnt $generatedBytes ([ordered]@{
+    'cmap' = New-CffEvidenceCmap 0x41UL 1UL
+    'hmtx' = New-CffEvidenceHmtx @(
+      @(500, 0),
+      @(600, 100),
+      @(620, 50)
+    )
+    'kern' = New-CffEvidenceKern 1UL 2UL -40
+  })
+  $generatedCidBytes = New-CffEvidenceSfnt $generatedBytes ([ordered]@{
+    'CFF ' = New-CffEvidenceCidTable
+    'cmap' = New-CffEvidenceCmap 0x4E00UL 2UL
+    'hmtx' = New-CffEvidenceHmtx @(
+      @(500, 0),
+      @(500, 0),
+      @(700, 90)
+    )
+    'kern' = New-CffEvidenceKern 2UL 1UL -24
+  })
+  $generatedSharedFaceOne = New-CffEvidenceSfnt $generatedBytes ([ordered]@{
+    'cmap' = New-CffEvidenceCmap 0x42UL 1UL
+    'hmtx' = New-CffEvidenceHmtx @(
+      @(500, 0),
+      @(720, 80),
+      @(620, 50)
+    )
+    'kern' = New-CffEvidenceKern 1UL 2UL 25
+  })
+  $generatedSharedBytes = New-CffEvidenceSharedTtc `
+    $generatedNameBytes $generatedSharedFaceOne
 
   $rows = [Collections.Generic.List[string]]::new()
   $rows.Add('// Generated by scripts/fixtures/Generate-FontQualification.ps1. Do not edit.')
@@ -3597,26 +4093,22 @@ function Get-CffGeneratedEvidenceText {
     -Prefix 'source_han' `
     -Bytes $hanBytes `
     -ExpectedSha256 ([string]$han.font.sha256)
+  Add-CffEvidenceByteBody `
+    -Rows $rows `
+    -Prefix 'generated_name' `
+    -Bytes $generatedNameBytes `
+    -ExpectedSha256 (Get-FontQualificationSha256 -Bytes $generatedNameBytes)
+  Add-CffEvidenceByteBody `
+    -Rows $rows `
+    -Prefix 'generated_cid' `
+    -Bytes $generatedCidBytes `
+    -ExpectedSha256 (Get-FontQualificationSha256 -Bytes $generatedCidBytes)
+  Add-CffEvidenceByteBody `
+    -Rows $rows `
+    -Prefix 'generated_shared' `
+    -Bytes $generatedSharedBytes `
+    -ExpectedSha256 (Get-FontQualificationSha256 -Bytes $generatedSharedBytes)
 
-  $generatedLiteral = [Text.StringBuilder]::new($generatedBytes.Length * 4)
-  foreach ($byte in $generatedBytes) {
-    [void]$generatedLiteral.AppendFormat('\x{0:x2}', $byte)
-  }
-  $rows.Add('///|')
-  $rows.Add('fn _cff_evidence_generated_name_body() -> Bytes {')
-  $rows.Add(('  b"{0}"' -f $generatedLiteral.ToString()))
-  $rows.Add('}')
-  $rows.Add('')
-  $rows.Add('///|')
-  $rows.Add('fn cff_evidence_generated_name_otf() -> Bytes {')
-  $rows.Add('  _cff_evidence_generated_name_body()')
-  $rows.Add('}')
-  $rows.Add('')
-  $rows.Add('///|')
-  $rows.Add('fn cff_evidence_generated_cid_otf() -> Bytes {')
-  $rows.Add('  cff_evidence_source_han_payload()')
-  $rows.Add('}')
-  $rows.Add('')
   $rows.Add('///|')
   $rows.Add('fn _cff_evidence_put_u32(output : Array[Byte], offset : Int, value : UInt64) -> Unit {')
   $rows.Add('  output[offset] = ((value >> 24) & 0xffUL).to_byte()')
@@ -3634,30 +4126,18 @@ function Get-CffGeneratedEvidenceText {
   $rows.Add('}')
   $rows.Add('')
   $rows.Add('///|')
+  $rows.Add('fn cff_evidence_generated_name_otf() -> Bytes {')
+  $rows.Add('  cff_evidence_generated_name_payload()')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn cff_evidence_generated_cid_otf() -> Bytes {')
+  $rows.Add('  cff_evidence_generated_cid_payload()')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
   $rows.Add('fn cff_evidence_generated_shared_ttc() -> Bytes {')
-  $rows.Add('  let standalone = _cff_evidence_generated_name_body()')
-  $rows.Add('  let directory_size = 156')
-  $rows.Add('  let data_offset = 332')
-  $rows.Add('  let output = Array::make(standalone.length() + 176, b''\x00'')')
-  $rows.Add('  _cff_evidence_put_u32(output, 0, 0x74746366UL)')
-  $rows.Add('  _cff_evidence_put_u32(output, 4, 0x00010000UL)')
-  $rows.Add('  _cff_evidence_put_u32(output, 8, 2UL)')
-  $rows.Add('  _cff_evidence_put_u32(output, 12, 20UL)')
-  $rows.Add('  _cff_evidence_put_u32(output, 16, 176UL)')
-  $rows.Add('  for index = 0; index < directory_size; index = index + 1 {')
-  $rows.Add('    output[20 + index] = standalone[index]')
-  $rows.Add('    output[176 + index] = standalone[index]')
-  $rows.Add('  }')
-  $rows.Add('  for record = 0; record < 9; record = record + 1 {')
-  $rows.Add('    let field = 12 + record * 16 + 8')
-  $rows.Add('    let adjusted = _cff_evidence_read_u32(standalone, field) + 176UL')
-  $rows.Add('    _cff_evidence_put_u32(output, 20 + field, adjusted)')
-  $rows.Add('    _cff_evidence_put_u32(output, 176 + field, adjusted)')
-  $rows.Add('  }')
-  $rows.Add('  for index = directory_size; index < standalone.length(); index = index + 1 {')
-  $rows.Add('    output[data_offset + index - directory_size] = standalone[index]')
-  $rows.Add('  }')
-  $rows.Add('  Bytes::from_array(output)')
+  $rows.Add('  cff_evidence_generated_shared_payload()')
   $rows.Add('}')
   $rows.Add('')
 
@@ -3687,7 +4167,7 @@ function Get-CffGeneratedEvidenceText {
       lsb = [int]$projection.lsb
       kerning = 0
       bounds = @($projection.bounds)
-      path = @($projection.commands)
+      path = @(ConvertTo-CffEvidenceClosedPath @($projection.commands))
     })
   }
   $rows.Add('///|')
@@ -5246,6 +5726,7 @@ function Assert-CffEvidenceManifestContract {
     'name','version','license','preferred-target','supported-targets','deps'
   ) 'CFF evidence module'
   Assert-FontQualificationOrderedKeys $evidence.deps @(
+    'tchivs/mb-core',
     'tchivs/mb-font'
   ) 'CFF evidence dependency'
   if ($evidence.name -cne 'moonbit-foundation/font-cff-evidence' -or
@@ -5253,6 +5734,7 @@ function Assert-CffEvidenceManifestContract {
       $evidence.license -cne 'Apache-2.0' -or
       $evidence.'preferred-target' -cne 'native' -or
       $evidence.'supported-targets' -cne '+js+wasm+wasm-gc+native' -or
+      $evidence.deps.'tchivs/mb-core' -cne '0.1.0' -or
       $evidence.deps.'tchivs/mb-font' -cne '0.1.0') {
     throw 'CFF evidence module identity, targets, or dependency drifted.'
   }
@@ -5289,6 +5771,10 @@ function Assert-CffEvidenceSourceBoundary {
   $expectedPackage = @'
 import {
   "moonbitlang/core/bench" @bench,
+  "tchivs/mb-core/budget" @budget,
+  "tchivs/mb-core/bytes" @bytes,
+  "tchivs/mb-core/error" @error,
+  "tchivs/mb-core/math" @math,
   "tchivs/mb-font/font" @font,
 }
 
@@ -5317,8 +5803,8 @@ supported_targets = "+js+wasm+wasm-gc+native"
       Select-Object -Unique
   )
   foreach ($alias in $aliases) {
-    if ($alias -cne 'font') {
-      throw "CFF evidence tracer references a non-font package alias: @$alias"
+    if ($alias -cnotin @('budget','bytes','error','font','math')) {
+      throw "CFF evidence tracer references a non-approved package alias: @$alias"
     }
   }
   $interfacePath = Join-Path $RepositoryRoot 'modules/mb-font/font/pkg.generated.mbti'
@@ -5379,8 +5865,9 @@ function Invoke-CffEvidenceMoon {
   [void]$process.Start()
   $stdout = $process.StandardOutput.ReadToEndAsync()
   $stderr = $process.StandardError.ReadToEndAsync()
-  if (-not $process.WaitForExit(60000)) {
+  if (-not $process.WaitForExit(300000)) {
     $process.Kill($true)
+    $process.WaitForExit()
     throw 'Frozen CFF evidence package verification timed out.'
   }
   $stdoutText = $stdout.GetAwaiter().GetResult()
@@ -5510,7 +5997,7 @@ function Invoke-CffEvidencePackageCheck {
     )
     $result = Invoke-CffEvidenceMoon @(
       '-C', $tempRoot,
-      'check', $CffEvidenceRoot,
+      'test', $CffEvidenceRoot,
       '--target', $Target,
       '--frozen',
       '--target-dir', $targetRoot

@@ -1,5 +1,9 @@
 import {
   "moonbitlang/core/bench" @bench,
+  "tchivs/mb-core/budget" @budget,
+  "tchivs/mb-core/bytes" @bytes,
+  "tchivs/mb-core/error" @error,
+  "tchivs/mb-core/math" @math,
   "tchivs/mb-font/font" @font,
 }
 

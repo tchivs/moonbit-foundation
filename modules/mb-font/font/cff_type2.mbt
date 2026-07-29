@@ -1307,9 +1307,6 @@ fn Type2Vm::execute_mask(
   self : Type2Vm,
   frame : Type2Frame,
 ) -> Result[Unit, @error.CoreError] {
-  if self.geometry_started {
-    return Err(type2_data_error("font-cff-type2-hint-order"))
-  }
   let has_width = !self.width_resolved && self.stack.length() % 2 == 1
   match self.resolve_width(has_width) {
     Err(error) => return Err(error)

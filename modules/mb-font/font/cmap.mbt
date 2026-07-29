@@ -48,13 +48,16 @@ fn font_cmap_rank(
 }
 
 ///|
-/// Recognize only the bounded Macintosh Roman format-6 coexistence record.
+/// Recognize bounded nonselected coexistence records.
 fn font_cmap_recognized_nonselected(
   platform : UInt64,
   encoding : UInt64,
   format : UInt64,
 ) -> Bool {
-  platform == 1UL && encoding == 0UL && format == 6UL
+  (platform == 1UL &&
+    (encoding == 0UL || encoding == 1UL) &&
+    format == 6UL) ||
+  (platform == 0UL && encoding == 5UL && format == 14UL)
 }
 
 ///|

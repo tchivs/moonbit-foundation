@@ -267,6 +267,14 @@ test "Type 2 hints consume exact masks and resume at the next opcode" {
   inspect(pending_vertical.stems, content="2")
   inspect(pending_vertical.ledger.mask_bytes, content="1")
 
+  // Hint substitution is legal after a moveto or drawing operator.
+  let substituted = type2_vm_wb_run(
+    b"\x8b\x8b\x01\x8b\x8b\x15\x13\x00\x8c\x8c\x05\x0e",
+  ).unwrap()
+  inspect(substituted.stems, content="1")
+  inspect(substituted.ledger.mask_bytes, content="1")
+  inspect(substituted.geometry.has_segments, content="true")
+
   for malformed in [b"\x13\x00\x0e", b"\x8b\x8b\x01\x13"] {
     type2_vm_wb_assert_data(type2_vm_wb_run(malformed))
   }

@@ -5,6 +5,7 @@
   "preferred-target": "native",
   "supported-targets": "+js+wasm+wasm-gc+native",
   "deps": {
+    "tchivs/mb-core": "0.1.0",
     "tchivs/mb-font": "0.1.0"
   }
 }

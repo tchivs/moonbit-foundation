@@ -105,7 +105,7 @@
         "x_min": 100,
         "y_min": 0,
         "x_max": 500,
-        "y_max": 575
+        "y_max": 600
       },
       "path": [
         {
@@ -170,7 +170,7 @@
         "x_min": 90,
         "y_min": 0,
         "x_max": 610,
-        "y_max": 700
+        "y_max": 760
       },
       "path": [
         {
@@ -228,7 +228,7 @@
         "x_min": 100,
         "y_min": 0,
         "x_max": 500,
-        "y_max": 575
+        "y_max": 600
       },
       "path": [
         {
@@ -293,7 +293,7 @@
         "x_min": 100,
         "y_min": 0,
         "x_max": 500,
-        "y_max": 575
+        "y_max": 600
       },
       "path": [
         {
@@ -491,16 +491,16 @@
       "fixture_id": "source-sans-3.052R",
       "operation": "outline-batch",
       "gids": [
-        1,
         2,
+        3,
         34,
         97,
         321,
         1024,
         2477
       ],
-      "correctness_input": "latin-fixed-outline-batch|source-sans-3.052R|1,2,34,97,321,1024,2477",
-      "correctness_input_sha256": "1f9f7890822b2d92993527e3ce6138efc5d2a27b069b96f563bfa6c0fd15a3c5",
+      "correctness_input": "latin-fixed-outline-batch|source-sans-3.052R|2,3,34,97,321,1024,2477",
+      "correctness_input_sha256": "cb351d9e0af5379e261c3e5cd014b77048943419c42a0a52d60be4c8d7f73994",
       "timing": false
     },
     {
@@ -508,15 +508,15 @@
       "fixture_id": "source-han-serif-jp-2.003R",
       "operation": "outline-batch",
       "gids": [
-        1,
+        2,
         256,
         2048,
         8192,
         16384,
         17922
       ],
-      "correctness_input": "cjk-high-gid-multi-fd-outline-batch|source-han-serif-jp-2.003R|1,256,2048,8192,16384,17922",
-      "correctness_input_sha256": "99fbfaf050cb6182f3ea6f8217e33fabb7a22877009c61c4268a7a49263c48b0",
+      "correctness_input": "cjk-high-gid-multi-fd-outline-batch|source-han-serif-jp-2.003R|2,256,2048,8192,16384,17922",
+      "correctness_input_sha256": "c5ee2c463a026a7b1cd65206a20c753fc520f3619deb06be84ff993e9c544fd8",
       "timing": false
     }
   ],
