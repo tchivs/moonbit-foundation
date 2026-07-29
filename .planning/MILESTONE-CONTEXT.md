@@ -58,3 +58,19 @@ language, direction, and feature choices on `js`, `wasm`, `wasm-gc`, and
   script claims.
 - Treat native timing as observation-only; correctness remains equal across all
   four supported targets.
+
+## Final Roadmap
+
+The researched v0.35 route is fixed as six dependent delivery boundaries:
+
+1. Phase 108 — public contract and transaction skeleton.
+2. Phase 109 — bounded layout admission.
+3. Phase 110 — deterministic GSUB and source clusters.
+4. Phase 111 — GPOS and kerning authority.
+5. Phase 112 — integrated transaction, resource, and mutation hardening.
+6. Phase 113 — interoperability and four-target qualification.
+
+All 10 v0.35 requirements map exactly once across these phases. Focused phase
+research remains required for Phases 108, 109, 111, 112, and 113; Phase 110
+should proceed from the contract and normalized admission facts using generated
+executable cases. Planning starts at Phase 108.
