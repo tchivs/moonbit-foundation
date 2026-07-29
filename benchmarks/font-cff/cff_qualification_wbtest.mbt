@@ -144,6 +144,142 @@ fn cff_evidence_assert_path_command(
 }
 
 ///|
+fn cff_evidence_write_point(
+  output : StringBuilder,
+  point : @math.Point2,
+) -> Unit {
+  output.write_string(point.x().to_string())
+  output.write_string(",")
+  output.write_string(point.y().to_string())
+}
+
+///|
+fn cff_evidence_write_path(
+  output : StringBuilder,
+  path : @math.Path2,
+) -> Unit raise {
+  output.write_string("path=")
+  output.write_string(path.length().to_string())
+  output.write_string("[")
+  for index = 0; index < path.length(); index = index + 1 {
+    if index > 0 {
+      output.write_string(";")
+    }
+    match path.get(index) {
+      Some(@math.PathCommand::MoveTo(point)) => {
+        output.write_string("M(")
+        cff_evidence_write_point(output, point)
+        output.write_string(")")
+      }
+      Some(@math.PathCommand::LineTo(point)) => {
+        output.write_string("L(")
+        cff_evidence_write_point(output, point)
+        output.write_string(")")
+      }
+      Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+        output.write_string("Q(")
+        cff_evidence_write_point(output, control)
+        output.write_string(",")
+        cff_evidence_write_point(output, endpoint)
+        output.write_string(")")
+      }
+      Some(@math.PathCommand::CubicTo(first, second, endpoint)) => {
+        output.write_string("C(")
+        cff_evidence_write_point(output, first)
+        output.write_string(",")
+        cff_evidence_write_point(output, second)
+        output.write_string(",")
+        cff_evidence_write_point(output, endpoint)
+        output.write_string(")")
+      }
+      Some(@math.PathCommand::Close) => output.write_string("Z")
+      None => fail("runtime semantic path omitted a command")
+    }
+  }
+  output.write_string("]")
+}
+
+///|
+fn cff_evidence_write_glyph_semantics(
+  output : StringBuilder,
+  font : @font.Font,
+  gid_value : Int,
+) -> Unit raise {
+  let glyph = font.glyph_id(gid_value.to_uint64()).unwrap()
+  let metrics = font.horizontal_metrics(glyph).unwrap()
+  let bounds = metrics.bounds().unwrap()
+  let path = font.outline(glyph, cff_evidence_budget()).unwrap()
+  output.write_string("gid=")
+  output.write_string(glyph.value().to_string())
+  output.write_string(",advance=")
+  output.write_string(metrics.advance_width().to_string())
+  output.write_string(",lsb=")
+  output.write_string(metrics.left_side_bearing().to_string())
+  output.write_string(",bounds=")
+  output.write_string(bounds.x_min().to_string())
+  output.write_string(",")
+  output.write_string(bounds.y_min().to_string())
+  output.write_string(",")
+  output.write_string(bounds.x_max().to_string())
+  output.write_string(",")
+  output.write_string(bounds.y_max().to_string())
+  output.write_string(",")
+  cff_evidence_write_path(output, path)
+}
+
+///|
+fn cff_evidence_runtime_semantics(index : Int) -> String raise {
+  let workload = cff_evidence_workloads()[index]
+  let source = if workload.fixture_id == "source-sans-3.052R" {
+    cff_evidence_source_sans_payload()
+  } else {
+    cff_evidence_source_han_payload()
+  }
+  let owner = cff_evidence_owner(source)
+  let font = @font.Font::open(
+    owner.view(),
+    cff_evidence_limits(owner.length()),
+    cff_evidence_budget(),
+  ).unwrap()
+  let output = StringBuilder::new()
+  output.write_string("cff-runtime-semantics/1|workload=")
+  output.write_string(workload.id)
+  output.write_string("|fixture=")
+  output.write_string(workload.fixture_id)
+  output.write_string("|source_length=")
+  output.write_string(owner.length().to_string())
+  output.write_string("|operation=")
+  output.write_string(workload.operation)
+  if workload.operation == "full-admission" {
+    let fact = cff_evidence_public_facts()[if index == 0 { 4 } else { 5 }]
+    let glyph = font.glyph_for_scalar(fact.scalar).unwrap()
+    let partner = font
+      .glyph_id(if fact.gid == 2 { 1UL } else { 2UL })
+      .unwrap()
+    output.write_string("|scalar=")
+    output.write_string(fact.scalar.to_string())
+    output.write_string("|mapped_gid=")
+    output.write_string(glyph.value().to_string())
+    output.write_string("|kerning=")
+    output.write_string(font.kerning(glyph, partner).unwrap().to_string())
+    output.write_string("|")
+    cff_evidence_write_glyph_semantics(output, font, fact.gid)
+  } else {
+    output.write_string("|glyphs=")
+    output.write_string(workload.gids.length().to_string())
+    output.write_string("[")
+    for gid_index, gid in workload.gids {
+      if gid_index > 0 {
+        output.write_string(";")
+      }
+      cff_evidence_write_glyph_semantics(output, font, gid)
+    }
+    output.write_string("]")
+  }
+  output.to_string()
+}
+
+///|
 fn cff_evidence_assert_font(
   font : @font.Font,
   expected : CffEvidencePublicFact,
@@ -325,10 +461,10 @@ fn cff_evidence_assert_correctness_workloads() -> Unit raise {
     "cjk-high-gid-multi-fd-outline-batch|source-han-serif-jp-2.003R|2,256,2048,8192,16384,17922",
   ]
   let expected_digests = [
-    "18ee23225ee236464bff292ecbb27b8730f0a91a61ef8580565d665e53b976f6",
-    "9eb460dcf7adf96bf2c6ebd66a06b1ca50d21b17d2b6a4b1af118c222f6575f6",
-    "cb351d9e0af5379e261c3e5cd014b77048943419c42a0a52d60be4c8d7f73994",
-    "c5ee2c463a026a7b1cd65206a20c753fc520f3619deb06be84ff993e9c544fd8",
+    "175c0cf2f13f2abcb7f7de2f8e441e9356c0bc9068df2f0a1435177b8ee70e11",
+    "26029f450cca92ffbf4d9ce17822b6a17f9dedb0174cbc2e8b26d633b70a5ae5",
+    "48c7790a5567310e260779f0a2fe5cc703a5137a154738537ab264fb3d12105d",
+    "9dcb9a9ac2e9081e857f427c34de1e2b87be13457592dd4d4387d5cd767b02cb",
   ]
   inspect(workloads.length() == 4, content="true")
   for index, workload in workloads {
@@ -339,7 +475,7 @@ fn cff_evidence_assert_correctness_workloads() -> Unit raise {
     )
     inspect(workload.correctness_input == expected_inputs[index], content="true")
     inspect(
-      workload.correctness_input_sha256 == expected_digests[index],
+      workload.correctness_output_sha256 == expected_digests[index],
       content="true",
     )
     inspect(!workload.timing, content="true")
@@ -414,4 +550,16 @@ test "font-cff1-v3 carrier-public caller mutation is exact and atomic" {
 ///|
 test "font-cff1-v3 carrier-public timing-free correctness workloads" {
   cff_evidence_assert_correctness_workloads()
+}
+
+///|
+test "font-cff1-v3 runtime semantic tracer" {
+  for index = 0; index < cff_evidence_workloads().length(); index = index + 1 {
+    println(
+      "MNF_CFF_RUNTIME|" +
+      cff_evidence_workloads()[index].id +
+      "|" +
+      cff_evidence_runtime_semantics(index),
+    )
+  }
 }

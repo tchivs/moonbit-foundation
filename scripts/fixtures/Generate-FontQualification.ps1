@@ -46,6 +46,7 @@ $CffQualificationCasesPath = Join-Path $RepositoryRoot 'fixtures/font/cff-qualif
 $CffOracleToolsPath = Join-Path $RepositoryRoot 'fixtures/font/cff-oracle-tools.json'
 $CffHostLockPath = Join-Path $RepositoryRoot 'fixtures/font/cff/host-toolchain.lock.json'
 $CffFontToolsAdapterPath = Join-Path $RepositoryRoot 'scripts/fixtures/oracles/fonttools_cff_oracle.py'
+$CffRuntimeOraclePath = Join-Path $RepositoryRoot 'scripts/fixtures/oracles/fonttools_cff_runtime_oracle.py'
 $CffAfdkoAdapterPath = Join-Path $RepositoryRoot 'scripts/fixtures/oracles/Invoke-AfdkoCffOracle.ps1'
 $CffExecutionHandoffRelativePath =
   'artifacts/release-qualification/phase-107/107-01-host-toolchain-handoff.json'
@@ -1437,10 +1438,11 @@ function Assert-CffQualificationCasesDocument {
   foreach ($workload in $workloads) {
     Assert-FontQualificationOrderedKeys $workload @(
       'id','fixture_id','operation','gids','correctness_input',
-      'correctness_input_sha256','timing'
+      'correctness_output_sha256','timing'
     ) "CFF workload $($workload.id)"
     if ($workload.timing -ne $false -or
-        $workload.correctness_input_sha256 -cne
+        $workload.correctness_output_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        $workload.correctness_output_sha256 -ceq
           (Get-CffQualificationTextSha256 ([string]$workload.correctness_input))) {
       throw "CFF workload $($workload.id) correctness identity drifted."
     }
@@ -4061,7 +4063,7 @@ function Get-CffGeneratedEvidenceText {
   $rows.Add('  operation : String')
   $rows.Add('  gids : Array[Int]')
   $rows.Add('  correctness_input : String')
-  $rows.Add('  correctness_input_sha256 : String')
+  $rows.Add('  correctness_output_sha256 : String')
   $rows.Add('  timing : Bool')
   $rows.Add('}')
   $rows.Add('')
@@ -4257,7 +4259,7 @@ function Get-CffGeneratedEvidenceText {
     $rows.Add("      operation: $(ConvertTo-CffMoonString $workload.operation),")
     $rows.Add("      gids: [$(@($workload.gids) -join ', ')],")
     $rows.Add("      correctness_input: $(ConvertTo-CffMoonString $workload.correctness_input),")
-    $rows.Add("      correctness_input_sha256: $(ConvertTo-CffMoonString $workload.correctness_input_sha256),")
+    $rows.Add("      correctness_output_sha256: $(ConvertTo-CffMoonString $workload.correctness_output_sha256),")
     $rows.Add("      timing: $timing,")
     $rows.Add('    },')
   }
@@ -5368,7 +5370,52 @@ function Assert-CffCanonicalLicensedIntake {
       [void](Invoke-CffLicensedOracleAgreement $context $fontPath $record)
     }
   }
+  if ($RunOracles) {
+    Assert-CffRuntimeOracleWorkloads $context
+  }
   Write-Host 'Canonical licensed CFF intake is exact and closed.'
+}
+
+function Assert-CffRuntimeOracleWorkloads {
+  param([Parameter(Mandatory)]$Context)
+  $cases = Read-CffQualificationJson $CffQualificationCasesPath `
+    'CFF qualification cases'
+  $python = @($Context.provisioned.invoked_identities |
+    Where-Object { $_.id -ceq 'runtime.cpython' })[0].path
+  foreach ($workload in @($cases.workloads)) {
+    $isLatin = $workload.fixture_id -ceq 'source-sans-3.052R'
+    $fontPath = if ($isLatin) {
+      Join-Path $CffLicensedFixtureRoot `
+        'source-sans-3.052r/SourceSans3-Regular.otf'
+    } else {
+      Join-Path $CffLicensedFixtureRoot `
+        'source-han-serif-2.003r/SourceHanSerifJP-Regular.otf'
+    }
+    $arguments = @(
+      $CffRuntimeOraclePath,
+      '--site-root', [string]$Context.provisioned.fonttools_site_root,
+      '--font', $fontPath,
+      '--workload-id', [string]$workload.id,
+      '--fixture-id', [string]$workload.fixture_id,
+      '--operation', [string]$workload.operation
+    )
+    if ($workload.operation -ceq 'outline-batch') {
+      $arguments += @('--gids', (@($workload.gids) -join ','))
+    }
+    $json = & $python @arguments
+    if ($LASTEXITCODE -ne 0) {
+      throw "Pinned runtime output oracle failed: $($workload.id)"
+    }
+    $actual = $json | ConvertFrom-Json
+    if ($actual.schema -cne 'cff-runtime-workload-oracle/1.0.0' -or
+        $actual.workload_id -cne $workload.id -or
+        $actual.reader -cne 'fonttools' -or
+        $actual.reader_version -cne '4.63.0' -or
+        $actual.correctness_output_sha256 -cne
+          $workload.correctness_output_sha256) {
+      throw "Runtime output oracle digest drifted: $($workload.id)"
+    }
+  }
 }
 
 function Get-CffLicensedUpstreamFacts {

@@ -460,7 +460,7 @@ function Get-CffBenchmarkWorkloads {
     Assert-CffBenchmarkExactSequence "CFF workload GIDs $index" `
       @($rows[$index].gids) @($expectedGids[$index])
     Assert-CffBenchmarkSha256 `
-      ([string]$rows[$index].correctness_input_sha256) `
+      ([string]$rows[$index].correctness_output_sha256) `
       "CFF workload correctness digest $index"
     if ($rows[$index].fixture_id -cne $expectedFixtures[$index] -or
         [bool]$rows[$index].timing) {
@@ -473,7 +473,7 @@ function Get-CffBenchmarkWorkloads {
       operation = [string]$rows[$index].operation
       gids = @($rows[$index].gids)
       correctness_input = [string]$rows[$index].correctness_input
-      correctness_sha256 = [string]$rows[$index].correctness_input_sha256
+      correctness_sha256 = [string]$rows[$index].correctness_output_sha256
     }
   }
   $result

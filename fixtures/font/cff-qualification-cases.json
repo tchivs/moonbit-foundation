@@ -474,7 +474,7 @@
       "operation": "full-admission",
       "gids": [],
       "correctness_input": "latin-full-admission|source-sans-3.052R|all-2478",
-      "correctness_input_sha256": "18ee23225ee236464bff292ecbb27b8730f0a91a61ef8580565d665e53b976f6",
+      "correctness_output_sha256": "175c0cf2f13f2abcb7f7de2f8e441e9356c0bc9068df2f0a1435177b8ee70e11",
       "timing": false
     },
     {
@@ -483,7 +483,7 @@
       "operation": "full-admission",
       "gids": [],
       "correctness_input": "cjk-full-admission|source-han-serif-jp-2.003R|all-17923",
-      "correctness_input_sha256": "9eb460dcf7adf96bf2c6ebd66a06b1ca50d21b17d2b6a4b1af118c222f6575f6",
+      "correctness_output_sha256": "26029f450cca92ffbf4d9ce17822b6a17f9dedb0174cbc2e8b26d633b70a5ae5",
       "timing": false
     },
     {
@@ -500,7 +500,7 @@
         2477
       ],
       "correctness_input": "latin-fixed-outline-batch|source-sans-3.052R|2,3,34,97,321,1024,2477",
-      "correctness_input_sha256": "cb351d9e0af5379e261c3e5cd014b77048943419c42a0a52d60be4c8d7f73994",
+      "correctness_output_sha256": "48c7790a5567310e260779f0a2fe5cc703a5137a154738537ab264fb3d12105d",
       "timing": false
     },
     {
@@ -516,7 +516,7 @@
         17922
       ],
       "correctness_input": "cjk-high-gid-multi-fd-outline-batch|source-han-serif-jp-2.003R|2,256,2048,8192,16384,17922",
-      "correctness_input_sha256": "c5ee2c463a026a7b1cd65206a20c753fc520f3619deb06be84ff993e9c544fd8",
+      "correctness_output_sha256": "9dcb9a9ac2e9081e857f427c34de1e2b87be13457592dd4d4387d5cd767b02cb",
       "timing": false
     }
   ],

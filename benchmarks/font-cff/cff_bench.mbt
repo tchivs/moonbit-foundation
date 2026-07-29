@@ -62,7 +62,7 @@ fn cff_benchmark_assert_workload(
   fixture_id : String,
   operation : String,
   correctness_input : String,
-  correctness_input_sha256 : String,
+  correctness_output_sha256 : String,
 ) -> CffEvidenceWorkload {
   let workloads = cff_evidence_workloads()
   cff_benchmark_require(workloads.length() == 4, "CFF workload count")
@@ -81,8 +81,8 @@ fn cff_benchmark_assert_workload(
     "CFF workload correctness input",
   )
   cff_benchmark_require(
-    workload.correctness_input_sha256 == correctness_input_sha256,
-    "CFF workload correctness digest",
+    workload.correctness_output_sha256 == correctness_output_sha256,
+    "CFF workload runtime-output correctness digest",
   )
   cff_benchmark_require(!workload.timing, "CFF portable workload timing flag")
   workload
@@ -153,7 +153,7 @@ test "bench cff/latin-full-admission" (b : @bench.T) {
     "source-sans-3.052R",
     "full-admission",
     "latin-full-admission|source-sans-3.052R|all-2478",
-    "18ee23225ee236464bff292ecbb27b8730f0a91a61ef8580565d665e53b976f6",
+    "175c0cf2f13f2abcb7f7de2f8e441e9356c0bc9068df2f0a1435177b8ee70e11",
   )
   cff_benchmark_require(workload.gids.length() == 0, "Latin admission GIDs")
   let font = cff_benchmark_open(owner)
@@ -179,7 +179,7 @@ test "bench cff/cjk-full-admission" (b : @bench.T) {
     "source-han-serif-jp-2.003R",
     "full-admission",
     "cjk-full-admission|source-han-serif-jp-2.003R|all-17923",
-    "9eb460dcf7adf96bf2c6ebd66a06b1ca50d21b17d2b6a4b1af118c222f6575f6",
+    "26029f450cca92ffbf4d9ce17822b6a17f9dedb0174cbc2e8b26d633b70a5ae5",
   )
   cff_benchmark_require(workload.gids.length() == 0, "CJK admission GIDs")
   let font = cff_benchmark_open(owner)
@@ -205,7 +205,7 @@ test "bench cff/latin-fixed-outline-batch" (b : @bench.T) {
     "source-sans-3.052R",
     "outline-batch",
     "latin-fixed-outline-batch|source-sans-3.052R|2,3,34,97,321,1024,2477",
-    "cb351d9e0af5379e261c3e5cd014b77048943419c42a0a52d60be4c8d7f73994",
+    "48c7790a5567310e260779f0a2fe5cc703a5137a154738537ab264fb3d12105d",
   )
   let font = cff_benchmark_open(owner)
   let glyphs = cff_benchmark_glyphs(font, workload.gids)
@@ -227,7 +227,7 @@ test "bench cff/cjk-high-gid-multi-fd-outline-batch" (b : @bench.T) {
     "source-han-serif-jp-2.003R",
     "outline-batch",
     "cjk-high-gid-multi-fd-outline-batch|source-han-serif-jp-2.003R|2,256,2048,8192,16384,17922",
-    "c5ee2c463a026a7b1cd65206a20c753fc520f3619deb06be84ff993e9c544fd8",
+    "9dcb9a9ac2e9081e857f427c34de1e2b87be13457592dd4d4387d5cd767b02cb",
   )
   let font = cff_benchmark_open(owner)
   let glyphs = cff_benchmark_glyphs(font, workload.gids)

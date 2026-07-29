@@ -1311,7 +1311,7 @@ function Invoke-FontQualificationContractNegatives {
     @{ Name = 'hostile B8'; Path = 'cff_hostile_outcomes.groups.0.rows.0.caller_after.7'; Value = 999 },
     @{ Name = 'mutation'; Path = 'mutation_atomicity_facts.mutation_rows.0.context'; Value = 'drift' },
     @{ Name = 'glyf'; Path = 'glyf_compatibility_facts.lock_ids.0'; Value = 'drift' },
-    @{ Name = 'workload'; Path = 'benchmark_correctness_facts.workloads.0.correctness_input_sha256'; Value = '00' },
+    @{ Name = 'workload'; Path = 'benchmark_correctness_facts.workloads.0.correctness_output_sha256'; Value = '00' },
     @{ Name = 'API'; Path = 'boundary_facts.semantic_interface_count'; Value = 86 },
     @{ Name = 'production import'; Path = 'dependency_facts.production.package_imports.0'; Value = 'other' },
     @{ Name = 'evidence import'; Path = 'dependency_facts.evidence_module.test_only_mb_core_imports.0'; Value = 'other' },
