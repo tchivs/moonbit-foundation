@@ -38,6 +38,25 @@ Project-authored source, documentation, and generated fixtures are licensed unde
   redistribution status keeps the same fail-closed licensing boundary as the
   original fixture.
 
+### Qualified static CFF1 evidence
+
+- **Requirement:** Source Sans 3 3.052R and Source Han Serif JP 2.003R remain
+  exact-upstream external specimens with their retained OFL-1.1 license files,
+  immutable digests, retrieval metadata, and
+  `redistribution_status: confirmed` records in the fixture manifest.
+- **Requirement:** The generated static-CFF1 vectors and qualification records
+  identify their repository generator and bind the external specimen and
+  notice digests; the independent fontTools and AFDKO readers must agree on
+  shared semantic facts. OTS is structural-only evidence and is not a semantic
+  oracle.
+- **Requirement:** `benchmarks/font-cff` is non-published qualification
+  evidence and its generated carrier is package-private. Production
+  `tchivs/mb-font` contains no licensed CFF payload bytes and exposes no fixture
+  API.
+- **Rationale:** Licensed evidence can qualify the portable opaque
+  standalone/selected-collection contract without transferring third-party
+  payload ownership into the production module or broadening its public API.
+
 ## Manifest contract
 
 The manifest is versioned and begins with an empty `records` array. Each future non-empty record must satisfy every field listed in `required_record_fields`. `redistribution_status` must be an allowed enumerated value; externally sourced records must use `confirmed`, while `unconfirmed` records are rejected rather than merely warned about.

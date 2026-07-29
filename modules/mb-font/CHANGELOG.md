@@ -73,6 +73,23 @@ Compatibility status: candidate. No stable API or public release is claimed.
 - Managed `font-complete-public-v2` evidence with four ordered target records,
   closed focused identities, discovered complete-package pass totals, and
   semantic equality after removing only top-level target and runner.
+- Bounded static CFF1 admission for opaque standalone `OTTO` fonts and selected
+  `StaticCff` collection faces through the existing `Font`, `FontLimits`,
+  caller-budget, retained-source, metrics, mapping, kerning, and transactional
+  cubic `Path2` contract.
+- Canonical generated name-keyed, CID-keyed, hostile, Type 2, geometry, limit,
+  and mutation vectors plus exact-upstream Source Sans 3 3.052R and Source Han
+  Serif JP 2.003R specimens with retained OFL-1.1 licenses.
+- Two-reader semantic agreement from the independent fontTools and AFDKO
+  readers, with OTS retained as a structural-only observation.
+- Managed `font-complete-public-v3` evidence with exactly four ordered target
+  records and equality after removing only top-level target and runner.
+- A non-published `benchmarks/font-cff` evidence module with package-private
+  generated payload; production `mb-font` contains no licensed CFF bytes or
+  fixture API.
+- A separate observation-only native baseline owned by Wave 6, without a
+  threshold, comparison, verdict, ranking, superiority, release, or stability
+  claim.
 
 ### Fixed
 
@@ -83,9 +100,10 @@ Compatibility status: candidate. No stable API or public release is claimed.
 
 The candidate still does not claim deeper composite geometry, phantom-point
 placement, grid rounding or hinting execution, rasterization, WOFF1/WOFF2
-admission, CFF/CFF2 selection or execution, variable instantiation, DSIG
+admission, CFF2 selection or execution, variable instantiation, DSIG
 cryptographic trust, color/bitmap glyphs, text shaping/layout/discovery,
 collection extraction/materialization, font writing/editing, ambient
-filesystem/network or host discovery, FFI, or additional formats. Phase 103
-qualification does not claim registry publication, stability promotion,
+filesystem/network or host discovery, FFI, or additional formats. Phase 107
+qualification does not claim a threshold, cross-target/library comparison,
+superiority, registry publication, stability promotion,
 release-policy change, or a new public API.

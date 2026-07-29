@@ -13,13 +13,13 @@ moonbit:
 
 # mb-font
 
-`tchivs/mb-font` admits a bounded standalone TrueType-outline SFNT or inspects
-TTC/OTC versions 1 and 2 from a caller-provided byte view. A selected
-static-glyf face enters the same `Font` contract with named integer metrics,
-deterministic Unicode scalar mapping, basic legacy horizontal kerning, and
-complete unhinted simple plus bounded one-level composite `Path2` outlines. It
-is a pure MoonBit foundation package: it does not discover files, call host font
-APIs, rasterize glyphs, or shape text.
+`tchivs/mb-font` admits a bounded standalone static TrueType-outline or CFF1
+SFNT and inspects TTC/OTC versions 1 and 2 from a caller-provided byte view. A
+selected static-glyf or static-CFF1 face enters the same opaque `Font` contract
+with named integer metrics, deterministic Unicode scalar mapping, basic legacy
+horizontal kerning, and transactional `Path2` outlines. It is a pure MoonBit
+foundation package: it does not discover files, call host font APIs, rasterize
+glyphs, or shape text.
 
 ## 0.1.0 candidate contract
 
@@ -30,7 +30,7 @@ APIs, rasterize glyphs, or shape text.
 | Required targets | `js`, `wasm`, `wasm-gc`, and `native` |
 | Preferred target | `native` |
 | Only direct module dependency | `tchivs/mb-core` |
-| Accepted input | one standalone `0x00010000` TrueType-outline SFNT, or TTC/OTC v1/v2 inspection plus selected static-glyf admission |
+| Accepted input | one standalone static `0x00010000` TrueType-outline or `OTTO` CFF1 SFNT, or TTC/OTC v1/v2 inspection plus selected static-glyf/static-CFF1 admission |
 
 The package retains the caller-provided `ByteView`; it does not copy the whole
 font or take filesystem ownership. The caller supplies both semantic
@@ -425,11 +425,11 @@ that admitted value because the revision changed.
 `FontCollectionLimits` and a caller budget. It exposes only the face count,
 ordered face profiles, and DSIG status. `Absent` and `PresentUnverified` are
 structural observations; `PresentUnverified` is never a cryptographic trust
-decision. A `StaticGlyf` face may be selected through
-`FontCollection::open_face` and then uses the existing `FontLimits`, budget,
-metrics, mapping, kerning, and outline operations. CFF, CFF2, variable, and
-other unsupported profiles remain inspect-only and fail selection with a
-`Capability` outcome.
+decision. A `StaticGlyf` or `StaticCff` face may be selected through
+`FontCollection::open_face` and then uses the existing opaque `Font`,
+`FontLimits`, budget, metrics, mapping, kerning, and outline operations. CFF2,
+variable, and other unsupported profiles remain inspect-only and fail
+selection with a `Capability` outcome.
 
 The licensed interoperability derivative is the exact 757,428-byte
 `DejaVuSans-two-face-v1.ttc` with SHA-256
@@ -491,6 +491,24 @@ Component identities, raw table inventory, raw `cmap` records, selected-record
 internals, contour classification, and other parser facts remain
 offline-oracle-only. They are not public `mb-font` assertions.
 
+Static CFF1 qualification adds canonical generated name-keyed, CID-keyed,
+hostile, Type 2, geometry, limit, and mutation vectors without adding a fixture
+API. The exact upstream licensed specimens are Source Sans 3 3.052R
+`SourceSans3-Regular.otf` (334,924 bytes, SHA-256
+`08df266400933d3178d081a45f94a08814c3e55b4b7dd2e0ff69cb1329f13ab6`)
+and Source Han Serif JP 2.003R `SourceHanSerifJP-Regular.otf` (6,210,796 bytes,
+SHA-256
+`e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785`).
+Both retain their exact upstream OFL-1.1 license files and confirmed
+redistribution records in `fixtures/manifest.json`.
+
+The qualification freezes semantic agreement between the independent
+fontTools-based reader and AFDKO-based reader for their shared CFF facts. OTS is
+used only as a structural admission observation; it is not a semantic oracle.
+`benchmarks/font-cff` is a non-published evidence module whose generated
+payload is package-private. Production `mb-font` contains no licensed CFF bytes
+and exposes no fixture API.
+
 The closed hostile matrix covers malformed directory ranges, recognized
 unsupported profiles, retained-source mutation, checked range overflow,
 source-limit exact/one-short, open-budget exact/one-short, outline-budget
@@ -504,20 +522,24 @@ Run the complete focused contract on `js`, `wasm`, `wasm-gc`, and `native`:
 ```powershell
 ./scripts/quality.ps1 `
   -Lane FontQualification `
-  -EvidenceDirectory artifacts/release-qualification/font-v2
+  -EvidenceDirectory artifacts/release-qualification/font-v3
 ```
 
 The command checks fixture provenance and generated-source drift, the exact
 public interface and sole `mb-core` dependency, all standalone, generated,
 licensed, hostile, limit, budget, and mutation assertions on each target, the
 complete package, and literate examples. The fresh
-`font-complete-public-v2` report writes exactly four ordered target records
+`font-complete-public-v3` report writes exactly four ordered target records
 (`js.json`, `wasm.json`, `wasm-gc.json`, and `native.json`) plus
 `comparison.json`. Only top-level `target` and `runner` fields are removed for
 comparison; toolchain, fixtures, standalone facts, collection facts, hostile
 outcomes, mutation atomicity, boundaries, dependencies, focused identities,
 and pass state remain byte-visible. All four records must have identical
 normalized semantics before evidence is considered passing.
+
+Wave 6 separately records an observation-only native baseline. That record
+does not define a threshold, cross-target or cross-library comparison, verdict,
+ranking, superiority claim, release gate, or stability claim.
 
 The repository-wide Required lane is separate evidence and is deliberately
 bounded:
@@ -534,11 +556,12 @@ does not modify or relabel focused font qualification evidence.
 ## Deliberate boundary
 
 The qualified candidate provides standalone admission, bounded TTC/OTC
-inspection, selected static-glyf admission, named global/per-glyph metrics,
-one-scalar Unicode mapping, scoped legacy pair kerning, complete unhinted simple
-outlines, and bounded one-level composite `Path2` extraction. It deliberately
-excludes WOFF1/WOFF2 admission, CFF/CFF2 selection or execution, variable
-instantiation, DSIG cryptographic trust, runtime file or host-font discovery,
+inspection, selected static-glyf and static-CFF1 admission, named
+global/per-glyph metrics, one-scalar Unicode mapping, scoped legacy pair
+kerning, complete unhinted TrueType simple outlines, bounded one-level
+TrueType composite outlines, and bounded CFF1 Type 2 cubic `Path2` extraction.
+It deliberately excludes WOFF1/WOFF2 admission, CFF2 selection or execution,
+variable instantiation, DSIG cryptographic trust, runtime file or host-font discovery,
 ambient filesystem/network I/O, FFI, GUI or canvas state, shaping, layout,
 fallback, hinting execution, grid rounding, rasterization, color and bitmap
 glyphs, collection extraction/materialization, font
