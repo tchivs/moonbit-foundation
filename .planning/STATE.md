@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v0.34
 milestone_name: CFF Outline Foundation
 current_phase: 107
-current_phase_name: Hostile, Licensed, and Four-Target Qualification
+current_phase_name: hostile-licensed-and-four-target-qualification
 status: executing
-stopped_at: Completed 106-03-PLAN.md
-last_updated: "2026-07-29T01:24:04.733Z"
+stopped_at: Completed 107-01-PLAN.md
+last_updated: "2026-07-29T02:47:22.085Z"
 last_activity: 2026-07-29
-last_activity_desc: Phase 106 complete, transitioned to Phase 107
+last_activity_desc: Phase 107 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 18
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -24,16 +24,16 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 106 — cubic-path-and-public-ttc-integration
+**Current focus:** Phase 107 — hostile-licensed-and-four-target-qualification
 
 ## Current Position
 
-Phase: 107 — Hostile, Licensed, and Four-Target Qualification
-Plan: Not started
+Phase: 107 (hostile-licensed-and-four-target-qualification) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-07-29 — Phase 106 complete, transitioned to Phase 107
+Last activity: 2026-07-29 — Phase 107 execution started
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 72%
 
 ## Milestone Metrics
 
@@ -71,6 +71,9 @@ Progress: [██████████] 100%
 - [Phase 106]: Selected CFF collection opens reuse shared admission with the collection opening revision as authoritative.
 - [Phase 106]: Selected CFF capability failures preserve the established collection profile error boundary.
 - [Phase 106]: Static-glyf production routing remains unchanged and is frozen by expanded deterministic evidence.
+- [Phase 107]: Committed oracle identities exclude machine-local paths; the ignored validated handoff is the sole executable path authority.
+- [Phase 107]: OTS is structural-only while fontTools and AFDKO remain independent semantic readers.
+- [Phase 107]: Hostile outcomes carry literal error, GID, publication, and B8 facts; consumers cannot derive expected outcomes.
 
 ### Pending Todos
 
@@ -92,8 +95,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-28T20:27:03.374Z
-Stopped at: Completed 106-03-PLAN.md
+Last session: 2026-07-29T02:47:22.063Z
+Stopped at: Completed 107-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -120,3 +123,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 106 P01 | 33min | 2 tasks | 15 files |
 | Phase 106 P02 | 17min | 2 tasks | 5 files |
 | Phase 106 P03 | 31min | 2 tasks | 7 files |
+| Phase 107 P01 | 58min | 3 tasks | 9 files |

@@ -123,7 +123,14 @@
   3. Hostile structural, program, resource, mutation, and exact/one-short cases reproduce deterministic atomic outcomes while frozen static-`glyf` behavior remains unchanged.
   4. Isolated `js`, `wasm`, `wasm-gc`, and `native` runs produce exactly four equal semantic records together with reproducible Latin/CJK performance baselines and pinned toolchain, dependency, and public-API evidence.
 
-**Plans**: TBD
+**Plans**: 1/6 plans executed
+
+- [x] 107-01-PLAN.md
+- [ ] 107-02-PLAN.md
+- [ ] 107-03-PLAN.md
+- [ ] 107-04-PLAN.md
+- [ ] 107-05-PLAN.md
+- [ ] 107-06-PLAN.md
 
 ## Progress
 
@@ -134,7 +141,7 @@
 | 104. CFF1 Profile and Bounded Data Model | 4/4 | Complete    | 2026-07-28 |
 | 105. Bounded Type 2 Validation and Retained Metrics | 5/5 | Complete    | 2026-07-29 |
 | 106. Cubic Path and Public/TTC Integration | 3/3 | Complete    | 2026-07-29 |
-| 107. Hostile, Licensed, and Four-Target Qualification | 0/TBD | Not started | - |
+| 107. Hostile, Licensed, and Four-Target Qualification | 1/6 | In Progress|  |
 
 ---
 *Roadmap last updated: 2026-07-28 for v0.34 CFF Outline Foundation planning.*

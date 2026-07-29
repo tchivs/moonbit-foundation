@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 33
+open_count: 36
 waived_count: 0
 fixed_count: 3
-total_count: 36
-last_updated: 2026-07-28T20:27:42.867Z
+total_count: 39
+last_updated: 2026-07-29T02:47:56.180Z
 ---
 
 # Broken Windows Ledger
@@ -51,6 +51,9 @@ last_updated: 2026-07-28T20:27:42.867Z
 | 34 | 106 | deviation | modules/mb-font/font/collection_test.mbt |  | Retargeted legacy unsupported-profile assertions after CFF1 became selectable | open |  | 2026-07-28T20:27:41.878Z |  |
 | 35 | 106 | deviation | modules/mb-font/font/font.mbt |  | Preserved the collection capability error boundary for selected CFF1 | open |  | 2026-07-28T20:27:42.376Z |  |
 | 36 | 106 | deviation | .planning/STATE.md |  | Normalized SDK-generated Phase 106 completion metadata | open |  | 2026-07-28T20:27:42.867Z |  |
+| 37 | 107 | deviation | scripts/fixtures/Provision-CffQualificationTools.ps1 |  | Avoided redundant full SDK inventory scans inside one-field negative mutations. | open |  | 2026-07-29T02:47:33.943Z |  |
+| 38 | 107 | deviation | scripts/fixtures/Test-CffQualificationContracts.ps1 |  | Corrected dynamic PowerShell splatting so every named validation mode executes. | open |  | 2026-07-29T02:47:34.500Z |  |
+| 39 | 107 | deviation | .planning/STATE.md |  | Normalized SDK-emitted Phase ? decision labels to Phase 107 after state advancement. | open |  | 2026-07-29T02:47:56.180Z |  |
 
 ````json
 [
@@ -484,6 +487,42 @@ last_updated: 2026-07-28T20:27:42.867Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-28T20:27:42.867Z",
+    "resolved_at": null
+  },
+  {
+    "id": 37,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/fixtures/Provision-CffQualificationTools.ps1",
+    "line": null,
+    "description": "Avoided redundant full SDK inventory scans inside one-field negative mutations.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T02:47:33.943Z",
+    "resolved_at": null
+  },
+  {
+    "id": 38,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/fixtures/Test-CffQualificationContracts.ps1",
+    "line": null,
+    "description": "Corrected dynamic PowerShell splatting so every named validation mode executes.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T02:47:34.500Z",
+    "resolved_at": null
+  },
+  {
+    "id": 39,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized SDK-emitted Phase ? decision labels to Phase 107 after state advancement.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T02:47:56.180Z",
     "resolved_at": null
   }
 ]

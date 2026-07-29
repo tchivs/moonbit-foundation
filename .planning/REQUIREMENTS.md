@@ -25,7 +25,7 @@ Requirements for the CFF Outline Foundation milestone. Each requirement maps to 
 
 ### Qualification
 
-- [ ] **CFF-06**: Maintainers can reproduce generated name-keyed and multi-FD CID vectors, hostile/resource/mutation cases, immutable licensed Latin and CJK evidence with complete provenance, frozen `glyf` compatibility, standalone and collection public workflows, independent host-oracle comparisons, declared performance baselines, and exactly four equal semantic records from isolated `js`, `wasm`, `wasm-gc`, and `native` runs.
+- [x] **CFF-06**: Maintainers can reproduce generated name-keyed and multi-FD CID vectors, hostile/resource/mutation cases, immutable licensed Latin and CJK evidence with complete provenance, frozen `glyf` compatibility, standalone and collection public workflows, independent host-oracle comparisons, declared performance baselines, and exactly four equal semantic records from isolated `js`, `wasm`, `wasm-gc`, and `native` runs.
 
 ## Future Requirements
 
@@ -71,7 +71,7 @@ Populated during roadmap creation.
 | CFF-03 | Phase 105 | Complete |
 | CFF-04 | Phase 106 | Complete |
 | CFF-05 | Phase 106 | Complete |
-| CFF-06 | Phase 107 | Pending |
+| CFF-06 | Phase 107 | Complete |
 
 **Coverage:**
 
