@@ -47,6 +47,83 @@ test "checked addition and multiplication distinguish exact and overflow bounds"
 }
 
 ///|
+fn assert_int64_overflow(
+  error : @error.CoreError,
+  operation : String,
+) -> Unit raise {
+  inspect(
+    error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(error.code() == @error.ErrorCode::ArithmeticOverflow, content="true")
+  inspect(error.operation() == Some(operation), content="true")
+}
+
+///|
+test "checked Int64 addition accepts exact boundaries and rejects one-step overflow" {
+  let maximum = 9223372036854775807L
+  let minimum = -9223372036854775807L - 1L
+  inspect(@checked.checked_add_int64(maximum, 0L), content="Ok(9223372036854775807)")
+  inspect(
+    @checked.checked_add_int64(minimum, 0L),
+    content="Ok(-9223372036854775808)",
+  )
+  inspect(@checked.checked_add_int64(maximum, minimum), content="Ok(-1)")
+  inspect(
+    @checked.checked_add_int64(maximum - 1L, 1L),
+    content="Ok(9223372036854775807)",
+  )
+  inspect(
+    @checked.checked_add_int64(minimum + 1L, -1L),
+    content="Ok(-9223372036854775808)",
+  )
+  assert_int64_overflow(
+    @checked.checked_add_int64(maximum, 1L).unwrap_err(),
+    "checked_add_int64",
+  )
+  assert_int64_overflow(
+    @checked.checked_add_int64(minimum, -1L).unwrap_err(),
+    "checked_add_int64",
+  )
+}
+
+///|
+test "checked Int64 negation rejects only the signed minimum" {
+  let maximum = 9223372036854775807L
+  let minimum = -9223372036854775807L - 1L
+  inspect(@checked.checked_neg_int64(0L), content="Ok(0)")
+  inspect(@checked.checked_neg_int64(1L), content="Ok(-1)")
+  inspect(@checked.checked_neg_int64(-1L), content="Ok(1)")
+  inspect(
+    @checked.checked_neg_int64(maximum),
+    content="Ok(-9223372036854775807)",
+  )
+  assert_int64_overflow(
+    @checked.checked_neg_int64(minimum).unwrap_err(),
+    "checked_neg_int64",
+  )
+}
+
+///|
+test "checked UInt64 to Int64 conversion proves the numeric maximum" {
+  inspect(@checked.checked_uint64_to_int64(0UL), content="Ok(0)")
+  inspect(
+    @checked.checked_uint64_to_int64(9223372036854775807UL),
+    content="Ok(9223372036854775807)",
+  )
+  assert_int64_overflow(
+    @checked.checked_uint64_to_int64(9223372036854775808UL).unwrap_err(),
+    "checked_uint64_to_int64",
+  )
+  assert_int64_overflow(
+    @checked
+    .checked_uint64_to_int64(18446744073709551615UL)
+    .unwrap_err(),
+    "checked_uint64_to_int64",
+  )
+}
+
+///|
 test "alignment validates before rounding" {
   match @checked.align_up(0UL, 1UL) {
     Ok(value) => inspect(value, content="0")
