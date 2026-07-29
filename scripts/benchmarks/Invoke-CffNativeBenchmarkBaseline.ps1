@@ -1501,6 +1501,77 @@ function New-CffBenchmarkContractEvidence {
   }
 }
 
+function Invoke-CffBenchmarkSyntheticPostProcessing {
+  $treeStatus = Assert-CffBenchmarkCleanTrackedState
+  $evidence = New-CffBenchmarkContractEvidence
+  $evidence.identity.git_commit = (& git rev-parse HEAD).Trim()
+  $evidence.identity.tree_status = $treeStatus
+  $evidence.sources = @(Get-CffBenchmarkSourceFacts)
+  $evidence.toolchain = Get-CffBenchmarkToolchain
+  $evidence.host = Get-CffBenchmarkHostFacts
+  Assert-CffBenchmarkEvidence $evidence -VerifyCurrentInputs
+
+  $relativePath = (
+    'docs/benchmarks/.cff-contract-' + [guid]::NewGuid().ToString('N') + '.md'
+  )
+  $destination = Join-Path $repoRoot $relativePath
+  if (Test-Path -LiteralPath $destination) {
+    throw "Synthetic CFF post-processing destination already exists: $relativePath"
+  }
+  try {
+    Write-CffBenchmarkDocumentAtomically $evidence $destination
+    $document = $utf8.GetString([IO.File]::ReadAllBytes($destination))
+    Test-CffBenchmarkDocument $document
+    $bytes = [IO.File]::ReadAllBytes($destination)
+    $digest = Get-CffBenchmarkSha256Bytes $bytes
+    $policy = Get-Content -Raw -LiteralPath (
+      Join-Path $repoRoot 'policy/foundation.json'
+    ) | ConvertFrom-Json
+    $fontModule = @(
+      $policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-font' }
+    )[0]
+    $staged = $fontModule.qualification.native_benchmark_baseline |
+      ConvertTo-Json -Depth 10 |
+      ConvertFrom-Json
+    $staged.status = 'recorded-observation-only'
+    $staged.length = [int64]$bytes.Length
+    $staged.sha256 = $digest
+    Assert-CffBenchmarkClosedKeys $staged @(
+      'status',
+      'path',
+      'length',
+      'sha256',
+      'schema_version',
+      'claim',
+      'command',
+      'workload_order',
+      'warmup_count',
+      'retained_capture_count',
+      'statistics',
+      'audit_owner'
+    ) 'Synthetic CFF policy digest staging'
+    if ($staged.path -cne $baselineRelativePath -or
+        $staged.status -cne 'recorded-observation-only' -or
+        $staged.length -ne $bytes.Length -or
+        $staged.sha256 -cne (Get-CffBenchmarkSha256File $destination) -or
+        $staged.claim -cne 'observation_only') {
+      throw 'Synthetic CFF policy/baseline digest staging drifted.'
+    }
+  } finally {
+    if (Test-Path -LiteralPath $destination) {
+      Remove-Item -LiteralPath $destination -Force
+    }
+  }
+  $afterStatus = Assert-CffBenchmarkCleanTrackedState
+  if ($afterStatus -cne $treeStatus) {
+    throw 'Synthetic CFF post-processing cleanup changed clean-tree identity.'
+  }
+  Write-Host (
+    'CFF synthetic post-processing passed: pre-temp current inputs, atomic ' +
+    'round-trip, audit reconstruction, policy digest staging, and cleanup.'
+  )
+}
+
 function Copy-CffBenchmarkEvidence([object]$Evidence) {
   $Evidence | ConvertTo-Json -Depth 30 | ConvertFrom-Json
 }
@@ -1588,6 +1659,32 @@ function Invoke-CffBenchmarkContractOnly {
         '(?i)Invoke-CffNativeCapture|WriteAllText|Move-Item|Start-Process|&\s*moon\b') {
     throw 'CFF audit mutation/read-only source contract drifted.'
   }
+  $recordBody = [regex]::Match(
+    $scriptText,
+    '(?s)function Invoke-CffBenchmarkRecord \{(?<body>.*?)\n\}'
+  ).Groups['body'].Value
+  if (-not $recordBody -or
+      ([regex]::Matches(
+        $recordBody,
+        'Assert-CffBenchmarkEvidence \$evidence -VerifyCurrentInputs'
+      )).Count -ne 1 -or
+      $recordBody -cmatch
+        'Assert-CffBenchmarkEvidence \$roundTripEvidence -VerifyCurrentInputs') {
+    throw (
+      'CFF record must verify current inputs before temp creation and validate ' +
+      'the in-repository temp round-trip without reclassifying its own temp file.'
+    )
+  }
+  $atomicBody = [regex]::Match(
+    $scriptText,
+    '(?s)function Write-CffBenchmarkDocumentAtomically\(.*?\) \{(?<body>.*?)\n\}'
+  ).Groups['body'].Value
+  if (-not $atomicBody -or
+      $atomicBody -cnotmatch 'Test-CffBenchmarkDocument \$roundTrip' -or
+      $atomicBody -cmatch 'VerifyCurrentInputs') {
+    throw 'CFF atomic round-trip must validate content without dirty-state recursion.'
+  }
+  Invoke-CffBenchmarkSyntheticPostProcessing
   Write-Host (
     'CFF benchmark contract passed: exact workspace/workloads/fresh budgets, ' +
     'closed one-plus-seven evidence, six statistics, read-only audit, and negatives.'
@@ -1604,16 +1701,15 @@ function Assert-CffBenchmarkVisibleDocument(
   }
 }
 
-function Invoke-CffBenchmarkReadOnlyAudit {
-  $null = Assert-CffBenchmarkCleanTrackedState
-  if (-not (Test-Path -LiteralPath $baselinePath -PathType Leaf)) {
-    throw "CFF baseline is missing: $baselinePath"
-  }
-  $document = $utf8.GetString([IO.File]::ReadAllBytes($baselinePath))
-  $data = Get-CffBenchmarkAuditData $document
-  $sections = @(Get-CffBenchmarkVisibleSections $document)
+function Test-CffBenchmarkDocument(
+  [string]$Document,
+  [switch]$VerifyCurrentInputs
+) {
+  $data = Get-CffBenchmarkAuditData $Document
+  $sections = @(Get-CffBenchmarkVisibleSections $Document)
   $evidence = New-CffBenchmarkRenderedEvidence $data $sections
-  Assert-CffBenchmarkEvidence $evidence -VerifyCurrentInputs
+  Assert-CffBenchmarkEvidence $evidence `
+    -VerifyCurrentInputs:$VerifyCurrentInputs
   for ($index = 0; $index -lt $evidence.runs.Count; $index++) {
     $parsed = @(Convert-CffBenchmarkOutput $evidence.runs[$index].output)
     if (($parsed | ConvertTo-Json -Depth 10) -cne
@@ -1621,7 +1717,45 @@ function Invoke-CffBenchmarkReadOnlyAudit {
       throw "CFF raw output summary drifted at capture $index."
     }
   }
-  Assert-CffBenchmarkVisibleDocument $document $evidence
+  Assert-CffBenchmarkVisibleDocument $Document $evidence
+}
+
+function Write-CffBenchmarkDocumentAtomically(
+  [object]$Evidence,
+  [string]$Destination
+) {
+  $document = New-CffBenchmarkDocument $Evidence
+  $directory = Split-Path -Parent $Destination
+  if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+    [void](New-Item -ItemType Directory -Path $directory)
+  }
+  $tempPath = Join-Path $directory (
+    '.' + [IO.Path]::GetFileNameWithoutExtension($Destination) + '.' +
+    [guid]::NewGuid().ToString('N') + '.tmp'
+  )
+  try {
+    [IO.File]::WriteAllText($tempPath, $document, $utf8)
+    $roundTrip = $utf8.GetString([IO.File]::ReadAllBytes($tempPath))
+    Test-CffBenchmarkDocument $roundTrip
+    if (Test-Path -LiteralPath $Destination) {
+      [IO.File]::Replace($tempPath, $Destination, $null)
+    } else {
+      [IO.File]::Move($tempPath, $Destination)
+    }
+  } finally {
+    if (Test-Path -LiteralPath $tempPath) {
+      Remove-Item -LiteralPath $tempPath -Force
+    }
+  }
+}
+
+function Invoke-CffBenchmarkReadOnlyAudit {
+  $null = Assert-CffBenchmarkCleanTrackedState
+  if (-not (Test-Path -LiteralPath $baselinePath -PathType Leaf)) {
+    throw "CFF baseline is missing: $baselinePath"
+  }
+  $document = $utf8.GetString([IO.File]::ReadAllBytes($baselinePath))
+  Test-CffBenchmarkDocument $document -VerifyCurrentInputs
   Write-Host (
     'CFF native baseline audit passed: tracked inputs, workspace, raw hashes, ' +
     'one excluded warmup, seven retained captures, and six statistics verified read-only.'
@@ -1682,34 +1816,7 @@ function Invoke-CffBenchmarkRecord {
     aggregates = $aggregates
   }
   Assert-CffBenchmarkEvidence $evidence -VerifyCurrentInputs
-  $document = New-CffBenchmarkDocument $evidence
-  $directory = Split-Path -Parent $baselinePath
-  if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
-    [void](New-Item -ItemType Directory -Path $directory)
-  }
-  $tempPath = Join-Path $directory (
-    '.mb-font-cff-native-release-baseline.' + [guid]::NewGuid().ToString('N') +
-    '.tmp'
-  )
-  try {
-    [IO.File]::WriteAllText($tempPath, $document, $utf8)
-    $roundTrip = $utf8.GetString([IO.File]::ReadAllBytes($tempPath))
-    $roundTripData = Get-CffBenchmarkAuditData $roundTrip
-    $roundTripSections = @(Get-CffBenchmarkVisibleSections $roundTrip)
-    $roundTripEvidence = New-CffBenchmarkRenderedEvidence `
-      $roundTripData $roundTripSections
-    Assert-CffBenchmarkEvidence $roundTripEvidence -VerifyCurrentInputs
-    Assert-CffBenchmarkVisibleDocument $roundTrip $roundTripEvidence
-    if (Test-Path -LiteralPath $baselinePath) {
-      [IO.File]::Replace($tempPath, $baselinePath, $null)
-    } else {
-      [IO.File]::Move($tempPath, $baselinePath)
-    }
-  } finally {
-    if (Test-Path -LiteralPath $tempPath) {
-      Remove-Item -LiteralPath $tempPath -Force
-    }
-  }
+  Write-CffBenchmarkDocumentAtomically $evidence $baselinePath
   Write-Host "CFF native baseline recorded atomically: $baselinePath"
 }
 
