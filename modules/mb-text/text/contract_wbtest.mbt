@@ -509,6 +509,80 @@ test "run publication copies record storage before indexed access" {
 }
 
 ///|
+test "signed offset extremes remain unchanged through RTL projection" {
+  let (_owner, font) = text_wb_font()
+  let run = generated_shape_contract(
+    font,
+    [0x41],
+    text_wb_options(Direction::RightToLeft),
+    text_wb_limits(1UL, 1UL),
+    text_wb_resource_budget(1UL),
+    [
+      generated_logical_glyph(
+        font.glyph_id(0UL).unwrap(),
+        [0UL],
+        1L,
+        0L,
+        -9223372036854775807L - 1L,
+        9223372036854775807L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap()
+  let record = run.glyph_at(0UL).unwrap()
+  inspect(record.advance(), content="-1")
+  inspect(record.x_offset(), content="-9223372036854775808")
+  inspect(record.y_offset(), content="9223372036854775807")
+}
+
+///|
+test "generated exact charge commits once through every budget ancestor" {
+  let (_owner, font) = text_wb_font()
+  let parent = text_wb_resource_budget(2UL)
+  let child = parent
+    .child(
+      @budget.ResourceLimits::new(
+        bytes=0UL,
+        allocations=0UL,
+        allocation_size=0UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=2UL,
+      ),
+    )
+    .unwrap()
+  let run = generated_shape_contract(
+    font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    child,
+    [
+      generated_logical_glyph(
+        font.glyph_id(0UL).unwrap(),
+        [0UL],
+        10L,
+        0L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(2UL),
+  ).unwrap()
+  inspect(run.total_advance(), content="10")
+  inspect(parent.remaining().work(), content="0")
+  inspect(child.remaining().work(), content="0")
+}
+
+///|
 test "generated scalar and output ceilings accept exact and reject one over" {
   let (_input_owner, input_font) = text_wb_font()
   let input_budget = text_wb_resource_budget(1UL)
