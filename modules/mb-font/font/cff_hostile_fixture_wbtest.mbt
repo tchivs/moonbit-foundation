@@ -440,3 +440,13 @@ test "CFF multi-fault precedence is state resource capability then data" {
   inspect(too_short.remaining().bytes() == before.bytes(), content="true")
   inspect(too_short.remaining().work() == before.work(), content="true")
 }
+
+///|
+test "font-cff1-v3 private hostile outcomes" {
+  cff_qualification_assert_private_hostile_outcomes()
+}
+
+///|
+test "font-cff1-v3 private mutation windows and atomic budgets" {
+  cff_qualification_assert_private_mutation_windows()
+}
