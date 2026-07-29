@@ -65,9 +65,9 @@ v0.35 delivers one bounded, pure-MoonBit path from explicit single-font Unicode 
   3. Generated contract cases freeze empty-input behavior, LTR logical pen order, RTL final pen order and signed pen deltas, ligature minimum-source clusters, option validation, and stable structured error-stage precedence.
   4. A private prepared value is either discarded with caller and ancestor authority unchanged or published after one checked aggregate charge; no raw byte view, offset, lookup record, persistent cache, module cycle, or second commit is observable.
 
-**Plans**: 0/5 plans executed
+**Plans**: 1/5 plans executed
 
-- [ ] 108-01-PLAN.md
+- [x] 108-01-PLAN.md
 - [ ] 108-02-PLAN.md
 - [ ] 108-03-PLAN.md
 - [ ] 108-04-PLAN.md
@@ -224,7 +224,7 @@ v0.35 delivers one bounded, pure-MoonBit path from explicit single-font Unicode 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 108. Public Contract and Transaction Skeleton | 0/5 | Planned    |  |
+| 108. Public Contract and Transaction Skeleton | 1/5 | In Progress|  |
 | 109. Bounded Layout Admission | 0/TBD | Not started | - |
 | 110. Deterministic GSUB and Source Clusters | 0/TBD | Not started | - |
 | 111. GPOS and Kerning Authority | 0/TBD | Not started | - |

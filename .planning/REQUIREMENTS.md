@@ -10,8 +10,8 @@ to exactly one roadmap phase.
 
 ### Public Text Contract
 
-- [ ] **TXT-01**: Library authors can shape one bounded array of Unicode scalar values with one admitted static `Font` through an explicit deterministic horizontal API that requires script, default-or-exact language choice, `LeftToRight` or `RightToLeft` direction, a closed `rlig`/`liga`/`kern` feature policy, shaping limits, and one caller-owned budget, without ambient locale, normalization, bidi analysis, fallback, host font lookup, or I/O.
-- [ ] **TXT-02**: A successful immutable shaped run exposes only same-font opaque glyph identities, zero-based scalar-origin clusters, checked signed design-unit advances and x/y offsets, `units_per_em`, explicit direction, and checked total advance; LTR records are in logical pen order, RTL records are reversed only for final pen order, and a ligature carries the minimum source scalar index of its consumed components.
+- [x] **TXT-01**: Library authors can shape one bounded array of Unicode scalar values with one admitted static `Font` through an explicit deterministic horizontal API that requires script, default-or-exact language choice, `LeftToRight` or `RightToLeft` direction, a closed `rlig`/`liga`/`kern` feature policy, shaping limits, and one caller-owned budget, without ambient locale, normalization, bidi analysis, fallback, host font lookup, or I/O.
+- [x] **TXT-02**: A successful immutable shaped run exposes only same-font opaque glyph identities, zero-based scalar-origin clusters, checked signed design-unit advances and x/y offsets, `units_per_em`, explicit direction, and checked total advance; LTR records are in logical pen order, RTL records are reversed only for final pen order, and a ligature carries the minimum source scalar index of its consumed components.
 
 ### Bounded Layout Selection
 
@@ -77,8 +77,8 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TXT-01 | Phase 108 | Pending |
-| TXT-02 | Phase 108 | Pending |
+| TXT-01 | Phase 108 | Complete |
+| TXT-02 | Phase 108 | Complete |
 | LAY-01 | Phase 109 | Pending |
 | LAY-02 | Phase 109 | Pending |
 | SUB-01 | Phase 110 | Pending |

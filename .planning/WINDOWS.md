@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 57
+open_count: 60
 waived_count: 0
 fixed_count: 3
-total_count: 60
-last_updated: 2026-07-29T10:34:38.319Z
+total_count: 63
+last_updated: 2026-07-29T21:26:33.190Z
 ---
 
 # Broken Windows Ledger
@@ -75,6 +75,9 @@ last_updated: 2026-07-29T10:34:38.319Z
 | 58 | 107 | deviation | scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 |  | Canonicalized active power-scheme identity to its locale-independent GUID. | open |  | 2026-07-29T10:33:36.050Z |  |
 | 59 | 107 | deviation | scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 |  | Made existing baseline replacement atomic under Windows PowerShell/.NET Framework. | open |  | 2026-07-29T10:33:36.615Z |  |
 | 60 | 107 | deviation | .planning/STATE.md |  | Normalized stale Plan 05 activity and Phase ? decision labels after final Plan 06 state advancement. | open |  | 2026-07-29T10:34:38.319Z |  |
+| 61 | 108 | unrun-verify | modules/mb-font/font/cff_admission.mbt |  | Exact mb-text native --deny-warn gate is blocked by pre-existing mb-font CFF unused-code warnings; all four functional target checks and focused tests pass. | open |  | 2026-07-29T21:24:41.065Z |  |
+| 62 | 108 | deviation | modules/mb-text/text/contract_test.mbt |  | Replaced a malformed hand-transcribed test font with a deterministic valid fixture builder. | open |  | 2026-07-29T21:26:32.679Z |  |
+| 63 | 108 | deviation | .planning/STATE.md |  | Repaired stale Plan: Not planned state so the SDK could advance Phase 108 from Plan 1 to Plan 2. | open |  | 2026-07-29T21:26:33.190Z |  |
 
 ````json
 [
@@ -796,6 +799,42 @@ last_updated: 2026-07-29T10:34:38.319Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-29T10:34:38.319Z",
+    "resolved_at": null
+  },
+  {
+    "id": 61,
+    "kind": "unrun-verify",
+    "phase": "108",
+    "file": "modules/mb-font/font/cff_admission.mbt",
+    "line": null,
+    "description": "Exact mb-text native --deny-warn gate is blocked by pre-existing mb-font CFF unused-code warnings; all four functional target checks and focused tests pass.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T21:24:41.065Z",
+    "resolved_at": null
+  },
+  {
+    "id": 62,
+    "kind": "deviation",
+    "phase": "108",
+    "file": "modules/mb-text/text/contract_test.mbt",
+    "line": null,
+    "description": "Replaced a malformed hand-transcribed test font with a deterministic valid fixture builder.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T21:26:32.679Z",
+    "resolved_at": null
+  },
+  {
+    "id": 63,
+    "kind": "deviation",
+    "phase": "108",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Repaired stale Plan: Not planned state so the SDK could advance Phase 108 from Plan 1 to Plan 2.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T21:26:33.190Z",
     "resolved_at": null
   }
 ]

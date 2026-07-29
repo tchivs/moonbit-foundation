@@ -5,15 +5,15 @@ milestone_name: Text Shaping Foundation
 current_phase: 108
 current_phase_name: Public Contract and Transaction Skeleton
 status: executing
-stopped_at: Phase 108 UI-SPEC approved
-last_updated: "2026-07-29T21:00:48.205Z"
+stopped_at: Completed 108-01-PLAN.md
+last_updated: "2026-07-29T21:26:16.639Z"
 last_activity: 2026-07-30
-last_activity_desc: Created the six-phase v0.35 roadmap with 10/10 requirements mapped
+last_activity_desc: Completed Plan 108-01 empty shaping transaction tracer
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 5
-  completed_plans: 0
+  completed_plans: 1
 ---
 
 # Project State
@@ -24,22 +24,27 @@ See `.planning/PROJECT.md` (updated 2026-07-30 for v0.35).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Plan Phase 108 — Public Contract and Transaction Skeleton
+**Current focus:** Execute Phase 108 Plan 02 — checked run arithmetic and semantics
 
 ## Current Position
 
 Phase: 108 of 113 (1 of 6 in v0.35)
-Plan: Not planned
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-07-30 — Created the six-phase v0.35 roadmap with 10/10 requirements mapped
+Last activity: 2026-07-30 — Completed Plan 108-01 empty shaping transaction tracer
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
-**Current milestone:** 0/6 phases complete; plans are defined during phase planning.
+**Current milestone:** 1/5 Phase 108 plans complete.
 
 Historical execution metrics remain in archived milestone roadmaps.
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 108 P01 | 21m | 1 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -50,6 +55,9 @@ Historical execution metrics remain in archived milestone roadmaps.
 - [v0.35 roadmap]: The closed profile admits GSUB 1/4 and 7→1/4, GPOS 2 and 9→2, Coverage/ClassDef 1/2, GDEF 1.0 glyph classes, and the three class-ignore flags.
 - [v0.35 roadmap]: Selected unsupported paths fail closed; unrelated unselected rich tables do not over-reject; complex scripts, normalization, bidi, fallback, vertical layout, variables, and production FFI remain deferred.
 - [v0.35 roadmap]: Shaping stays in logical order, RTL reverses only final pen records, clusters are scalar origins, and one run-level GPOS-or-legacy kerning authority prevents double application.
+- [Phase 108]: ResourceCharge composition adds consumable dimensions with checked arithmetic and takes maxima for per-operation ceilings.
+- [Phase 108]: Font::with_shape_transaction owns scope invalidation, final source validation, and the only Budget::charge call.
+- [Phase 108]: The public nonempty shaping route returns CapabilityUnavailable until selected layout authority is admitted.
 
 ### Pending Todos
 
@@ -57,7 +65,7 @@ None.
 
 ### Blockers/Concerns
 
-- Phase 108 planning must freeze MoonBit continuation ergonomics, signed RTL pen deltas, empty-run charging, and the complete error-stage precedence matrix.
+- The exact `mb-text --deny-warn` gate remains blocked by pre-existing `mb-font` CFF unused-code warnings; four-target functional checks and focused suites pass.
 - Phases 109, 111, 112, and 113 require the focused research called out in ROADMAP.md; Phase 110 does not require a separate research pass.
 
 ## Deferred Items
@@ -71,10 +79,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-29T19:45:54.190Z
-Stopped at: Phase 108 UI-SPEC approved
-Resume file: .planning/phases/108-public-contract-and-transaction-skeleton/108-UI-SPEC.md
+Last session: 2026-07-29T21:25:53.380Z
+Stopped at: Completed 108-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
-- Run `$gsd-plan-phase 108`.
+- Continue `$gsd-execute-phase 108` with Plan 108-02.
