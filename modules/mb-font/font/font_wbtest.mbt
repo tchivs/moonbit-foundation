@@ -849,6 +849,27 @@ test "glyph_for_scalar rejects post-read revision drift" {
 }
 
 ///|
+test "glyph identity stores the physical owning Font without a global registry" {
+  let first_owner = font_wb_owner(generated_minimal_truetype())
+  let first = Font::open(
+    first_owner.view(),
+    font_wb_limits(),
+    font_wb_open_budget(),
+  ).unwrap()
+  let first_alias = first
+  let second_owner = font_wb_owner(generated_minimal_truetype())
+  let second = Font::open(
+    second_owner.view(),
+    font_wb_limits(),
+    font_wb_open_budget(),
+  ).unwrap()
+  let glyph = first.glyph_id(0UL).unwrap()
+  inspect(physical_equal(glyph.owner, first), content="true")
+  inspect(physical_equal(glyph.owner, first_alias), content="true")
+  inspect(physical_equal(glyph.owner, second), content="false")
+}
+
+///|
 test "kerning rejects post-read revision drift" {
   let required = font_wb_required_tables()
   let tables : Array[GeneratedFontTable] = []

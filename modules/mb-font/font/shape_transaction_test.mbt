@@ -158,3 +158,27 @@ test "captured and generic-returned shape scopes close after callback" {
     .unwrap()
   assert_shape_scope_closed(returned.units_per_em().unwrap_err())
 }
+
+///|
+test "shape scope closes when the callback returns an error" {
+  let owner = font_test_owner(font_test_minimal_truetype())
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let mut captured : FontShapeScope? = None
+  let callback_error = @error.CoreError::new(
+    @error.ErrorCategory::Capability,
+    @error.ErrorCode::CapabilityUnavailable,
+    operation="font-shape-test",
+    context="later-capability",
+  )
+  let result : Result[Unit, @error.CoreError] = font
+    .with_shape_transaction(shape_transaction_budget(0UL), fn(scope) {
+      captured = Some(scope)
+      Err(callback_error)
+    })
+  let error = result.unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+  inspect(error.operation() == Some("font-shape-test"), content="true")
+  inspect(error.context() == Some("later-capability"), content="true")
+  assert_shape_scope_closed(captured.unwrap().units_per_em().unwrap_err())
+}

@@ -1337,9 +1337,9 @@ test "CFF outline atomic rejects invalid and cross-font GIDs before charging" {
   )
   inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
   inspect(error.operation() == Some("font-outline"), content="true")
-  inspect(error.requested() == Some(2UL), content="true")
-  inspect(error.limit() == Some(2UL), content="true")
-  inspect(error.context() == Some("font-glyph-id-range"), content="true")
+  inspect(error.requested() is None, content="true")
+  inspect(error.limit() is None, content="true")
+  inspect(error.context() == Some("font-glyph-owner"), content="true")
   inspect(budget.remaining().bytes() == before.bytes(), content="true")
   inspect(
     budget.remaining().allocations() == before.allocations(),
@@ -2837,9 +2837,9 @@ test "outline guards empty and zero-contour glyph results" {
   )
   inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
   inspect(error.operation() == Some("font-outline"), content="true")
-  inspect(error.requested() == Some(2UL), content="true")
-  inspect(error.limit() == Some(1UL), content="true")
-  inspect(error.context() == Some("font-glyph-id-range"), content="true")
+  inspect(error.requested() is None, content="true")
+  inspect(error.limit() is None, content="true")
+  inspect(error.context() == Some("font-glyph-owner"), content="true")
 }
 
 ///|
@@ -3289,9 +3289,9 @@ test "kerning revalidates both glyphs against the receiving font" {
     )
     inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
     inspect(error.operation() == Some("font-kerning"), content="true")
-    inspect(error.requested() == Some(3UL), content="true")
-    inspect(error.limit() == Some(2UL), content="true")
-    inspect(error.context() == Some("font-glyph-id-range"), content="true")
+    inspect(error.requested() is None, content="true")
+    inspect(error.limit() is None, content="true")
+    inspect(error.context() == Some("font-glyph-owner"), content="true")
   }
 }
 
@@ -4221,7 +4221,7 @@ test "font publishes opaque direct tail and empty horizontal metrics" {
 }
 
 ///|
-test "glyph IDs are range checked by construction and receiving Font" {
+test "glyph IDs are range checked by construction and owner checked by receiving Font" {
   let large_owner = font_test_owner(font_test_horizontal_metric_truetype())
   let large = Font::open(
     large_owner.view(),
@@ -4256,9 +4256,84 @@ test "glyph IDs are range checked by construction and receiving Font" {
     receiving.operation() == Some("font-horizontal-metrics"),
     content="true",
   )
-  inspect(receiving.requested() == Some(2UL), content="true")
-  inspect(receiving.limit() == Some(1UL), content="true")
-  inspect(receiving.context() == Some("font-glyph-id-range"), content="true")
+  inspect(receiving.requested() is None, content="true")
+  inspect(receiving.limit() is None, content="true")
+  inspect(receiving.context() == Some("font-glyph-owner"), content="true")
+}
+
+///|
+fn font_test_assert_glyph_owner_error(
+  error : @error.CoreError,
+  operation : String,
+) -> Unit raise {
+  inspect(
+    error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(error.operation() == Some(operation), content="true")
+  inspect(error.requested() is None, content="true")
+  inspect(error.completed() is None, content="true")
+  inspect(error.range_start() is None, content="true")
+  inspect(error.range_end() is None, content="true")
+  inspect(error.source_offset() is None, content="true")
+  inspect(error.limit() is None, content="true")
+  inspect(error.context() == Some("font-glyph-owner"), content="true")
+}
+
+///|
+test "same-range glyph authority accepts aliases and rejects distinct Fonts before work" {
+  let source = font_test_horizontal_metric_truetype()
+  let first_owner = font_test_owner(source)
+  let first = Font::open(
+    first_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let first_alias = first
+  let second_owner = font_test_owner(source)
+  let second = Font::open(
+    second_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let glyph = first.glyph_id(0UL).unwrap()
+  let second_glyph = second.glyph_id(0UL).unwrap()
+
+  inspect(first_alias.horizontal_metrics(glyph) is Ok(_), content="true")
+  inspect(first_alias.kerning(glyph, glyph).unwrap(), content="0")
+  inspect(
+    first_alias.outline(glyph, font_test_outline_budget()) is Ok(_),
+    content="true",
+  )
+
+  font_test_assert_glyph_owner_error(
+    second.horizontal_metrics(glyph).unwrap_err(),
+    "font-horizontal-metrics",
+  )
+  font_test_assert_glyph_owner_error(
+    second.kerning(glyph, second_glyph).unwrap_err(),
+    "font-kerning",
+  )
+  font_test_assert_glyph_owner_error(
+    second.kerning(second_glyph, glyph).unwrap_err(),
+    "font-kerning",
+  )
+  let outline_budget = font_test_outline_budget()
+  let before = outline_budget.remaining()
+  font_test_assert_glyph_owner_error(
+    second.outline(glyph, outline_budget).unwrap_err(),
+    "font-outline",
+  )
+  let after = outline_budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.allocation_size() == before.allocation_size(), content="true")
+  inspect(after.width() == before.width(), content="true")
+  inspect(after.height() == before.height(), content="true")
+  inspect(after.pixels() == before.pixels(), content="true")
+  inspect(after.depth() == before.depth(), content="true")
+  inspect(after.work() == before.work(), content="true")
 }
 
 ///|
