@@ -74,6 +74,997 @@ fn cff_hostile_assert_program_error(
 }
 
 ///|
+fn cff_qualification_hostile_b8(
+  value : @budget.ResourceLimits,
+) -> String {
+  value.bytes().to_string() +
+  "," +
+  value.allocations().to_string() +
+  "," +
+  value.allocation_size().to_string() +
+  "," +
+  value.width().to_string() +
+  "," +
+  value.height().to_string() +
+  "," +
+  value.pixels().to_string() +
+  "," +
+  value.depth().to_string() +
+  "," +
+  value.work().to_string()
+}
+
+///|
+fn cff_qualification_hostile_optional_uint(
+  value : UInt64?,
+) -> String {
+  match value {
+    Some(value) => value.to_string()
+    None => "-"
+  }
+}
+
+///|
+fn cff_qualification_emit_hostile_observation(
+  id : String,
+  error : @error.CoreError?,
+  success_operation : String,
+  success_requested : UInt64?,
+  success_limit : UInt64?,
+  gid : UInt64?,
+  publication : String,
+  caller_before : @budget.ResourceLimits,
+  caller_after : @budget.ResourceLimits,
+  ancestor_before : @budget.ResourceLimits,
+  ancestor_after : @budget.ResourceLimits,
+) -> Unit {
+  let outcome = match error {
+    Some(error) => @error.render_error(error)
+    None => {
+      let mut rendered = "success|operation=" + success_operation
+      match success_requested {
+        Some(value) =>
+          rendered = rendered + "|requested=" + value.to_string()
+        None => ()
+      }
+      match success_limit {
+        Some(value) => rendered = rendered + "|limit=" + value.to_string()
+        None => ()
+      }
+      rendered
+    }
+  }
+  println(
+    "MNF_CFF_HOSTILE|" +
+    id +
+    "|gid=" +
+    cff_qualification_hostile_optional_uint(gid) +
+    "|publication=" +
+    publication +
+    "|caller_before=" +
+    cff_qualification_hostile_b8(caller_before) +
+    "|caller_after=" +
+    cff_qualification_hostile_b8(caller_after) +
+    "|ancestor_before=" +
+    cff_qualification_hostile_b8(ancestor_before) +
+    "|ancestor_after=" +
+    cff_qualification_hostile_b8(ancestor_after) +
+    "|" +
+    outcome,
+  )
+}
+
+///|
+fn cff_qualification_observe_structural_row(
+  id : String,
+) -> Unit raise {
+  let exact = cff_wb_table()
+  let (cff, num_glyphs, gid) = match id {
+    "structural-header-one-short" =>
+      (
+        Bytes::from_array(font_wb_bytes_array(exact)[0:3]),
+        1UL,
+        None,
+      )
+    "structural-name-index-one-short" =>
+      (
+        Bytes::from_array(font_wb_bytes_array(exact)[0:12]),
+        1UL,
+        None,
+      )
+    "structural-top-index-one-short" =>
+      (
+        Bytes::from_array(font_wb_bytes_array(exact)[0:22]),
+        1UL,
+        None,
+      )
+    "structural-string-index-one-short" =>
+      (
+        Bytes::from_array(font_wb_bytes_array(exact)[0:24]),
+        1UL,
+        None,
+      )
+    "structural-global-subrs-one-short" =>
+      (
+        Bytes::from_array(font_wb_bytes_array(exact)[0:26]),
+        1UL,
+        None,
+      )
+    "structural-charstrings-one-short" =>
+      (
+        Bytes::from_array(font_wb_bytes_array(exact)[0:32]),
+        1UL,
+        None,
+      )
+    "structural-private-one-short" =>
+      (
+        Bytes::from_array(font_wb_bytes_array(exact)[0:34]),
+        1UL,
+        None,
+      )
+    "structural-local-subrs-one-short" =>
+      (
+        Bytes::from_array(font_wb_bytes_array(exact)[0:36]),
+        1UL,
+        None,
+      )
+    "structural-dict-arity" => (cff_cid_wb_table(ros_operands=0UL), 3UL, None)
+    "structural-encoding-supplement" => {
+      let bytes = cff_name_wb_table(encoding_mode=4UL)
+      (
+        Bytes::from_array(
+          font_wb_bytes_array(bytes)[0:bytes.length() - 1],
+        ),
+        3UL,
+        None,
+      )
+    }
+    "structural-fd-select-fd" =>
+      (
+        cff_cid_wb_table(fd_select_format=0UL, gid_two_fd=2UL),
+        3UL,
+        Some(2UL),
+      )
+    "structural-fd-select-sentinel" =>
+      (
+        cff_cid_wb_table(fd_select_format=3UL, fd_sentinel=2UL),
+        3UL,
+        Some(2UL),
+      )
+    "structural-fd-private-range" =>
+      (cff_cid_wb_table(invalid_unused_fd=true), 3UL, None)
+    "structural-font-matrix-arity" =>
+      (cff_cid_wb_table(invalid_matrix=true), 3UL, None)
+    "structural-cid-charset" =>
+      (cff_cid_wb_table(predefined_charset=true), 3UL, None)
+    "structural-cid-encoding" =>
+      (cff_cid_wb_table(include_encoding=true), 3UL, None)
+    _ => fail("unknown structural hostile row: " + id)
+  }
+  let source = cff_wb_otf(cff, num_glyphs~)
+  let limits = cff_wb_budget().remaining()
+  let ancestor = @budget.Budget::new(limits)
+  let caller = ancestor.child(limits).unwrap()
+  let caller_before = caller.remaining()
+  let ancestor_before = ancestor.remaining()
+  let result = admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    caller,
+    gid.unwrap_or(0UL),
+  )
+  let error = result.unwrap_err()
+  cff_qualification_emit_hostile_observation(
+    id,
+    Some(error),
+    "",
+    None,
+    None,
+    gid,
+    "none",
+    caller_before,
+    caller.remaining(),
+    ancestor_before,
+    ancestor.remaining(),
+  )
+}
+
+///|
+fn cff_qualification_standard_hostile_budget(
+) -> (@budget.Budget, @budget.Budget) {
+  let limits = cff_wb_budget().remaining()
+  let ancestor = @budget.Budget::new(limits)
+  let caller = ancestor.child(limits).unwrap()
+  (ancestor, caller)
+}
+
+///|
+fn cff_qualification_emit_type2_observation(
+  id : String,
+  result : Result[Type2VmResult, @error.CoreError],
+  requested : UInt64?,
+  limit : UInt64?,
+  gid : UInt64,
+) -> Unit raise {
+  let (ancestor, caller) = cff_qualification_standard_hostile_budget()
+  let caller_before = caller.remaining()
+  let ancestor_before = ancestor.remaining()
+  let (error, publication) = match result {
+    Ok(_) => (None, "staged-glyph")
+    Err(error) => (Some(error), "none")
+  }
+  cff_qualification_emit_hostile_observation(
+    id,
+    error,
+    "font-cff-type2",
+    requested,
+    limit,
+    Some(gid),
+    publication,
+    caller_before,
+    caller.remaining(),
+    ancestor_before,
+    ancestor.remaining(),
+  )
+}
+
+///|
+fn cff_qualification_stack_program(
+  count : Int,
+  consume : Bool,
+) -> Bytes {
+  let program : Array[Byte] = []
+  for _index = 0; _index < count; _index = _index + 1 {
+    program.push(b'\x8B')
+  }
+  if consume {
+    for _index = 0; _index < count; _index = _index + 1 {
+      program.push(b'\x0C')
+      program.push(b'\x12')
+    }
+  }
+  program.push(b'\x0E')
+  Bytes::from_array(program)
+}
+
+///|
+fn cff_qualification_stem_program(count : Int) -> Bytes {
+  let program : Array[Byte] = []
+  for _index = 0; _index < count; _index = _index + 1 {
+    program.push(b'\x8B')
+    program.push(b'\x8B')
+    program.push(b'\x01')
+  }
+  program.push(b'\x0E')
+  Bytes::from_array(program)
+}
+
+///|
+fn cff_qualification_depth_programs(
+  count : Int,
+) -> Array[Bytes] {
+  let programs : Array[Bytes] = []
+  for index = 0; index < count; index = index + 1 {
+    if index + 1 == count {
+      programs.push(b"\x0b")
+    } else {
+      programs.push(
+        Bytes::from_array([
+          (b'\x21'.to_int() + index).to_byte(),
+          b'\x0a',
+          b'\x0b',
+        ]),
+      )
+    }
+  }
+  programs
+}
+
+///|
+fn cff_qualification_observe_type2_row(
+  id : String,
+) -> Unit raise {
+  let result = match id {
+    "type2-number-stack-arity" => type2_vm_wb_run(b"\x0c\x09\x0e")
+    "type2-arithmetic-logical-storage" =>
+      type2_vm_wb_run(b"\x8c\x8b\x0c\x0c\x0e")
+    "type2-random-width-state" =>
+      type2_vm_wb_run_with(
+        b"\x8b\x8b\x01\x8c\x8b\x8b\x15\x0e",
+        32768000L,
+        6553600L,
+        0L,
+        type2_vm_wb_limits(65535UL, 65535UL),
+      )
+    "type2-path-flex-geometry" =>
+      type2_vm_wb_run(type2_geometry_wb_program([1], b'\x05'))
+    "type2-stem-mask" =>
+      type2_vm_wb_run(cff_qualification_stem_program(97))
+    "type2-subroutine-frame" =>
+      type2_fixture_run(
+        b"\x20\x0a\x0e",
+        [b"\x20\x0a\x0b"],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
+      )
+    "type2-operator-capability" =>
+      type2_vm_wb_run(b"\x8b\x8b\x8b\x8b\x0e")
+    "type2-termination" =>
+      type2_fixture_run(
+        b"\x20\x0a\x8b\x0c\x12\x0e",
+        [b"\x0e"],
+        [],
+        type2_vm_wb_limits(65535UL, 65535UL),
+      )
+    _ => fail("unknown Type 2 hostile row: " + id)
+  }
+  let (requested, limit, gid) = match id {
+    "type2-arithmetic-logical-storage" => (Some(0UL), Some(0UL), 1UL)
+    "type2-stem-mask" => (Some(97UL), Some(96UL), 0UL)
+    "type2-subroutine-frame" => (Some(11UL), Some(10UL), 0UL)
+    "type2-operator-capability" => (None, None, 1UL)
+    _ => (None, None, 0UL)
+  }
+  cff_qualification_emit_type2_observation(
+    id,
+    result,
+    requested,
+    limit,
+    gid,
+  )
+}
+
+///|
+fn cff_qualification_observe_semantic_row(
+  id : String,
+) -> Unit raise {
+  match id {
+    "semantic-stack-48-exact" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_vm_wb_run(cff_qualification_stack_program(48, true)),
+        Some(48UL),
+        Some(48UL),
+        0UL,
+      )
+    "semantic-stack-49-one-short" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_vm_wb_run(cff_qualification_stack_program(49, false)),
+        Some(49UL),
+        Some(48UL),
+        0UL,
+      )
+    "semantic-stem-96-exact" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_vm_wb_run(cff_qualification_stem_program(96)),
+        Some(96UL),
+        Some(96UL),
+        0UL,
+      )
+    "semantic-stem-97-one-short" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_vm_wb_run(cff_qualification_stem_program(97)),
+        Some(97UL),
+        Some(96UL),
+        0UL,
+      )
+    "semantic-frame-depth-exact" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_fixture_run(
+          b"\x20\x0a\x0e",
+          cff_qualification_depth_programs(10),
+          [],
+          type2_vm_wb_limits(65535UL, 65535UL),
+        ),
+        Some(10UL),
+        Some(10UL),
+        0UL,
+      )
+    "semantic-frame-depth-one-short" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_fixture_run(
+          b"\x20\x0a\x0e",
+          cff_qualification_depth_programs(11),
+          [],
+          type2_vm_wb_limits(65535UL, 65535UL),
+        ),
+        Some(11UL),
+        Some(10UL),
+        0UL,
+      )
+    "semantic-outline-points-exact" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_vm_wb_run_with(
+          type2_geometry_wb_program([10, 20], b'\x05'),
+          0L,
+          0L,
+          0L,
+          type2_vm_wb_geometry_limits(2UL, 1UL, 65535UL, 65535UL),
+        ),
+        Some(2UL),
+        Some(2UL),
+        0UL,
+      )
+    "semantic-outline-points-one-short" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_vm_wb_run_with(
+          type2_geometry_wb_program([10, 20], b'\x05'),
+          0L,
+          0L,
+          0L,
+          type2_vm_wb_geometry_limits(1UL, 1UL, 65535UL, 65535UL),
+        ),
+        Some(2UL),
+        Some(1UL),
+        0UL,
+      )
+    "semantic-outline-contours-exact" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_vm_wb_run_with(
+          b"\x8B\x8B\x15\x8C\x8C\x05\x8B\x8B\x15\x8C\x8C\x05\x0E",
+          0L,
+          0L,
+          0L,
+          type2_vm_wb_geometry_limits(4UL, 2UL, 65535UL, 65535UL),
+        ),
+        Some(2UL),
+        Some(2UL),
+        0UL,
+      )
+    "semantic-outline-contours-one-short" =>
+      cff_qualification_emit_type2_observation(
+        id,
+        type2_vm_wb_run_with(
+          b"\x8B\x8B\x15\x8C\x8C\x05\x8B\x8B\x15\x8C\x8C\x05\x0E",
+          0L,
+          0L,
+          0L,
+          type2_vm_wb_geometry_limits(8UL, 1UL, 65535UL, 65535UL),
+        ),
+        Some(2UL),
+        Some(1UL),
+        0UL,
+      )
+    "semantic-retained-allocation-exact"
+    | "semantic-geometry-and-retained-arrays" => {
+      let programs : Array[Bytes] = []
+      for _index = 0; _index < 10; _index = _index + 1 {
+        programs.push(b"\x0e")
+      }
+      let (descriptors, global_subrs, authority) =
+        type2_fixture_descriptors(programs, [])
+      let allocation_limit = if id == "semantic-retained-allocation-exact" {
+        384UL
+      } else {
+        383UL
+      }
+      let limits = @budget.ResourceLimits::new(
+        bytes=400UL,
+        allocations=43UL,
+        allocation_size=allocation_limit,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=10UL,
+      )
+      let ancestor = @budget.Budget::new(limits)
+      let caller = ancestor.child(limits).unwrap()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let result = type2_stage_all_glyphs(
+        descriptors,
+        global_subrs,
+        1000UL,
+        type2_vm_wb_limits(65535UL, 65535UL),
+        caller,
+        authority,
+        authority.mutation_revision(),
+      )
+      let (error, publication) = match result {
+        Ok(_) => (None, "staged-glyph")
+        Err(error) => (Some(error), "none")
+      }
+      cff_qualification_emit_hostile_observation(
+        id,
+        error,
+        "budget_charge",
+        Some(384UL),
+        Some(allocation_limit),
+        Some(0UL),
+        publication,
+        caller_before,
+        caller.remaining(),
+        ancestor_before,
+        ancestor.remaining(),
+      )
+    }
+    _ => fail("unknown semantic hostile row: " + id)
+  }
+}
+
+///|
+fn cff_qualification_observe_resource_row(
+  id : String,
+) -> Unit raise {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  let (_owner, font) = cff_path_wb_owner_and_font([b"\x0e", cubic, b"\x0e"])
+  let glyph = font.glyph_id(1UL).unwrap()
+  let charge = font_wb_cff_cubic_path_charge()
+  let (dimension, requested, exact) = match id {
+    "outline-bytes-exact" => ("bytes", charge.bytes, true)
+    "outline-bytes-one-short" => ("bytes", charge.bytes, false)
+    "outline-allocations-exact" =>
+      ("allocations", charge.allocations, true)
+    "outline-allocations-one-short" =>
+      ("allocations", charge.allocations, false)
+    "outline-allocation-size-exact" =>
+      ("allocation_size", charge.allocation_size, true)
+    "outline-allocation-size-one-short" =>
+      ("allocation_size", charge.allocation_size, false)
+    "outline-work-exact" => ("work", charge.work, true)
+    "outline-work-one-short" => ("work", charge.work, false)
+    _ => fail("unknown outline resource hostile row: " + id)
+  }
+  let limit = if exact { requested } else { requested - 1UL }
+  let limits = cff_path_wb_limits(
+    if dimension == "bytes" { limit } else { charge.bytes },
+    if dimension == "allocations" {
+      limit
+    } else {
+      charge.allocations
+    },
+    if dimension == "allocation_size" {
+      limit
+    } else {
+      charge.allocation_size
+    },
+    if dimension == "work" { limit } else { charge.work },
+  )
+  let ancestor = @budget.Budget::new(limits)
+  let caller = ancestor.child(limits).unwrap()
+  let caller_before = caller.remaining()
+  let ancestor_before = ancestor.remaining()
+  let result = font.outline(glyph, caller)
+  let (error, publication) = match result {
+    Ok(_) => (None, "path")
+    Err(error) => (Some(error), "existing-font-only")
+  }
+  cff_qualification_emit_hostile_observation(
+    id,
+    error,
+    "budget_charge",
+    Some(requested),
+    Some(limit),
+    Some(1UL),
+    publication,
+    caller_before,
+    caller.remaining(),
+    ancestor_before,
+    ancestor.remaining(),
+  )
+}
+
+///|
+fn cff_qualification_emit_admission_observation(
+  id : String,
+  result : Result[AdmittedCff1, @error.CoreError],
+  gid : UInt64?,
+  caller : @budget.Budget,
+  caller_before : @budget.ResourceLimits,
+  ancestor : @budget.Budget,
+  ancestor_before : @budget.ResourceLimits,
+) -> Unit {
+  let (error, publication) = match result {
+    Ok(_) => (None, "admitted-font")
+    Err(error) => (Some(error), "none")
+  }
+  cff_qualification_emit_hostile_observation(
+    id,
+    error,
+    "font-cff-admit",
+    None,
+    None,
+    gid,
+    publication,
+    caller_before,
+    caller.remaining(),
+    ancestor_before,
+    ancestor.remaining(),
+  )
+}
+
+///|
+fn cff_qualification_observe_mutation_row(
+  id : String,
+) -> Unit raise {
+  match id {
+    "mutation-admission-opening" => {
+      let owner = font_wb_owner(cff_wb_otf(cff_wb_table()))
+      let limits = cff_hostile_budget(1UL, 1UL, 1UL, 1UL).remaining()
+      let ancestor = @budget.Budget::new(limits)
+      let caller = ancestor.child(limits).unwrap()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let result = admit_cff1_structure_at_after_preflight(
+        owner.view(),
+        0UL,
+        None,
+        FontChecksumMode::Standalone,
+        false,
+        font_wb_limits(),
+        caller,
+        0UL,
+        fn() { () },
+        fn() { () },
+        fn() { () },
+        authoritative_opening_revision=owner.view().mutation_revision() + 1UL,
+      )
+      cff_qualification_emit_admission_observation(
+        id,
+        result,
+        None,
+        caller,
+        caller_before,
+        ancestor,
+        ancestor_before,
+      )
+    }
+    "mutation-selected-face" | "mutation-final-commit" => {
+      let owner = font_wb_owner(
+        cff_wb_otf(
+          cff_wb_name_table_with_programs([b"\x0e", b"\x0e", b"\x0e"]),
+          num_glyphs=3UL,
+        ),
+      )
+      let (ancestor, caller) = cff_qualification_standard_hostile_budget()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let target_probe = if id == "mutation-selected-face" { 1 } else { 2 }
+      let mut probes = 0
+      let visited : Array[UInt64] = []
+      let result = admit_cff1_structure_at_after_preflight_with_glyph_probe(
+        owner.view(),
+        0UL,
+        None,
+        FontChecksumMode::Standalone,
+        false,
+        font_wb_limits(),
+        caller,
+        0UL,
+        fn() {
+          probes = probes + 1
+          if probes == target_probe {
+            font_collection_wb_mutate_restore(owner, 0UL)
+          }
+        },
+        fn() { () },
+        fn() { () },
+        fn(gid) { visited.push(gid) },
+      )
+      let observed_gid = if id == "mutation-final-commit" &&
+        visited.length() > 0 {
+        Some(visited[visited.length() - 1])
+      } else {
+        None
+      }
+      cff_qualification_emit_admission_observation(
+        id,
+        result,
+        observed_gid,
+        caller,
+        caller_before,
+        ancestor,
+        ancestor_before,
+      )
+    }
+    "mutation-type2-fetch" => {
+      let owner = font_wb_owner(b"\xf7")
+      let view = owner.view()
+      let (ancestor, caller) = cff_qualification_standard_hostile_budget()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let mut probes = 0
+      let result = type2_execute_program_with_matrix_and_read_probe(
+        view,
+        type2_vm_wb_empty_index(view),
+        type2_vm_wb_empty_index(view),
+        type2_fixed_from_raw(0L).unwrap(),
+        type2_fixed_from_raw(0L).unwrap(),
+        type2_fixed_from_raw(0L).unwrap(),
+        cff_path_wb_identity_matrix(),
+        type2_vm_wb_limits(65535UL, 65535UL),
+        view.mutation_revision(),
+        false,
+        fn() {
+          probes = probes + 1
+          if probes == 1 {
+            font_collection_wb_mutate_restore(owner, 0UL)
+          }
+        },
+      )
+      let error = result.unwrap_err()
+      cff_qualification_emit_hostile_observation(
+        id,
+        Some(error),
+        "",
+        None,
+        None,
+        Some(0UL),
+        "none",
+        caller_before,
+        caller.remaining(),
+        ancestor_before,
+        ancestor.remaining(),
+      )
+    }
+    "mutation-staged-path" => {
+      let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+      let (owner, font) =
+        cff_path_wb_owner_and_font([b"\x0e", cubic, b"\x0e"])
+      let glyph = font.glyph_id(1UL).unwrap()
+      let limits = cff_path_wb_exact_limits(font_wb_cff_cubic_path_charge())
+      let ancestor = @budget.Budget::new(limits)
+      let caller = ancestor.child(limits).unwrap()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let mut probes = 0
+      let result = cff_decode_outline_atomic_with_probes(
+        font.source,
+        cff_path_wb_admitted(font),
+        glyph.value(),
+        font.limits,
+        caller,
+        fn() { () },
+        fn() { () },
+        vm_read_probe=fn() {
+          probes = probes + 1
+          if probes == 1 {
+            font_collection_wb_mutate_restore(owner, 0UL)
+          }
+        },
+      )
+      let error = result.unwrap_err()
+      cff_qualification_emit_hostile_observation(
+        id,
+        Some(error),
+        "",
+        None,
+        None,
+        Some(1UL),
+        "existing-font-only",
+        caller_before,
+        caller.remaining(),
+        ancestor_before,
+        ancestor.remaining(),
+      )
+    }
+    _ => fail("unknown mutation hostile row: " + id)
+  }
+}
+
+///|
+fn cff_qualification_observe_precedence_row(
+  id : String,
+) -> Unit raise {
+  match id {
+    "precedence-state-over-resource" => {
+      let owner = font_wb_owner(cff_wb_otf(cff_wb_table()))
+      let limits = cff_hostile_budget(1UL, 1UL, 1UL, 1UL).remaining()
+      let ancestor = @budget.Budget::new(limits)
+      let caller = ancestor.child(limits).unwrap()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let result = admit_cff1_structure_at_after_preflight(
+        owner.view(),
+        0UL,
+        None,
+        FontChecksumMode::Standalone,
+        false,
+        font_wb_limits(),
+        caller,
+        0UL,
+        fn() { font_collection_wb_mutate_restore(owner, 0UL) },
+        fn() { () },
+        fn() { () },
+      )
+      cff_qualification_emit_admission_observation(
+        id,
+        result,
+        None,
+        caller,
+        caller_before,
+        ancestor,
+        ancestor_before,
+      )
+    }
+    "precedence-resource-over-data" => {
+      let malformed = cff_wb_otf(b"\x01")
+      let limits = cff_hostile_budget(
+        malformed.length().to_uint64() - 1UL,
+        32UL,
+        4096UL,
+        16384UL,
+      ).remaining()
+      let ancestor = @budget.Budget::new(limits)
+      let caller = ancestor.child(limits).unwrap()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let result = admit_cff1_structure(
+        font_wb_view(malformed),
+        font_wb_limits(),
+        caller,
+        0UL,
+      )
+      cff_qualification_emit_admission_observation(
+        id,
+        result,
+        None,
+        caller,
+        caller_before,
+        ancestor,
+        ancestor_before,
+      )
+    }
+    "precedence-capability-over-data" => {
+      let mixed = cff_wb_otf_tables([
+        font_wb_table(b"CFF ", b"\x01"),
+        font_wb_table(b"glyf", b""),
+        font_wb_table(b"head", generated_head_table()),
+        font_wb_table(b"loca", b""),
+        font_wb_table(b"maxp", cff_wb_maxp_table(1UL)),
+      ])
+      let (ancestor, caller) = cff_qualification_standard_hostile_budget()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let result = admit_cff1_structure(
+        font_wb_view(mixed),
+        font_wb_limits(),
+        caller,
+        0UL,
+      )
+      cff_qualification_emit_admission_observation(
+        id,
+        result,
+        None,
+        caller,
+        caller_before,
+        ancestor,
+        ancestor_before,
+      )
+    }
+    "precedence-smallest-failing-gid" => {
+      let source = cff_wb_otf(
+        cff_wb_name_table_with_programs([b"\x0e", b"\x00", b"\x8b\x0e"]),
+        num_glyphs=3UL,
+      )
+      let (ancestor, caller) = cff_qualification_standard_hostile_budget()
+      let caller_before = caller.remaining()
+      let ancestor_before = ancestor.remaining()
+      let visited : Array[UInt64] = []
+      let result = admit_cff1_structure_at_after_preflight_with_glyph_probe(
+        font_wb_view(source),
+        0UL,
+        None,
+        FontChecksumMode::Standalone,
+        false,
+        font_wb_limits(),
+        caller,
+        0UL,
+        fn() { () },
+        fn() { () },
+        fn() { () },
+        fn(gid) { visited.push(gid) },
+      )
+      let gid = if visited.length() > 0 {
+        Some(visited[visited.length() - 1])
+      } else {
+        None
+      }
+      cff_qualification_emit_admission_observation(
+        id,
+        result,
+        gid,
+        caller,
+        caller_before,
+        ancestor,
+        ancestor_before,
+      )
+    }
+    _ => fail("unknown precedence hostile row: " + id)
+  }
+}
+
+///|
+test "font-cff1-v3 hostile row observation tracer" {
+  for id in [
+    "structural-header-one-short",
+    "structural-name-index-one-short",
+    "structural-top-index-one-short",
+    "structural-string-index-one-short",
+    "structural-global-subrs-one-short",
+    "structural-charstrings-one-short",
+    "structural-private-one-short",
+    "structural-local-subrs-one-short",
+    "structural-dict-arity",
+    "structural-encoding-supplement",
+    "structural-fd-select-fd",
+    "structural-fd-select-sentinel",
+    "structural-fd-private-range",
+    "structural-font-matrix-arity",
+    "structural-cid-charset",
+    "structural-cid-encoding",
+  ] {
+    cff_qualification_observe_structural_row(id)
+  }
+  for id in [
+    "type2-number-stack-arity",
+    "type2-arithmetic-logical-storage",
+    "type2-random-width-state",
+    "type2-path-flex-geometry",
+    "type2-stem-mask",
+    "type2-subroutine-frame",
+    "type2-operator-capability",
+    "type2-termination",
+  ] {
+    cff_qualification_observe_type2_row(id)
+  }
+  for id in [
+    "semantic-stack-48-exact",
+    "semantic-stack-49-one-short",
+    "semantic-stem-96-exact",
+    "semantic-stem-97-one-short",
+    "semantic-frame-depth-exact",
+    "semantic-frame-depth-one-short",
+    "semantic-outline-points-exact",
+    "semantic-outline-points-one-short",
+    "semantic-outline-contours-exact",
+    "semantic-outline-contours-one-short",
+    "semantic-retained-allocation-exact",
+    "semantic-geometry-and-retained-arrays",
+  ] {
+    cff_qualification_observe_semantic_row(id)
+  }
+  for id in [
+    "outline-bytes-exact",
+    "outline-bytes-one-short",
+    "outline-allocations-exact",
+    "outline-allocations-one-short",
+    "outline-allocation-size-exact",
+    "outline-allocation-size-one-short",
+    "outline-work-exact",
+    "outline-work-one-short",
+  ] {
+    cff_qualification_observe_resource_row(id)
+  }
+  for id in [
+    "mutation-admission-opening",
+    "mutation-selected-face",
+    "mutation-type2-fetch",
+    "mutation-staged-path",
+    "mutation-final-commit",
+  ] {
+    cff_qualification_observe_mutation_row(id)
+  }
+  for id in [
+    "precedence-state-over-resource",
+    "precedence-resource-over-data",
+    "precedence-capability-over-data",
+    "precedence-smallest-failing-gid",
+  ] {
+    cff_qualification_observe_precedence_row(id)
+  }
+}
+
+///|
 test "cff_structural_exact_and_one_short_cases" {
   let exact = cff_wb_table()
   let admitted = admit_cff1_structure(

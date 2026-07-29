@@ -87,7 +87,7 @@ $PrivateFocusedAssertions = @(
     kind = 'private'
     module = 'modules/mb-font'
     file = 'font/cff_hostile_fixture_wbtest.mbt'
-    name = 'font-cff1-v3 private hostile outcomes'
+    name = 'font-cff1-v3 hostile row observation tracer'
   },
   [pscustomobject][ordered]@{
     kind = 'private'
@@ -96,35 +96,6 @@ $PrivateFocusedAssertions = @(
     name = 'font-cff1-v3 private mutation windows and atomic budgets'
   }
 )
-$HostileExecutionAssertions = [Collections.Generic.List[object]]::new()
-$hostileAssertionNames = [Collections.Generic.HashSet[string]]::new(
-  [StringComparer]::Ordinal
-)
-$hostileCases = Get-Content -Raw -LiteralPath (
-  Join-Path $RepositoryRoot 'fixtures/font/cff-qualification-cases.json'
-) | ConvertFrom-Json -Depth 100
-foreach ($group in @($hostileCases.hostile_groups)) {
-  foreach ($row in @($group.rows)) {
-    $match = [regex]::Match(
-      [string]$row.source,
-      '^modules/mb-font/(?<file>.+?):\d+:(?<name>.+)$'
-    )
-    if (-not $match.Success) {
-      throw "Hostile row source is not an executable mb-font assertion: $($row.id)"
-    }
-    $identity = $match.Groups['file'].Value + "`0" + $match.Groups['name'].Value
-    if ($hostileAssertionNames.Add($identity)) {
-      $HostileExecutionAssertions.Add([pscustomobject][ordered]@{
-        kind = 'private'
-        module = 'modules/mb-font'
-        file = $match.Groups['file'].Value
-        name = $match.Groups['name'].Value
-      })
-    }
-  }
-}
-$PrivateFocusedAssertions =
-  @($PrivateFocusedAssertions) + @($HostileExecutionAssertions)
 $FocusedAssertions = @($PublicEvidenceAssertions + $PrivateFocusedAssertions)
 
 $ProductionSourcePaths = @(
@@ -890,48 +861,157 @@ function Get-FontQualificationFocusedFacts {
   )
 }
 
+function ConvertFrom-FontQualificationHostileObservation {
+  param([Parameter(Mandatory)][string]$Line)
+
+  $parts = @($Line -split '\|')
+  if ($parts.Count -lt 10 -or $parts[0] -cne 'MNF_CFF_HOSTILE') {
+    throw "Malformed hostile observation: $Line"
+  }
+  $values = [ordered]@{}
+  foreach ($part in @($parts[2..7] + $parts[9..($parts.Count - 1)])) {
+    $pair = $part -split '=', 2
+    if ($pair.Count -eq 2) {
+      $values[$pair[0]] = $pair[1].Trim('"')
+    }
+  }
+  $parseB8 = {
+    param([string]$Value)
+    return @($Value -split ',' | ForEach-Object { [int64]$_ })
+  }
+  $parseOptionalInteger = {
+    param([string]$Value)
+    if ([string]::IsNullOrEmpty($Value) -or $Value -ceq '-') {
+      return $null
+    }
+    return [int64]$Value
+  }
+  return [pscustomobject][ordered]@{
+    id = [string]$parts[1]
+    outcome = [string]$parts[8]
+    category = if ($values.Contains('category')) {
+      [string]$values.category
+    } else { $null }
+    code = if ($values.Contains('code')) { [string]$values.code } else { $null }
+    operation = [string]$values.operation
+    requested = if ($values.Contains('requested')) {
+      & $parseOptionalInteger $values.requested
+    } else { $null }
+    limit = if ($values.Contains('limit')) {
+      & $parseOptionalInteger $values.limit
+    } else { $null }
+    context = if ($values.Contains('context')) {
+      [string]$values.context
+    } else { $null }
+    gid = & $parseOptionalInteger $values.gid
+    publication = [string]$values.publication
+    caller_before = & $parseB8 $values.caller_before
+    caller_after = & $parseB8 $values.caller_after
+    ancestor_before = & $parseB8 $values.ancestor_before
+    ancestor_after = & $parseB8 $values.ancestor_after
+    rendered_outcome = [string](($parts[8..($parts.Count - 1)]) -join '|')
+  }
+}
+
 function Get-FontQualificationHostileExecutionCoverage {
-  param([Parameter(Mandatory)][object[]]$FocusedResults)
+  param([Parameter(Mandatory)][string[]]$ObservationLines)
 
   $cases = Get-Content -Raw -LiteralPath (
     Join-Path $RepositoryRoot 'fixtures/font/cff-qualification-cases.json'
   ) | ConvertFrom-Json -Depth 100
+  $observed = @(
+    $ObservationLines | ForEach-Object {
+      ConvertFrom-FontQualificationHostileObservation $_
+    }
+  )
+  if ($observed.Count -ne 53 -or
+      (@($observed.id | Select-Object -Unique)).Count -ne 53) {
+    throw 'Hostile tracer did not emit the exact closed 53-row inventory.'
+  }
+  $categoryNames = @{
+    Data = 'data'
+    Resource = 'resource'
+    Capability = 'capability'
+    State = 'state'
+  }
+  $codeNames = @{
+    InvalidEncoding = 'invalid-encoding'
+    BudgetExceeded = 'budget-exceeded'
+    CapabilityUnavailable = 'capability-unavailable'
+    InvalidRange = 'invalid-range'
+  }
   $coverage = [Collections.Generic.List[object]]::new()
   foreach ($group in @($cases.hostile_groups)) {
     foreach ($row in @($group.rows)) {
-      $match = [regex]::Match(
-        [string]$row.source,
-        '^modules/mb-font/(?<file>.+?):\d+:(?<name>.+)$'
-      )
-      if (-not $match.Success) {
-        throw "Hostile row source is not executable: $($row.id)"
+      $matches = @($observed | Where-Object { $_.id -ceq [string]$row.id })
+      if ($matches.Count -ne 1) {
+        throw "Hostile row did not emit exactly once: $($row.id)"
       }
-      $executions = @(
-        $FocusedResults | Where-Object {
-          $_.kind -ceq 'private' -and
-          $_.file -ceq $match.Groups['file'].Value -and
-          $_.name -ceq $match.Groups['name'].Value -and
-          $_.passed -eq $true -and
-          [int]$_.pass_total -eq 1
-        }
-      )
-      if ($executions.Count -ne 1) {
-        throw "Hostile row did not bind exactly one passed execution: $($row.id)"
+      $actual = $matches[0]
+      $expected = [pscustomobject][ordered]@{
+        id = [string]$row.id
+        outcome = if ($null -eq $row.category) { 'success' } else { 'error' }
+        category = if ($null -eq $row.category) {
+          $null
+        } else { [string]$categoryNames[[string]$row.category] }
+        code = if ($null -eq $row.code) {
+          $null
+        } else { [string]$codeNames[[string]$row.code] }
+        operation = [string]$row.operation
+        requested = if ($null -eq $row.payload.requested) {
+          $null
+        } else { [int64]$row.payload.requested }
+        limit = if ($null -eq $row.payload.limit) {
+          $null
+        } else { [int64]$row.payload.limit }
+        context = if ($null -eq $row.context) {
+          $null
+        } else { [string]$row.context }
+        gid = if ($null -eq $row.gid) { $null } else { [int64]$row.gid }
+        publication = [string]$row.publication
+        caller_before = @($row.caller_before | ForEach-Object { [int64]$_ })
+        caller_after = @($row.caller_after | ForEach-Object { [int64]$_ })
+        ancestor_before = @($row.ancestor_before | ForEach-Object { [int64]$_ })
+        ancestor_after = @($row.ancestor_after | ForEach-Object { [int64]$_ })
       }
+      $comparable = [pscustomobject][ordered]@{
+        id = $actual.id
+        outcome = $actual.outcome
+        category = $actual.category
+        code = $actual.code
+        operation = $actual.operation
+        requested = $actual.requested
+        limit = $actual.limit
+        context = $actual.context
+        gid = $actual.gid
+        publication = $actual.publication
+        caller_before = @($actual.caller_before)
+        caller_after = @($actual.caller_after)
+        ancestor_before = @($actual.ancestor_before)
+        ancestor_after = @($actual.ancestor_after)
+      }
+      Assert-FontQualificationExactValue `
+        $comparable $expected "hostile observation $($row.id)"
       $coverage.Add([pscustomobject][ordered]@{
         id = [string]$row.id
         source = [string]$row.source
-        assertion = [string]$executions[0].name
-        passed = $true
-        outcome_bound = $true
-        publication_bound = $true
-        b8_bound = $true
+        assertion = 'font-cff1-v3 hostile row observation tracer'
+        outcome = $actual.outcome
+        category = $actual.category
+        code = $actual.code
+        operation = $actual.operation
+        requested = $actual.requested
+        limit = $actual.limit
+        context = $actual.context
+        gid = $actual.gid
+        publication = $actual.publication
+        caller_before = @($actual.caller_before)
+        caller_after = @($actual.caller_after)
+        ancestor_before = @($actual.ancestor_before)
+        ancestor_after = @($actual.ancestor_after)
+        rendered_outcome = $actual.rendered_outcome
       })
     }
-  }
-  if ($coverage.Count -ne 53 -or
-      (@($coverage.id | Select-Object -Unique)).Count -ne 53) {
-    throw 'Hostile execution coverage is not the exact closed 53-row inventory.'
   }
   return @($coverage)
 }
@@ -941,6 +1021,7 @@ function New-FontQualificationRunnerFact {
     [Parameter(Mandatory)][string]$Target,
     [Parameter(Mandatory)][ValidateSet('full','tracer')][string]$Mode,
     [Parameter(Mandatory)][object[]]$FocusedResults,
+    [Parameter(Mandatory)][string[]]$HostileObservationLines,
     [Parameter(Mandatory)][string]$FullPackageCommand,
     [Parameter(Mandatory)][int]$FullPackagePassTotal,
     [Parameter(Mandatory)][string]$FullPackageSummary
@@ -967,7 +1048,7 @@ function New-FontQualificationRunnerFact {
     check_command = "moon check benchmarks/font-cff --target $Target --frozen"
     focused_commands = $FocusedResults
     hostile_row_coverage = @(
-      Get-FontQualificationHostileExecutionCoverage $FocusedResults
+      Get-FontQualificationHostileExecutionCoverage $HostileObservationLines
     )
     full_package_command = $FullPackageCommand
     full_package_passed = $true
@@ -1073,17 +1154,121 @@ function Assert-FontQualificationRunnerFact {
   if ($coverage.Count -ne 53) {
     throw "$Target hostile execution coverage count drifted."
   }
+  $cases = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'fixtures/font/cff-qualification-cases.json'
+  ) | ConvertFrom-Json -Depth 100
+  $canonicalRows = @(
+    $cases.hostile_groups | ForEach-Object { @($_.rows) }
+  )
+  $categoryNames = @{
+    Data = 'data'
+    Resource = 'resource'
+    Capability = 'capability'
+    State = 'state'
+  }
+  $codeNames = @{
+    InvalidEncoding = 'invalid-encoding'
+    BudgetExceeded = 'budget-exceeded'
+    CapabilityUnavailable = 'capability-unavailable'
+    InvalidRange = 'invalid-range'
+  }
   for ($index = 0; $index -lt $coverage.Count; $index++) {
     Assert-FontQualificationClosedKeys $coverage[$index] @(
-      'id','source','assertion','passed','outcome_bound',
-      'publication_bound','b8_bound'
+      'id','source','assertion','outcome','category','code','operation',
+      'requested','limit','context','gid','publication','caller_before',
+      'caller_after','ancestor_before','ancestor_after','rendered_outcome'
     ) "$Target hostile coverage $index"
-    if ($coverage[$index].passed -ne $true -or
-        $coverage[$index].outcome_bound -ne $true -or
-        $coverage[$index].publication_bound -ne $true -or
-        $coverage[$index].b8_bound -ne $true) {
-      throw "$Target hostile coverage binding drifted at $index."
+    if ($coverage[$index].assertion -cne
+          'font-cff1-v3 hostile row observation tracer' -or
+        $coverage[$index].outcome -cnotin @('success','error') -or
+        @($coverage[$index].caller_before).Count -ne 8 -or
+        @($coverage[$index].caller_after).Count -ne 8 -or
+        @($coverage[$index].ancestor_before).Count -ne 8 -or
+        @($coverage[$index].ancestor_after).Count -ne 8) {
+      throw "$Target hostile coverage observation drifted at $index."
     }
+    $row = $canonicalRows[$index]
+    $expected = [pscustomobject][ordered]@{
+      id = [string]$row.id
+      source = [string]$row.source
+      outcome = if ($null -eq $row.category) { 'success' } else { 'error' }
+      category = if ($null -eq $row.category) {
+        $null
+      } else { [string]$categoryNames[[string]$row.category] }
+      code = if ($null -eq $row.code) {
+        $null
+      } else { [string]$codeNames[[string]$row.code] }
+      operation = [string]$row.operation
+      requested = if ($null -eq $row.payload.requested) {
+        $null
+      } else { [int64]$row.payload.requested }
+      limit = if ($null -eq $row.payload.limit) {
+        $null
+      } else { [int64]$row.payload.limit }
+      context = if ($null -eq $row.context) {
+        $null
+      } else { [string]$row.context }
+      gid = if ($null -eq $row.gid) { $null } else { [int64]$row.gid }
+      publication = [string]$row.publication
+      caller_before = @($row.caller_before | ForEach-Object { [int64]$_ })
+      caller_after = @($row.caller_after | ForEach-Object { [int64]$_ })
+      ancestor_before = @($row.ancestor_before | ForEach-Object { [int64]$_ })
+      ancestor_after = @($row.ancestor_after | ForEach-Object { [int64]$_ })
+    }
+    $actual = [pscustomobject][ordered]@{
+      id = [string]$coverage[$index].id
+      source = [string]$coverage[$index].source
+      outcome = $coverage[$index].outcome
+      category = $coverage[$index].category
+      code = $coverage[$index].code
+      operation = $coverage[$index].operation
+      requested = $coverage[$index].requested
+      limit = $coverage[$index].limit
+      context = $coverage[$index].context
+      gid = $coverage[$index].gid
+      publication = $coverage[$index].publication
+      caller_before = @($coverage[$index].caller_before)
+      caller_after = @($coverage[$index].caller_after)
+      ancestor_before = @($coverage[$index].ancestor_before)
+      ancestor_after = @($coverage[$index].ancestor_after)
+    }
+    Assert-FontQualificationExactValue `
+      $actual $expected "$Target hostile coverage $index"
+    $renderedLine = @(
+      'MNF_CFF_HOSTILE',
+      [string]$coverage[$index].id,
+      ('gid=' + $(if ($null -eq $coverage[$index].gid) {
+        '-'
+      } else {
+        [string]$coverage[$index].gid
+      })),
+      ('publication=' + [string]$coverage[$index].publication),
+      ('caller_before=' + (@($coverage[$index].caller_before) -join ',')),
+      ('caller_after=' + (@($coverage[$index].caller_after) -join ',')),
+      ('ancestor_before=' + (@($coverage[$index].ancestor_before) -join ',')),
+      ('ancestor_after=' + (@($coverage[$index].ancestor_after) -join ',')),
+      [string]$coverage[$index].rendered_outcome
+    ) -join '|'
+    $reparsed = ConvertFrom-FontQualificationHostileObservation $renderedLine
+    $reparsedComparable = [pscustomobject][ordered]@{
+      id = $reparsed.id
+      source = [string]$coverage[$index].source
+      outcome = $reparsed.outcome
+      category = $reparsed.category
+      code = $reparsed.code
+      operation = $reparsed.operation
+      requested = $reparsed.requested
+      limit = $reparsed.limit
+      context = $reparsed.context
+      gid = $reparsed.gid
+      publication = $reparsed.publication
+      caller_before = @($reparsed.caller_before)
+      caller_after = @($reparsed.caller_after)
+      ancestor_before = @($reparsed.ancestor_before)
+      ancestor_after = @($reparsed.ancestor_after)
+    }
+    Assert-FontQualificationExactValue `
+      $reparsedComparable $expected "$Target hostile rendered outcome $index"
   }
 }
 
@@ -1329,8 +1514,59 @@ function New-FontQualificationContractRunner {
       }
     }
   )
+  $cases = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'fixtures/font/cff-qualification-cases.json'
+  ) | ConvertFrom-Json -Depth 100
+  $categoryNames = @{
+    Data = 'data'
+    Resource = 'resource'
+    Capability = 'capability'
+    State = 'state'
+  }
+  $codeNames = @{
+    InvalidEncoding = 'invalid-encoding'
+    BudgetExceeded = 'budget-exceeded'
+    CapabilityUnavailable = 'capability-unavailable'
+    InvalidRange = 'invalid-range'
+  }
+  $hostileLines = @(
+    foreach ($group in @($cases.hostile_groups)) {
+      foreach ($row in @($group.rows)) {
+        $prefix = @(
+          'MNF_CFF_HOSTILE',
+          [string]$row.id,
+          ('gid=' + $(if ($null -eq $row.gid) { '-' } else { $row.gid })),
+          ('publication=' + [string]$row.publication),
+          ('caller_before=' + (@($row.caller_before) -join ',')),
+          ('caller_after=' + (@($row.caller_after) -join ',')),
+          ('ancestor_before=' + (@($row.ancestor_before) -join ',')),
+          ('ancestor_after=' + (@($row.ancestor_after) -join ','))
+        )
+        $outcome = if ($null -eq $row.category) {
+          @('success', ('operation=' + [string]$row.operation))
+        } else {
+          @(
+            'error',
+            ('category=' + [string]$categoryNames[[string]$row.category]),
+            ('code=' + [string]$codeNames[[string]$row.code]),
+            ('operation=' + [string]$row.operation)
+          )
+        }
+        if ($null -ne $row.payload.requested) {
+          $outcome += 'requested=' + [string]$row.payload.requested
+        }
+        if ($null -ne $row.payload.limit) {
+          $outcome += 'limit=' + [string]$row.payload.limit
+        }
+        if ($null -ne $row.context) {
+          $outcome += 'context=' + [string]$row.context
+        }
+        [string](($prefix + $outcome) -join '|')
+      }
+    }
+  )
   return New-FontQualificationRunnerFact `
-    $Target $Mode $results `
+    $Target $Mode $results $hostileLines `
     "moon test modules/mb-font/font --target $Target --frozen" `
     1 `
     'Total tests: 1, passed: 1, failed: 0.'
@@ -1364,6 +1600,9 @@ function Invoke-FontQualificationContractNegatives {
     @{ Name = 'source'; Path = 'source_identities.production.0.sha256'; Value = '00' },
     @{ Name = 'assertion'; Path = 'focused_assertions.0.name'; Value = 'drift' },
     @{ Name = 'runtime output'; Path = 'runtime_observations.0.correctness_output_sha256'; Value = '00' },
+    @{ Name = 'observed hostile outcome'; Path = 'runner.hostile_row_coverage.0.operation'; Value = 'drift' },
+    @{ Name = 'observed hostile publication'; Path = 'runner.hostile_row_coverage.0.publication'; Value = 'drift' },
+    @{ Name = 'observed hostile B8'; Path = 'runner.hostile_row_coverage.0.caller_after.7'; Value = 999 },
     @{ Name = 'pass'; Path = 'pass'; Value = $false }
   )
   foreach ($probe in $probes) {
@@ -1578,6 +1817,7 @@ function Invoke-FontQualificationTarget {
     } else {
       @($FocusedAssertions)
     }
+    $hostileObservationLines = @()
     $focusedResults = @(
       foreach ($assertion in $assertions) {
         $root = if ($assertion.kind -ceq 'public') {
@@ -1606,6 +1846,16 @@ function Invoke-FontQualificationTarget {
         $summaries = @($result.lines | Where-Object { $_ -ceq $FocusedPassSummary })
         if ($summaries.Count -ne 1) {
           throw "Focused assertion '$($assertion.name)' did not pass exactly once."
+        }
+        if ($assertion.name -ceq
+            'font-cff1-v3 hostile row observation tracer') {
+          $hostileObservationLines = @(
+            $result.lines |
+              Where-Object { $_ -cmatch '^MNF_CFF_HOSTILE\|' }
+          )
+          if ($hostileObservationLines.Count -ne 53) {
+            throw "Hostile tracer emitted $($hostileObservationLines.Count) rows for $Target."
+          }
         }
         [pscustomobject][ordered]@{
           kind = [string]$assertion.kind
@@ -1661,7 +1911,8 @@ function Invoke-FontQualificationTarget {
     )
     $mode = if ($TracerOnly) { 'tracer' } else { 'full' }
     $runner = New-FontQualificationRunnerFact `
-      $Target $mode $focusedResults $fullPackageCommand $passed $fullSummaries[0]
+      $Target $mode $focusedResults $hostileObservationLines `
+      $fullPackageCommand $passed $fullSummaries[0]
     $record = New-FontQualificationEvidenceRecord `
       $Target (Get-FontQualificationToolchain) $runtimeObservations $runner
     Assert-FontQualificationEvidenceRecord $record
