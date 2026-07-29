@@ -44,6 +44,266 @@ fn validate_and_snapshot_scalars(
 }
 
 ///|
+priv struct GeneratedLogicalGlyph {
+  glyph : @font.GlyphId
+  consumed_scalar_indices : Array[UInt64]
+  base_advance : Int64
+  adjustment : Int64
+  x_offset : Int64
+  y_offset : Int64
+}
+
+///|
+#warnings("-1")
+fn generated_logical_glyph(
+  glyph : @font.GlyphId,
+  consumed_scalar_indices : Array[UInt64],
+  base_advance : Int64,
+  adjustment : Int64,
+  x_offset : Int64,
+  y_offset : Int64,
+) -> GeneratedLogicalGlyph {
+  {
+    glyph,
+    consumed_scalar_indices: consumed_scalar_indices.copy(),
+    base_advance,
+    adjustment,
+    x_offset,
+    y_offset,
+  }
+}
+
+///|
+priv struct TextShapeContractProbes {
+  post_structure : () -> Unit
+  post_capability : () -> Unit
+  post_complete_staging : () -> Unit
+  before_return : () -> Unit
+}
+
+///|
+#warnings("-1")
+fn generated_shape_noop_probes() -> TextShapeContractProbes {
+  {
+    post_structure: fn() { () },
+    post_capability: fn() { () },
+    post_complete_staging: fn() { () },
+    before_return: fn() { () },
+  }
+}
+
+///|
+fn text_shape_structure_error() -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Data,
+    @error.ErrorCode::InvalidEncoding,
+    operation="text-shape",
+    context="generated-structure",
+  )
+}
+
+///|
+fn text_shape_resource_error(
+  requested : UInt64,
+  limit : UInt64,
+  context : String,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::BudgetExceeded,
+    operation="text-shape",
+    requested~,
+    limit~,
+    context~,
+  )
+}
+
+///|
+fn text_shape_project_error(
+  error : @error.CoreError,
+  context : String,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    error.category(),
+    error.code(),
+    operation="text-shape-project",
+    requested?=error.requested(),
+    completed?=error.completed(),
+    range_start?=error.range_start(),
+    range_end?=error.range_end(),
+    source_offset?=error.source_offset(),
+    limit?=error.limit(),
+    context~,
+  )
+}
+
+///|
+fn generated_cluster(
+  consumed_scalar_indices : Array[UInt64],
+) -> Result[UInt64, @error.CoreError] {
+  if consumed_scalar_indices.length() == 0 {
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        operation="text-shape-project",
+        requested=0UL,
+        limit=1UL,
+        context="cluster-source",
+      ),
+    )
+  }
+  let mut cluster = consumed_scalar_indices[0]
+  for index = 1; index < consumed_scalar_indices.length(); index = index + 1 {
+    if consumed_scalar_indices[index] < cluster {
+      cluster = consumed_scalar_indices[index]
+    }
+  }
+  Ok(cluster)
+}
+
+///|
+fn project_generated_run(
+  logical : Array[GeneratedLogicalGlyph],
+  units_per_em : UInt64,
+  direction : Direction,
+) -> Result[ShapedRun, @error.CoreError] {
+  let logical_records : Array[PositionedGlyph] = []
+  for fact in logical {
+    let adjusted = match
+      @checked.checked_add_int64(fact.base_advance, fact.adjustment) {
+      Err(error) => return Err(text_shape_project_error(error, "advance"))
+      Ok(value) => value
+    }
+    let advance = match direction {
+      Direction::LeftToRight => adjusted
+      Direction::RightToLeft =>
+        match @checked.checked_neg_int64(adjusted) {
+          Err(error) => return Err(text_shape_project_error(error, "advance"))
+          Ok(value) => value
+        }
+    }
+    let cluster = match generated_cluster(fact.consumed_scalar_indices) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    logical_records.push(
+      positioned_glyph(
+        fact.glyph,
+        cluster,
+        advance,
+        fact.x_offset,
+        fact.y_offset,
+      ),
+    )
+  }
+  let published : Array[PositionedGlyph] = []
+  match direction {
+    Direction::LeftToRight =>
+      for record in logical_records {
+        published.push(record)
+      }
+    Direction::RightToLeft => {
+      let mut remaining = logical_records.length()
+      while remaining > 0 {
+        remaining = remaining - 1
+        published.push(logical_records[remaining])
+      }
+    }
+  }
+  let mut total = 0L
+  for record in published {
+    total = match @checked.checked_add_int64(total, record.advance()) {
+      Err(error) =>
+        return Err(text_shape_project_error(error, "total-advance"))
+      Ok(value) => value
+    }
+  }
+  Ok(publish_shaped_run(published, units_per_em, direction, total))
+}
+
+///|
+#warnings("-1")
+fn generated_shape_contract(
+  font : @font.Font,
+  scalars : Array[Int],
+  options : ShapingOptions,
+  limits : ShapeLimits,
+  budget : @budget.Budget,
+  logical : Array[GeneratedLogicalGlyph],
+  structure_fault~ : Bool,
+  capability_fault~ : Bool,
+  probes : TextShapeContractProbes,
+  charge : @budget.ResourceCharge,
+) -> Result[ShapedRun, @error.CoreError] {
+  match options.validate() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let snapshot = match validate_and_snapshot_scalars(scalars) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  font.with_shape_transaction(budget, fn(scope) {
+    let units_per_em = match scope.units_per_em() {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if structure_fault {
+      return Err(text_shape_structure_error())
+    }
+    (probes.post_structure)()
+    match scope.units_per_em() {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    if capability_fault {
+      return Err(text_shape_layout_unavailable())
+    }
+    (probes.post_capability)()
+    match scope.units_per_em() {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let run = match
+      project_generated_run(logical, units_per_em, options.direction()) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    (probes.post_complete_staging)()
+    match scope.units_per_em() {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let input_count = snapshot.length().to_uint64()
+    if input_count > limits.max_input_scalars() {
+      return Err(
+        text_shape_resource_error(
+          input_count,
+          limits.max_input_scalars(),
+          "max-input-scalars",
+        ),
+      )
+    }
+    if run.len() > limits.max_output_glyphs() {
+      return Err(
+        text_shape_resource_error(
+          run.len(),
+          limits.max_output_glyphs(),
+          "max-output-glyphs",
+        ),
+      )
+    }
+    (probes.before_return)()
+    match scope.units_per_em() {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    Ok((run, charge))
+  })
+}
+
+///|
 /// Shape one bounded scalar array through the retained-font transaction.
 ///
 /// Phase 108 publishes the production empty tracer. Non-empty requests fail

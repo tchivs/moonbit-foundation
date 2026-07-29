@@ -10,6 +10,23 @@ pub struct PositionedGlyph {
 }
 
 ///|
+fn positioned_glyph(
+  glyph : @font.GlyphId,
+  cluster : UInt64,
+  advance : Int64,
+  x_offset : Int64,
+  y_offset : Int64,
+) -> PositionedGlyph {
+  {
+    glyph_value: glyph,
+    cluster_value: cluster,
+    advance_value: advance,
+    x_offset_value: x_offset,
+    y_offset_value: y_offset,
+  }
+}
+
+///|
 pub fn PositionedGlyph::glyph(self : PositionedGlyph) -> @font.GlyphId {
   self.glyph_value
 }
@@ -45,13 +62,23 @@ pub struct ShapedRun {
 }
 
 ///|
-fn empty_shaped_run(units_per_em : UInt64, direction : Direction) -> ShapedRun {
+fn publish_shaped_run(
+  records : Array[PositionedGlyph],
+  units_per_em : UInt64,
+  direction : Direction,
+  total_advance : Int64,
+) -> ShapedRun {
   {
-    records: [],
+    records: records.copy(),
     units_per_em_value: units_per_em,
     direction_value: direction,
-    total_advance_value: 0L,
+    total_advance_value: total_advance,
   }
+}
+
+///|
+fn empty_shaped_run(units_per_em : UInt64, direction : Direction) -> ShapedRun {
+  publish_shaped_run([], units_per_em, direction, 0L)
 }
 
 ///|

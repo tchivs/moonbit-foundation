@@ -476,6 +476,82 @@ test "equal adjacent records stay distinct and ligatures keep minimum scalar clu
 }
 
 ///|
+test "run publication copies record storage before indexed access" {
+  let (_owner, font) = text_wb_font()
+  let records = [
+    positioned_glyph(
+      font.glyph_id(0UL).unwrap(),
+      0UL,
+      10L,
+      20L,
+      30L,
+    ),
+  ]
+  let run = publish_shaped_run(
+    records,
+    1000UL,
+    Direction::LeftToRight,
+    10L,
+  )
+  records[0] = positioned_glyph(
+    font.glyph_id(1UL).unwrap(),
+    9UL,
+    99L,
+    99L,
+    99L,
+  )
+  let published = run.glyph_at(0UL).unwrap()
+  inspect(published.glyph().value(), content="0")
+  inspect(published.cluster(), content="0")
+  inspect(published.advance(), content="10")
+  inspect(published.x_offset(), content="20")
+  inspect(published.y_offset(), content="30")
+}
+
+///|
+test "generated scalar and output ceilings accept exact and reject one over" {
+  let (_input_owner, input_font) = text_wb_font()
+  let input_budget = text_wb_resource_budget(1UL)
+  let input_error = generated_shape_contract(
+    input_font,
+    [0x41, 0x42],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 2UL),
+    input_budget,
+    text_wb_ab_facts(input_font),
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(input_error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(input_error.requested() == Some(2UL), content="true")
+  inspect(input_error.limit() == Some(1UL), content="true")
+  inspect(input_error.context() == Some("max-input-scalars"), content="true")
+  inspect(input_budget.remaining().work(), content="1")
+
+  let (_output_owner, output_font) = text_wb_font()
+  let output_budget = text_wb_resource_budget(1UL)
+  let output_error = generated_shape_contract(
+    output_font,
+    [0x41, 0x42],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(2UL, 1UL),
+    output_budget,
+    text_wb_ab_facts(output_font),
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(output_error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(output_error.requested() == Some(2UL), content="true")
+  inspect(output_error.limit() == Some(1UL), content="true")
+  inspect(output_error.context() == Some("max-output-glyphs"), content="true")
+  inspect(output_budget.remaining().work(), content="1")
+}
+
+///|
 test "generated projection rejects signed overflow before publication or charge" {
   let (_add_owner, add_font) = text_wb_font()
   let add_budget = text_wb_resource_budget(1UL)
