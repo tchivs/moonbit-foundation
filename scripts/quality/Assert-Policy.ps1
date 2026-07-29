@@ -1571,11 +1571,6 @@ function Assert-FontPortableSourceBoundary {
     }
     foreach ($flow in @(
         [pscustomobject]@{
-          Name = 'CFF2 tag-to-execution flow'
-          Magic = '(?i)(?:0x43464632|["'']CFF ?2["''])'
-          Executable = '(?i)\b(?:type2|charstring|operator|cff2_program)\w*\s*[(]'
-        },
-        [pscustomobject]@{
           Name = 'WOFF/WOFF2 magic-to-inflation flow'
           Magic = '(?i)(?:0x774F4646|0x774F4632|["'']wOF{1,2}2?["''])'
           Executable = '(?i)\b(?:inflate|decompress|reconstruct)\w*\s*[(]'
@@ -1789,7 +1784,7 @@ function Assert-FontCollectionCorpusContract {
   ).ToLowerInvariant()
   Assert-Condition (
     $semanticDigest -ceq
-      '774d2a280daf002ddc7647c4ebca1a842ffc2dc167d877267d43c40cb8e51357'
+      '0c98a90ebcadfa99c7f1055b4980431fda0701bc38c9a6b7d0f860e08df672e5'
   ) 'Font collection corpus exact semantic digest drifted.'
 }
 
@@ -1913,7 +1908,7 @@ function Assert-FontQualificationWorkflowContract {
 
   $laneCommand = (
     'run: ./scripts/quality.ps1 -Lane FontQualification ' +
-    '-EvidenceDirectory artifacts/release-qualification/ci-font-v2'
+    '-EvidenceDirectory artifacts/release-qualification/ci-font-v3'
   )
   $fontJobKeys = @(
     foreach ($entry in $jobs.GetEnumerator()) {
@@ -1936,7 +1931,7 @@ function Assert-FontQualificationWorkflowContract {
   ) 'Measured FontQualification timeout must remain 20 minutes.'
   Assert-Condition (
     @($fontJobLines | Where-Object { $_.Trim() -ceq $laneCommand }).Count -eq 1
-  ) 'FontQualification CI command must own the fresh v2 evidence directory.'
+  ) 'FontQualification CI command must own the fresh v3 evidence directory.'
   $jobContinuationKeys = @(
     $fontJobLines | ForEach-Object {
       if ($_ -cmatch '^    (?<entry>\S.*)$') {
@@ -2049,7 +2044,7 @@ function Assert-FontQualificationWorkflowContract {
     @($fontJobLines | Where-Object {
       $_.Trim() -cmatch '^uses:\s*actions/upload-artifact@'
     }).Count -eq 1
-  ) 'FontQualification CI upload must be success-only, pinned, and v2-owned.'
+  ) 'FontQualification CI upload must be success-only, pinned, and v3-owned.'
   $upload = @(
     $uploadSteps[0] |
       ForEach-Object { $_.Trim() } |
@@ -2061,9 +2056,9 @@ function Assert-FontQualificationWorkflowContract {
     $upload[1] -ceq 'if: ${{ success() }}' -and
     $upload[2] -ceq
       'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' -and
-    $upload[4] -ceq 'name: font-qualification-evidence-v2' -and
-    $upload[5] -ceq 'path: artifacts/release-qualification/ci-font-v2'
-  ) 'FontQualification CI upload must be success-only, pinned, and v2-owned.'
+    $upload[4] -ceq 'name: font-qualification-evidence-v3' -and
+    $upload[5] -ceq 'path: artifacts/release-qualification/ci-font-v3'
+  ) 'FontQualification CI upload must be success-only, pinned, and v3-owned.'
   Assert-ExactSequence 'FontQualification upload step schema and values' `
     $upload `
     @(
@@ -2071,13 +2066,13 @@ function Assert-FontQualificationWorkflowContract {
       'if: ${{ success() }}',
       'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
       'with:',
-      'name: font-qualification-evidence-v2',
-      'path: artifacts/release-qualification/ci-font-v2'
+      'name: font-qualification-evidence-v3',
+      'path: artifacts/release-qualification/ci-font-v3'
     )
   Assert-Condition (
     ([regex]::Matches(
       $fontJobText,
-      [regex]::Escape('artifacts/release-qualification/ci-font-v2')
+      [regex]::Escape('artifacts/release-qualification/ci-font-v3')
     )).Count -eq 2
   ) 'FontQualification evidence directory may appear only in its runner and upload steps.'
 }
@@ -3236,6 +3231,84 @@ function Assert-FontQualificationArtifacts {
   Assert-FontQualificationV3PolicyContract `
     -Qualification $fontModule.qualification `
     -RepositoryRoot $RepositoryRoot
+  $qualificationPolicyNegativeProbes = @(
+    [pscustomobject]@{
+      Name = 'v3 schema substitution'
+      Pattern = 'identities drifted'
+      Mutate = { param($copy) $copy.schema_version = '3.0.1' }
+    },
+    [pscustomobject]@{
+      Name = 'v3 workflow substitution'
+      Pattern = 'identities drifted'
+      Mutate = { param($copy) $copy.workflow_id = 'font-complete-public-v3-shadow' }
+    },
+    [pscustomobject]@{
+      Name = 'v3 evidence root substitution'
+      Pattern = 'identities drifted'
+      Mutate = { param($copy) $copy.evidence_root = 'artifacts/release-qualification/font-v3-shadow' }
+    },
+    [pscustomobject]@{
+      Name = 'v3 marker substitution'
+      Pattern = 'identities drifted'
+      Mutate = { param($copy) $copy.marker_schema = 'mnf-font-qualification-evidence/v3-shadow' }
+    },
+    [pscustomobject]@{
+      Name = 'v3 target-order expansion'
+      Pattern = 'target order'
+      Mutate = { param($copy) $copy.target_order = @($copy.target_order) + 'native-shadow' }
+    },
+    [pscustomobject]@{
+      Name = 'v3 normalization expansion'
+      Pattern = 'normalization boundary'
+      Mutate = { param($copy) $copy.normalization_removed = @($copy.normalization_removed) + 'toolchain' }
+    },
+    [pscustomobject]@{
+      Name = 'v3 dependency substitution'
+      Pattern = 'identities drifted'
+      Mutate = { param($copy) $copy.production_dependency = 'tchivs/mb-core@0.1.1' }
+    },
+    [pscustomobject]@{
+      Name = 'v3 import expansion'
+      Pattern = 'production imports'
+      Mutate = { param($copy) $copy.production_imports = @($copy.production_imports) + 'tchivs/mb-core/io' }
+    },
+    [pscustomobject]@{
+      Name = 'v3 production identity substitution'
+      Pattern = 'production_sources identity drifted'
+      Mutate = { param($copy) $copy.production_sources[0].sha256 = ('0' * 64) }
+    },
+    [pscustomobject]@{
+      Name = 'v3 fixture ownership substitution'
+      Pattern = 'fixture_sources identity drifted'
+      Mutate = { param($copy) $copy.fixture_sources[0].sha256 = ('0' * 64) }
+    },
+    [pscustomobject]@{
+      Name = 'v3 oracle ownership substitution'
+      Pattern = 'oracle_tool_sources identity drifted'
+      Mutate = { param($copy) $copy.oracle_tool_sources[0].sha256 = ('0' * 64) }
+    },
+    [pscustomobject]@{
+      Name = 'v3 qualification-tool ownership substitution'
+      Pattern = 'qualification_tool_sources identity drifted'
+      Mutate = { param($copy) $copy.qualification_tool_sources[0].sha256 = ('0' * 64) }
+    },
+    [pscustomobject]@{
+      Name = 'v3 Wave 6 seal claim'
+      Pattern = 'Wave 6 refresh status drifted'
+      Mutate = { param($copy) $copy.wave6_refresh.status = 'sealed' }
+    }
+  )
+  foreach ($probe in $qualificationPolicyNegativeProbes) {
+    $qualificationCopy = $fontModule.qualification |
+      ConvertTo-Json -Depth 16 |
+      ConvertFrom-Json
+    & $probe.Mutate $qualificationCopy
+    Confirm-FontQualificationRejected $probe.Name {
+      Assert-FontQualificationV3PolicyContract `
+        -Qualification $qualificationCopy `
+        -RepositoryRoot $RepositoryRoot
+    } $probe.Pattern
+  }
   $font = @($fontModule.public_packages | Where-Object { $_.path -ceq 'font' })[0]
   $productionSources = @(
     'moon.pkg',
@@ -3285,11 +3358,12 @@ function Assert-FontQualificationArtifacts {
   $publicationFiles = @(
     'CHANGELOG.md',
     'README.mbt.md',
-    'font',
-    @($productionSources | ForEach-Object { "font/$_" }),
-    @($testSources | ForEach-Object { "font/$_" }),
-    'moon.mod.json'
-  )
+    'font'
+  ) + @(
+    $productionSources | ForEach-Object { "font/$_" }
+  ) + @(
+    $testSources | ForEach-Object { "font/$_" }
+  ) + @('moon.mod.json')
   Assert-ExactSequence 'Font qualification production source order' @($font.production_sources) $productionSources
   Assert-ExactSequence 'Font qualification test source order' @($font.test_sources) $testSources
   Assert-ExactSet 'Font qualification publication inventory' @($fontModule.publication_files) $publicationFiles
@@ -3319,9 +3393,9 @@ function Assert-FontQualificationArtifacts {
   Assert-FontQualificationWorkflowContract -WorkflowText $qualityWorkflowText
   Confirm-FontQualificationRejected 'v1 CI evidence directory' {
     Assert-FontQualificationWorkflowContract -WorkflowText (
-      $qualityWorkflowText.Replace('ci-font-v2', 'ci-font')
+      $qualityWorkflowText.Replace('ci-font-v3', 'ci-font')
     )
-  } 'fresh v2 evidence directory'
+  } 'fresh v3 evidence directory'
   Confirm-FontQualificationRejected 'failing evidence upload' {
     Assert-FontQualificationWorkflowContract -WorkflowText (
       $qualityWorkflowText.Replace('${{ success() }}', '${{ always() }}')
@@ -3334,7 +3408,7 @@ function Assert-FontQualificationArtifacts {
         'actions/upload-artifact@v4'
       )
     )
-  } 'success-only, pinned, and v2-owned'
+  } 'success-only, pinned, and v3-owned'
   Confirm-FontQualificationRejected 'unmeasured timeout increase' {
     Assert-FontQualificationWorkflowContract -WorkflowText (
       $qualityWorkflowText.Replace('timeout-minutes: 20', 'timeout-minutes: 21')
@@ -3349,18 +3423,18 @@ function Assert-FontQualificationArtifacts {
         if: `${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: font-qualification-evidence-v2-failure
-          path: artifacts/release-qualification/ci-font-v2
+          name: font-qualification-evidence-v3-failure
+          path: artifacts/release-qualification/ci-font-v3
 
   required:
 "@
       )
     )
-  } 'success-only, pinned, and v2-owned'
+  } 'success-only, pinned, and v3-owned'
   Confirm-FontQualificationRejected 'aliased evidence path' {
     Assert-FontQualificationWorkflowContract -WorkflowText (
       $qualityWorkflowText.Replace(
-        'path: artifacts/release-qualification/ci-font-v2',
+        'path: artifacts/release-qualification/ci-font-v3',
         'path: *font-qualification-evidence'
       )
     )
@@ -3375,7 +3449,7 @@ function Assert-FontQualificationArtifacts {
   } 'must not continue on error'
   $laneCommand = (
     '        run: ./scripts/quality.ps1 -Lane FontQualification ' +
-    '-EvidenceDirectory artifacts/release-qualification/ci-font-v2'
+    '-EvidenceDirectory artifacts/release-qualification/ci-font-v3'
   )
   $installCommand = '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
   $uploadCondition = '        if: ${{ success() }}'
@@ -3464,7 +3538,7 @@ function Assert-FontQualificationArtifacts {
     runs-on: ubuntu-latest
     steps:
       - name: Shadow qualification
-        run: ./scripts/quality.ps1 -Lane FontQualification -EvidenceDirectory artifacts/release-qualification/ci-font-v2
+        run: ./scripts/quality.ps1 -Lane FontQualification -EvidenceDirectory artifacts/release-qualification/ci-font-v3
 "@
     )
   } 'exactly one FontQualification job'
@@ -3489,13 +3563,12 @@ function Assert-FontQualificationArtifacts {
     Join-Path $RepositoryRoot 'scripts/quality/Invoke-FontQualification.ps1'
   )
   foreach ($runnerFact in @(
-      'mnf-font-qualification-evidence/v2',
-      'font-complete-public-v2',
-      'artifacts/release-qualification/font-v2',
-      'target/phase103-font-qualification-',
-      'normalization_removed = @(''target'', ''runner'')'
+      'mnf-font-qualification-evidence/v3',
+      'font-complete-public-v3',
+      'artifacts/release-qualification/font-v3',
+      'isolated/phase107-font-v3-',
+      '$NormalizationRemoved = @(''target'', ''runner'')'
       'Get-FontQualificationExpectedToolchain'
-      'Assert-FontQualificationPinnedToolchain'
     )) {
     Assert-Condition (
       $runnerText.Contains($runnerFact, [StringComparison]::Ordinal)
@@ -3704,7 +3777,7 @@ function Assert-FontQualificationArtifacts {
       [pscustomobject]@{ Name = 'GUI'; Call = 'canvas_draw()'; Pattern = 'forbidden GUI canvas image or color dependency' },
       [pscustomobject]@{ Name = 'shaping'; Call = 'shape_text()'; Pattern = 'forbidden shaping execution' },
       [pscustomobject]@{ Name = 'hinting'; Call = 'hint_outline()'; Pattern = 'forbidden hinting execution' },
-      [pscustomobject]@{ Name = 'CFF'; Call = 'cff_decode()'; Pattern = 'forbidden CFF or CFF2 execution' },
+      [pscustomobject]@{ Name = 'CFF2'; Call = 'cff2_decode()'; Pattern = 'forbidden CFF2 execution' },
       [pscustomobject]@{ Name = 'WOFF'; Call = 'decode_woff2()'; Pattern = 'forbidden WOFF or WOFF2 admission' },
       [pscustomobject]@{ Name = 'variable font'; Call = 'instantiate_variable_font()'; Pattern = 'forbidden variable-font execution' },
       [pscustomobject]@{ Name = 'rasterization'; Call = 'rasterize_font()'; Pattern = 'forbidden rasterization execution' }
@@ -3818,51 +3891,67 @@ function Assert-FontFoundationPolicy {
   Assert-Condition (@($policy.allowed_dependency_edges | Where-Object { $_.to -ceq 'tchivs/mb-font' }).Count -eq 0) 'No existing foundation module may depend on mb-font during Phase 102.'
   Assert-AcyclicDependencyGraph -Modules @($policy.modules) -AllowedEdges @($policy.allowed_dependency_edges)
 
-  $publicationFiles = @(
-    'CHANGELOG.md',
-    'README.mbt.md',
-    'font',
-    'font/cmap.mbt',
-    'font/collection.mbt',
-    'font/collection_limits.mbt',
-    'font/collection_parser.mbt',
-    'font/collection_test.mbt',
-    'font/collection_wbtest.mbt',
-    'font/cursor.mbt',
-    'font/directory.mbt',
-    'font/font.mbt',
-    'font/font_qualification_hostile_test.mbt',
-    'font/font_qualification_test.mbt',
-    'font/font_test.mbt',
-    'font/font_wbtest.mbt',
-    'font/generated_font_qualification_test.mbt',
-    'font/generated_fonts_wbtest.mbt',
-    'font/kern.mbt',
-    'font/limits.mbt',
-    'font/metrics.mbt',
-    'font/moon.pkg',
-    'font/outline.mbt',
-    'font/tables.mbt',
-    'moon.mod.json'
-  )
-  Assert-ExactSet 'Font publication inventory' @($fontModule.publication_files) $publicationFiles
-
   $fontPackages = @($fontModule.public_packages | Where-Object { $_.path -ceq 'font' })
   Assert-ExactSet 'Font public package selection' @($fontPackages.name) @('tchivs/mb-font/font')
   Assert-Condition (@($fontModule.public_packages).Count -eq 1) 'mb-font must publish exactly one public package.'
   $font = $fontPackages[0]
   $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/math')
-  $productionSources = @('moon.pkg', 'cmap.mbt', 'collection.mbt', 'collection_limits.mbt', 'collection_parser.mbt', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'kern.mbt', 'limits.mbt', 'metrics.mbt', 'outline.mbt', 'tables.mbt')
-    $testSources = @(
-      'collection_test.mbt',
-      'collection_wbtest.mbt',
-      'font_test.mbt',
-    'font_wbtest.mbt',
-    'generated_fonts_wbtest.mbt',
-    'generated_font_qualification_test.mbt',
-    'font_qualification_test.mbt',
-    'font_qualification_hostile_test.mbt'
+  $productionSources = @(
+    'moon.pkg',
+    'cmap.mbt',
+    'collection.mbt',
+    'collection_limits.mbt',
+    'collection_parser.mbt',
+    'cursor.mbt',
+    'directory.mbt',
+    'font.mbt',
+    'kern.mbt',
+    'limits.mbt',
+    'metrics.mbt',
+    'outline.mbt',
+    'tables.mbt',
+    'cff_index.mbt',
+    'cff_dict.mbt',
+    'cff_keying.mbt',
+    'cff_type2_fixed.mbt',
+    'cff_type2.mbt',
+    'cff_type2_bounds.mbt',
+    'cff_type2_path.mbt',
+    'cff_admission.mbt'
   )
+  $testSources = @(
+    'cff_admission_wbtest.mbt',
+    'cff_cid_fixture_wbtest.mbt',
+    'cff_dict_wbtest.mbt',
+    'cff_hostile_fixture_wbtest.mbt',
+    'cff_index_wbtest.mbt',
+    'cff_keying_wbtest.mbt',
+    'cff_name_keyed_fixture_wbtest.mbt',
+    'cff_type2_bounds_wbtest.mbt',
+    'cff_type2_fixed_wbtest.mbt',
+    'cff_type2_fixture_wbtest.mbt',
+    'cff_type2_path_wbtest.mbt',
+    'cff_type2_wbtest.mbt',
+    'collection_test.mbt',
+    'collection_wbtest.mbt',
+    'font_qualification_hostile_test.mbt',
+    'font_qualification_test.mbt',
+    'font_test.mbt',
+    'font_wbtest.mbt',
+    'generated_font_qualification_test.mbt',
+    'generated_fonts_wbtest.mbt'
+  )
+  $publicationFiles = @(
+    'CHANGELOG.md',
+    'README.mbt.md',
+    'font'
+  ) + @(
+    $productionSources | ForEach-Object { "font/$_" }
+  ) + @(
+    $testSources | ForEach-Object { "font/$_" }
+  ) + @('moon.mod.json')
+  Assert-ExactSet 'Font publication inventory' `
+    @($fontModule.publication_files) $publicationFiles
   Assert-ExactSet 'Font policy imports' @($font.allowed_imports) $imports
   Assert-ExactSet 'Font policy targets' @($font.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
   Assert-ExactSequence 'Font production source order' @($font.production_sources) $productionSources
