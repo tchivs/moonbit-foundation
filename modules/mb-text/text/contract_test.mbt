@@ -322,8 +322,13 @@ test "shape limits preserve exact values and reject input zero first" {
   inspect(input.code() == @error.ErrorCode::InvalidRange, content="true")
   inspect(input.operation() == Some("text-shape-limits-new"), content="true")
   inspect(input.context() == Some("max-input-scalars"), content="true")
+  inspect(input.requested() == Some(0UL), content="true")
+  inspect(input.limit() == Some(1UL), content="true")
   let output = ShapeLimits::new(max_input_scalars=1UL, max_output_glyphs=0UL).unwrap_err()
+  inspect(output.operation() == Some("text-shape-limits-new"), content="true")
   inspect(output.context() == Some("max-output-glyphs"), content="true")
+  inspect(output.requested() == Some(0UL), content="true")
+  inspect(output.limit() == Some(1UL), content="true")
 }
 
 ///|
@@ -349,6 +354,41 @@ test "tags language direction and feature policy remain closed and explicit" {
   inspect(options.language() == LanguageChoice::Exact(language), content="true")
   inspect(options.direction() == Direction::RightToLeft, content="true")
   inspect(options.features().kern(), content="true")
+}
+
+///|
+test "unicode scalar boundaries are values rather than bytes or graphemes" {
+  let (_owner, font) = text_test_font()
+  let valid_budget = text_test_budget(1UL)
+  let valid = shape(
+    font,
+    [0, 0xD7FF, 0xE000, 0x10FFFF],
+    text_test_options(Direction::LeftToRight),
+    text_test_limits(),
+    valid_budget,
+  ).unwrap_err()
+  inspect(valid.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(valid_budget.remaining().work(), content="1")
+
+  for invalid_scalar in [-1, 0xD800, 0xDFFF, 0x110000] {
+    let (_owner, invalid_font) = text_test_font()
+    let invalid_budget = text_test_budget(1UL)
+    let invalid = shape(
+      invalid_font,
+      [0x41, invalid_scalar],
+      text_test_options(Direction::LeftToRight),
+      text_test_limits(),
+      invalid_budget,
+    ).unwrap_err()
+    inspect(
+      invalid.category() == @error.ErrorCategory::InvalidInput,
+      content="true",
+    )
+    inspect(invalid.operation() == Some("text-shape"), content="true")
+    inspect(invalid.requested() == Some(1UL), content="true")
+    inspect(invalid.context() == Some("unicode-scalar"), content="true")
+    inspect(invalid_budget.remaining().work(), content="1")
+  }
 }
 
 ///|
