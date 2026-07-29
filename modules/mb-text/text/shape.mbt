@@ -140,12 +140,13 @@ fn text_shape_project_error(
 ///|
 fn generated_cluster(
   consumed_scalar_indices : Array[UInt64],
+  input_count : UInt64,
 ) -> Result[UInt64, @error.CoreError] {
   if consumed_scalar_indices.length() == 0 {
     return Err(
       @error.CoreError::new(
-        @error.ErrorCategory::InvalidInput,
-        @error.ErrorCode::InvalidRange,
+        @error.ErrorCategory::Data,
+        @error.ErrorCode::InvalidEncoding,
         operation="text-shape-project",
         requested=0UL,
         limit=1UL,
@@ -154,9 +155,21 @@ fn generated_cluster(
     )
   }
   let mut cluster = consumed_scalar_indices[0]
-  for index = 1; index < consumed_scalar_indices.length(); index = index + 1 {
-    if consumed_scalar_indices[index] < cluster {
-      cluster = consumed_scalar_indices[index]
+  for index in consumed_scalar_indices {
+    if index >= input_count {
+      return Err(
+        @error.CoreError::new(
+          @error.ErrorCategory::Data,
+          @error.ErrorCode::InvalidEncoding,
+          operation="text-shape-project",
+          requested=index,
+          limit=input_count,
+          context="cluster-source",
+        ),
+      )
+    }
+    if index < cluster {
+      cluster = index
     }
   }
   Ok(cluster)
@@ -166,6 +179,7 @@ fn generated_cluster(
 fn project_generated_run(
   font : @font.Font,
   logical : Array[GeneratedLogicalGlyph],
+  input_count : UInt64,
   units_per_em : UInt64,
   direction : Direction,
 ) -> Result[ShapedRun, @error.CoreError] {
@@ -188,7 +202,8 @@ fn project_generated_run(
           Ok(value) => value
         }
     }
-    let cluster = match generated_cluster(fact.consumed_scalar_indices) {
+    let cluster = match
+      generated_cluster(fact.consumed_scalar_indices, input_count) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -270,8 +285,14 @@ fn generated_shape_contract(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
-    let run = match
-      project_generated_run(font, logical, units_per_em, options.direction()) {
+    let input_count = snapshot.length().to_uint64()
+    let run = match project_generated_run(
+      font,
+      logical,
+      input_count,
+      units_per_em,
+      options.direction(),
+    ) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -280,7 +301,6 @@ fn generated_shape_contract(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
-    let input_count = snapshot.length().to_uint64()
     if input_count > limits.max_input_scalars() {
       return Err(
         text_shape_resource_error(

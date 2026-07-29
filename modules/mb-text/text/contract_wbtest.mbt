@@ -464,6 +464,128 @@ test "generated projection rejects foreign same-range glyph before publication o
 }
 
 ///|
+test "generated projection validates every cluster source against the scalar snapshot" {
+  let (_empty_owner, empty_font) = text_wb_font()
+  let empty_budget = text_wb_resource_budget(1UL)
+  let empty_error = generated_shape_contract(
+    empty_font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    empty_budget,
+    [
+      generated_logical_glyph(
+        empty_font.glyph_id(0UL).unwrap(),
+        [],
+        500L,
+        0L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(empty_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    empty_error.code() == @error.ErrorCode::InvalidEncoding,
+    content="true",
+  )
+  inspect(
+    empty_error.operation() == Some("text-shape-project"),
+    content="true",
+  )
+  inspect(empty_error.context() == Some("cluster-source"), content="true")
+  inspect(empty_budget.remaining().work(), content="1")
+
+  let (_exact_owner, exact_font) = text_wb_font()
+  let exact_budget = text_wb_resource_budget(1UL)
+  let exact = generated_shape_contract(
+    exact_font,
+    [0x41, 0x42],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(2UL, 1UL),
+    exact_budget,
+    [
+      generated_logical_glyph(
+        exact_font.glyph_id(0UL).unwrap(),
+        [1UL],
+        500L,
+        0L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap()
+  inspect(exact.glyph_at(0UL).unwrap().cluster(), content="1")
+  inspect(exact_budget.remaining().work(), content="0")
+
+  let (_one_past_owner, one_past_font) = text_wb_font()
+  let one_past_budget = text_wb_resource_budget(1UL)
+  let one_past = generated_shape_contract(
+    one_past_font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    one_past_budget,
+    [
+      generated_logical_glyph(
+        one_past_font.glyph_id(0UL).unwrap(),
+        [1UL],
+        500L,
+        0L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(one_past.category() == @error.ErrorCategory::Data, content="true")
+  inspect(one_past.requested() == Some(1UL), content="true")
+  inspect(one_past.limit() == Some(1UL), content="true")
+  inspect(one_past.context() == Some("cluster-source"), content="true")
+  inspect(one_past_budget.remaining().work(), content="1")
+
+  let (_mixed_owner, mixed_font) = text_wb_font()
+  let mixed_budget = text_wb_resource_budget(1UL)
+  let mixed = generated_shape_contract(
+    mixed_font,
+    [0x41, 0x42],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(2UL, 1UL),
+    mixed_budget,
+    [
+      generated_logical_glyph(
+        mixed_font.glyph_id(0UL).unwrap(),
+        [0UL, 2UL],
+        500L,
+        0L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(mixed.category() == @error.ErrorCategory::Data, content="true")
+  inspect(mixed.requested() == Some(2UL), content="true")
+  inspect(mixed.limit() == Some(2UL), content="true")
+  inspect(mixed.context() == Some("cluster-source"), content="true")
+  inspect(mixed_budget.remaining().work(), content="1")
+}
+
+///|
 test "equal adjacent records stay distinct and ligatures keep minimum scalar cluster" {
   let (_owner, font) = text_wb_font()
   let equal = generated_shape_contract(
