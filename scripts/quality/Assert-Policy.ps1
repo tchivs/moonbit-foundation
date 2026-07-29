@@ -711,8 +711,8 @@ function Assert-FoundationPolicy {
   Assert-ExactSet 'Stability labels' @($policy.stability.allowed_labels) @('experimental', 'candidate', 'stable')
   Assert-Condition ($policy.stability.default_label -ceq 'candidate') 'Default stability label must be candidate.'
 
-  $expectedModules = @('tchivs/mb-core', 'tchivs/mb-color', 'tchivs/mb-image', 'tchivs/mb-canvas', 'tchivs/mb-font')
-  $expectedPaths = @('modules/mb-core', 'modules/mb-color', 'modules/mb-image', 'modules/mb-canvas', 'modules/mb-font')
+  $expectedModules = @('tchivs/mb-core', 'tchivs/mb-color', 'tchivs/mb-image', 'tchivs/mb-canvas', 'tchivs/mb-font', 'tchivs/mb-text')
+  $expectedPaths = @('modules/mb-core', 'modules/mb-color', 'modules/mb-image', 'modules/mb-canvas', 'modules/mb-font', 'modules/mb-text')
   Assert-ExactSet 'Policy modules' @($policy.modules.name) $expectedModules
   Assert-ExactSet 'Policy module paths' @($policy.modules.path) $expectedPaths
   Assert-AcyclicDependencyGraph -Modules @($policy.modules) -AllowedEdges @($policy.allowed_dependency_edges)
@@ -870,6 +870,7 @@ function Assert-FoundationPolicy {
   Assert-FixtureManifest -ManifestPath (Join-Path $repoRoot 'fixtures/manifest.json') -RepositoryRoot $repoRoot
   Assert-QoiFoundationPolicy -PolicyPath $PolicyPath
   Assert-FontFoundationPolicy -PolicyPath $PolicyPath
+  Assert-TextFoundationPolicy -PolicyPath $PolicyPath
 
   Write-Host 'Foundation policy, RFC, workspace inventory, target metadata, fixtures, publication block, and dependency DAG verified.'
 }
@@ -1090,6 +1091,51 @@ function Assert-FontPhase102Surface {
   )
   $deferredLeakPattern = '(?i)(\bfile\s*system\b|\bsystem\s+font\b|\bfont\s+(?:file|source)\b|\b(?:load|read|open|from)\b[^\r\n]*\b(?:file|path|disk|uri)\b|\bffi\b|\bforeign\s+function\s+interface\b|\bforeign(?:\s+call)?\b|\bnative\b|\bextern\b|\bbindings?\b|\bc\s+abi\b|\b(?:adapter|bridge)\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\bgrid\s*(?:fit|round)\w*\b|\braster(?:ize|izer|ization)?\b|\bnested\s+composite\b|\bphantom\s+point\b)'
   Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a private or deferred Phase 103+ capability.'
+}
+
+function Assert-FontPhase108Surface {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string[]]$InterfaceLines)
+
+  $phase108Additions = @(
+    'pub fn[T] Font::with_shape_transaction(Self, @budget.Budget, (FontShapeScope) -> Result[(T, @budget.ResourceCharge), @error.CoreError]) -> Result[T, @error.CoreError]',
+    'pub struct FontShapeScope {',
+    '}',
+    'pub fn FontShapeScope::units_per_em(Self) -> Result[UInt64, @error.CoreError]'
+  )
+  Assert-Condition ($InterfaceLines.Count -eq 89) 'Font Phase 108 semantic interface must contain the 85 qualified v0.34 lines plus exactly four additive scope lines.'
+  foreach ($line in @($phase108Additions[0], $phase108Additions[1], $phase108Additions[3])) {
+    Assert-Condition (@($InterfaceLines | Where-Object { $_ -ceq $line }).Count -eq 1) "Font Phase 108 semantic interface must contain exactly one '$line'."
+  }
+
+  $scopeStart = [Array]::IndexOf($InterfaceLines, 'pub struct FontShapeScope {')
+  Assert-Condition (
+    $scopeStart -ge 0 -and
+    $InterfaceLines[$scopeStart + 1] -ceq '}' -and
+    $InterfaceLines[$scopeStart + 2] -ceq 'pub fn FontShapeScope::units_per_em(Self) -> Result[UInt64, @error.CoreError]'
+  ) 'FontShapeScope must remain public-abstract with units_per_em as its only operation.'
+
+  $v034Surface = [System.Collections.Generic.List[string]]::new()
+  $removedScopeClose = $false
+  for ($index = 0; $index -lt $InterfaceLines.Count; $index++) {
+    $line = $InterfaceLines[$index]
+    if ($line -ceq $phase108Additions[0]) { continue }
+    if ($line -ceq $phase108Additions[1]) {
+      $removedScopeClose = $true
+      continue
+    }
+    if ($removedScopeClose -and $line -ceq $phase108Additions[2]) {
+      $removedScopeClose = $false
+      continue
+    }
+    if ($line -ceq $phase108Additions[3]) { continue }
+    $v034Surface.Add($line)
+  }
+  Assert-Condition (-not $removedScopeClose) 'FontShapeScope abstract declaration is incomplete.'
+  Assert-FontPhase102Surface -InterfaceLines @($v034Surface)
+
+  $forbiddenScopePattern = '(?i)(FontShapeScope::(?:new|commit|source|bytes|table|lookup|probe|charge)|PreparedShape|ShapeTransactionResult|ShapeCommit|owner_identity|mutation_revision)'
+  Assert-Condition (@($InterfaceLines | Where-Object { $_ -cmatch $forbiddenScopePattern }).Count -eq 0) 'Font Phase 108 interface leaks scope construction, source, probe, owner, charge, or commit authority.'
 }
 
 function Assert-FontQualificationFixtureManifest {
@@ -3434,14 +3480,24 @@ function Assert-FontQualificationArtifacts {
   ) + @(
     $testSources | ForEach-Object { "font/$_" }
   ) + @('moon.mod.json')
-  Assert-ExactSequence 'Font qualification production source order' @($font.production_sources) $productionSources
-  Assert-ExactSequence 'Font qualification test source order' @($font.test_sources) $testSources
-  Assert-ExactSet 'Font qualification publication inventory' @($fontModule.publication_files) $publicationFiles
-  Assert-Condition (@($font.semantic_interface).Count -eq 85) 'Font semantic interface must remain exactly 85 lines.'
-  Assert-FontPhase102Surface -InterfaceLines @($font.semantic_interface | ForEach-Object { [string]$_ })
+  $phase108ProductionSources = @($productionSources + 'shape_transaction.mbt')
+  $phase108TestSources = @($testSources + 'shape_transaction_test.mbt', 'shape_transaction_wbtest.mbt')
+  $phase108PublicationFiles = @(
+    'CHANGELOG.md',
+    'README.mbt.md',
+    'font'
+  ) + @(
+    $phase108ProductionSources | ForEach-Object { "font/$_" }
+  ) + @(
+    $phase108TestSources | ForEach-Object { "font/$_" }
+  ) + @('moon.mod.json')
+  Assert-ExactSet 'Font Phase 108 production source set' @($font.production_sources) $phase108ProductionSources
+  Assert-ExactSet 'Font Phase 108 test source set' @($font.test_sources) $phase108TestSources
+  Assert-ExactSet 'Font Phase 108 publication inventory' @($fontModule.publication_files) $phase108PublicationFiles
+  Assert-FontPhase108Surface -InterfaceLines @($font.semantic_interface | ForEach-Object { [string]$_ })
   Assert-ExactSet 'Font qualification module dependencies' @($fontModule.direct_dependencies) @('tchivs/mb-core')
   Assert-ExactSet 'Font qualification dependency edge' @($Policy.allowed_dependency_edges | Where-Object from -CEQ 'tchivs/mb-font' | ForEach-Object to) @('tchivs/mb-core')
-  Assert-Condition (@($Policy.allowed_dependency_edges | Where-Object to -CEQ 'tchivs/mb-font').Count -eq 0) 'No foundation module may depend on mb-font during qualification.'
+  Assert-ExactSet 'Font Phase 108 incoming dependency edge' @($Policy.allowed_dependency_edges | Where-Object to -CEQ 'tchivs/mb-font' | ForEach-Object from) @('tchivs/mb-text')
 
   $workflowDirectory = Join-Path $RepositoryRoot '.github/workflows'
   $qualityWorkflowText = Get-Content -Raw -LiteralPath (
@@ -3958,7 +4014,7 @@ function Assert-FontFoundationPolicy {
 
   $fontEdges = @($policy.allowed_dependency_edges | Where-Object { $_.from -ceq 'tchivs/mb-font' })
   Assert-ExactSet 'Font dependency edges' @($fontEdges.to) @('tchivs/mb-core')
-  Assert-Condition (@($policy.allowed_dependency_edges | Where-Object { $_.to -ceq 'tchivs/mb-font' }).Count -eq 0) 'No existing foundation module may depend on mb-font during Phase 102.'
+  Assert-ExactSet 'Font incoming dependency edge' @($policy.allowed_dependency_edges | Where-Object { $_.to -ceq 'tchivs/mb-font' } | ForEach-Object from) @('tchivs/mb-text')
   Assert-AcyclicDependencyGraph -Modules @($policy.modules) -AllowedEdges @($policy.allowed_dependency_edges)
 
   $fontPackages = @($fontModule.public_packages | Where-Object { $_.path -ceq 'font' })
@@ -3987,7 +4043,8 @@ function Assert-FontFoundationPolicy {
     'cff_type2.mbt',
     'cff_type2_bounds.mbt',
     'cff_type2_path.mbt',
-    'cff_admission.mbt'
+    'cff_admission.mbt',
+    'shape_transaction.mbt'
   )
   $testSources = @(
     'cff_admission_wbtest.mbt',
@@ -4009,7 +4066,9 @@ function Assert-FontFoundationPolicy {
     'font_test.mbt',
     'font_wbtest.mbt',
     'generated_font_qualification_test.mbt',
-    'generated_fonts_wbtest.mbt'
+    'generated_fonts_wbtest.mbt',
+    'shape_transaction_test.mbt',
+    'shape_transaction_wbtest.mbt'
   )
   $publicationFiles = @(
     'CHANGELOG.md',
@@ -4121,7 +4180,7 @@ function Assert-FontFoundationPolicy {
   $interfaceText = @($font.semantic_interface | ForEach-Object { [string]$_ })
   $privateLeakPattern = '(?i)(Cursor|TableWindow|TableRecord|DirectoryFacts|RequiredTableFacts|MetricIndexFacts|Collection(?:Face|Protected|Parse|Directory|Record|Range|Storage)Facts|Dsig(?:Record|Block|Payload)|CmapLookupFacts|CmapFormat4Facts|CmapFormat12Facts|KernState|KernFormat0Facts|SfntTag|RawOffset|WindowDescriptor|source_offset|retained_revision|mutation_revision|GlyphWindow|OutlinePoint|OutlineGeometry|F2Dot14|Composite(?:Placement|Descriptor|Parse|Frame|Classification)|OutlineWork|GraphColor|RealPoint|ImpliedPoint|PhantomPoint|Q15)'
   Assert-Condition (@($interfaceText | Where-Object { $_ -cmatch $privateLeakPattern }).Count -eq 0) 'Font semantic interface leaks a private collection, cmap, kern, outline, cursor, table, graph, Q15, tag, offset, range, revision, or window fact.'
-  Assert-FontPhase102Surface -InterfaceLines $interfaceText
+  Assert-FontPhase108Surface -InterfaceLines $interfaceText
   $missingApprovedMethod = @(
     $interfaceText |
       Where-Object {
@@ -4130,7 +4189,7 @@ function Assert-FontFoundationPolicy {
   )
   $negativeFailure = $null
   try {
-    Assert-FontPhase102Surface -InterfaceLines $missingApprovedMethod
+    Assert-FontPhase108Surface -InterfaceLines $missingApprovedMethod
   } catch {
     $negativeFailure = $_.Exception.Message
   }
@@ -4145,7 +4204,7 @@ function Assert-FontFoundationPolicy {
   )
   $negativeFailure = $null
   try {
-    Assert-FontPhase102Surface -InterfaceLines $duplicatedApprovedLine
+    Assert-FontPhase108Surface -InterfaceLines $duplicatedApprovedLine
   } catch {
     $negativeFailure = $_.Exception.Message
   }
@@ -4160,7 +4219,7 @@ function Assert-FontFoundationPolicy {
   $reorderedApprovedLines[1] = $reorderedTemporary
   $negativeFailure = $null
   try {
-    Assert-FontPhase102Surface -InterfaceLines $reorderedApprovedLines
+    Assert-FontPhase108Surface -InterfaceLines $reorderedApprovedLines
   } catch {
     $negativeFailure = $_.Exception.Message
   }
@@ -4180,7 +4239,7 @@ function Assert-FontFoundationPolicy {
   )
   $negativeFailure = $null
   try {
-    Assert-FontPhase102Surface -InterfaceLines $forbiddenConstructor
+    Assert-FontPhase108Surface -InterfaceLines $forbiddenConstructor
   } catch {
     $negativeFailure = $_.Exception.Message
   }
@@ -4242,7 +4301,7 @@ function Assert-FontFoundationPolicy {
   )) {
     $negativeFailure = $null
     try {
-      Assert-FontPhase102Surface -InterfaceLines @($interfaceText + $forbiddenLine)
+      Assert-FontPhase108Surface -InterfaceLines @($interfaceText + $forbiddenLine)
     } catch {
       $negativeFailure = $_.Exception.Message
     }
@@ -4261,6 +4320,240 @@ function Assert-FontFoundationPolicy {
     Assert-ExactSequence 'Font generated semantic interface' $semanticLines $interfaceText
   }
   Write-Host 'Font policy, dependency, publication, documentation, target, source, and semantic interface selection verified.'
+}
+
+function Assert-TextFoundationPolicy {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$PolicyPath)
+
+  $policy = Read-QualityJson -Path $PolicyPath
+  $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+  $textModules = @($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-text' })
+  Assert-ExactSet 'Text module selection' @($textModules.name) @('tchivs/mb-text')
+  $textModule = $textModules[0]
+  Assert-Condition ($textModule.path -ceq 'modules/mb-text') 'Text module path drifted.'
+  Assert-Condition ($textModule.version -ceq '0.1.0') 'Text module version must remain 0.1.0.'
+  Assert-Condition ($textModule.stability -ceq 'candidate') 'Text module stability must remain candidate.'
+  Assert-Condition ($textModule.preferred_target -ceq 'native') 'Text module preferred target must remain native.'
+  Assert-ExactSet 'Text module targets' @($textModule.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSet 'Text module dependencies' @($textModule.direct_dependencies) @('tchivs/mb-core', 'tchivs/mb-font')
+
+  $manifest = Read-QualityJson -Path (Join-Path $repoRoot 'modules/mb-text/moon.mod.json')
+  Assert-Condition (
+    $manifest.name -ceq 'tchivs/mb-text' -and
+    $manifest.version -ceq '0.1.0' -and
+    $manifest.description -ceq $textModule.description -and
+    $manifest.'preferred-target' -ceq 'native'
+  ) 'Text manifest identity, version, description, or preferred target drifted.'
+  Assert-ExactSet 'Text manifest targets' (Get-CompactTargetSet $manifest.'supported-targets' 'Text manifest targets') @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSet 'Text manifest dependencies' @($manifest.deps.PSObject.Properties.Name) @('tchivs/mb-core', 'tchivs/mb-font')
+  foreach ($dependency in @('tchivs/mb-core', 'tchivs/mb-font')) {
+    Assert-Condition ([string]$manifest.deps.PSObject.Properties[$dependency].Value -ceq '0.1.0') "Text manifest dependency '$dependency' must remain pinned to 0.1.0."
+  }
+
+  $textEdges = @($policy.allowed_dependency_edges | Where-Object { $_.from -ceq 'tchivs/mb-text' })
+  Assert-ExactSet 'Text dependency edges' @($textEdges.to) @('tchivs/mb-core', 'tchivs/mb-font')
+  Assert-Condition (@($policy.allowed_dependency_edges | Where-Object { $_.from -ceq 'tchivs/mb-font' -and $_.to -ceq 'tchivs/mb-text' }).Count -eq 0) 'Reverse mb-font -> mb-text dependency is forbidden.'
+  Assert-AcyclicDependencyGraph -Modules @($policy.modules) -AllowedEdges @($policy.allowed_dependency_edges)
+
+  $packages = @($textModule.public_packages)
+  Assert-ExactSet 'Text public package selection' @($packages.name) @('tchivs/mb-text/text')
+  Assert-Condition ($packages.Count -eq 1 -and $packages[0].path -ceq 'text') 'mb-text must publish exactly the text package.'
+  $text = $packages[0]
+  $imports = @(
+    'tchivs/mb-core/budget',
+    'tchivs/mb-core/bytes',
+    'tchivs/mb-core/checked',
+    'tchivs/mb-core/error',
+    'tchivs/mb-font/font'
+  )
+  $productionSources = @('moon.pkg', 'tags.mbt', 'options.mbt', 'limits.mbt', 'run.mbt', 'shape.mbt')
+  $testSources = @('contract_test.mbt', 'contract_wbtest.mbt')
+  $publicationFiles = @(
+    'CHANGELOG.md',
+    'README.mbt.md',
+    'text',
+    'text/contract_test.mbt',
+    'text/contract_wbtest.mbt',
+    'text/limits.mbt',
+    'text/moon.pkg',
+    'text/options.mbt',
+    'text/run.mbt',
+    'text/shape.mbt',
+    'text/tags.mbt',
+    'moon.mod.json'
+  )
+  Assert-ExactSet 'Text policy imports' @($text.allowed_imports) $imports
+  Assert-ExactSet 'Text policy targets' @($text.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSequence 'Text production source order' @($text.production_sources) $productionSources
+  Assert-ExactSequence 'Text test source order' @($text.test_sources) $testSources
+  Assert-ExactSet 'Text publication inventory' @($textModule.publication_files) $publicationFiles
+
+  $packagePath = Join-Path $repoRoot 'modules/mb-text/text/moon.pkg'
+  $packageText = Get-Content -Raw -LiteralPath $packagePath
+  $target = [regex]::Match($packageText, '(?m)^supported_targets\s*=\s*"([^"]+)"\s*$')
+  Assert-Condition $target.Success 'Text moon.pkg lacks supported_targets.'
+  Assert-ExactSet 'Text moon.pkg targets' (Get-CompactTargetSet $target.Groups[1].Value 'Text package targets') @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSet 'Text moon.pkg imports' @(Get-PackageImportSet -Text $packageText -Label 'Text moon.pkg') $imports
+
+  $actualFiles = @(
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'modules/mb-text/text') -File |
+      Where-Object { $_.Name -cne 'pkg.generated.mbti' } |
+      ForEach-Object Name
+  )
+  Assert-ExactSet 'Text package directory contents' $actualFiles @($productionSources + $testSources)
+
+  $expectedInterface = @(
+    'package "tchivs/mb-text/text"',
+    'import {',
+    '  "tchivs/mb-core/budget",',
+    '  "tchivs/mb-core/error",',
+    '  "tchivs/mb-font/font",',
+    '}',
+    'pub fn shape(@font.Font, Array[Int], ShapingOptions, ShapeLimits, @budget.Budget) -> Result[ShapedRun, @error.CoreError]',
+    'pub(all) enum Direction {',
+    '  LeftToRight',
+    '  RightToLeft',
+    '} derive(Eq)',
+    'pub struct FeaturePolicy {',
+    '}',
+    'pub fn FeaturePolicy::kern(Self) -> Bool',
+    'pub fn FeaturePolicy::liga(Self) -> Bool',
+    'pub fn FeaturePolicy::new(liga~ : Bool, kern~ : Bool) -> Self',
+    'pub(all) enum LanguageChoice {',
+    '  Default',
+    '  Exact(LanguageTag)',
+    '} derive(Eq)',
+    'pub struct LanguageTag {',
+    '} derive(Eq)',
+    'pub fn LanguageTag::bytes(Self) -> Bytes',
+    'pub fn LanguageTag::new(Bytes) -> Result[Self, @error.CoreError]',
+    'pub struct PositionedGlyph {',
+    '}',
+    'pub fn PositionedGlyph::advance(Self) -> Int64',
+    'pub fn PositionedGlyph::cluster(Self) -> UInt64',
+    'pub fn PositionedGlyph::glyph(Self) -> @font.GlyphId',
+    'pub fn PositionedGlyph::x_offset(Self) -> Int64',
+    'pub fn PositionedGlyph::y_offset(Self) -> Int64',
+    'pub struct ScriptTag {',
+    '} derive(Eq)',
+    'pub fn ScriptTag::bytes(Self) -> Bytes',
+    'pub fn ScriptTag::new(Bytes) -> Result[Self, @error.CoreError]',
+    'pub struct ShapeLimits {',
+    '}',
+    'pub fn ShapeLimits::max_input_scalars(Self) -> UInt64',
+    'pub fn ShapeLimits::max_output_glyphs(Self) -> UInt64',
+    'pub fn ShapeLimits::new(max_input_scalars~ : UInt64, max_output_glyphs~ : UInt64) -> Result[Self, @error.CoreError]',
+    'pub struct ShapedRun {',
+    '}',
+    'pub fn ShapedRun::direction(Self) -> Direction',
+    'pub fn ShapedRun::glyph_at(Self, UInt64) -> Result[PositionedGlyph, @error.CoreError]',
+    'pub fn ShapedRun::len(Self) -> UInt64',
+    'pub fn ShapedRun::total_advance(Self) -> Int64',
+    'pub fn ShapedRun::units_per_em(Self) -> UInt64',
+    'pub struct ShapingOptions {',
+    '}',
+    'pub fn ShapingOptions::direction(Self) -> Direction',
+    'pub fn ShapingOptions::features(Self) -> FeaturePolicy',
+    'pub fn ShapingOptions::language(Self) -> LanguageChoice',
+    'pub fn ShapingOptions::new(ScriptTag, LanguageChoice, Direction, FeaturePolicy) -> Self',
+    'pub fn ShapingOptions::script(Self) -> ScriptTag'
+  )
+  $interface = @($text.semantic_interface | ForEach-Object { [string]$_ })
+  Assert-ExactSequence 'Text Phase 108 exact semantic interface' $interface $expectedInterface
+  $publicArrayLines = @($interface | Where-Object { $_ -cmatch 'Array\[' })
+  Assert-ExactSequence 'Text public array boundary' $publicArrayLines @('pub fn shape(@font.Font, Array[Int], ShapingOptions, ShapeLimits, @budget.Budget) -> Result[ShapedRun, @error.CoreError]')
+  $privateLeakPattern = '(?i)(ByteView|SourceBytes|TableFacts|LookupIndex|MutationProbe|Fixture|Prepared|Commit|ChargeLedger|OwnerIdentity|FontShapeScope|ShapeTransaction|ArrayView|Registry|Canvas|Image|Frontend|Screenshot|Responsive|AccessibilityWidget|NativeBindings|ForeignFunction|ExternalSdk)'
+  Assert-Condition (@($interface | Where-Object { $_ -cmatch $privateLeakPattern }).Count -eq 0) 'Text semantic interface leaks raw source/table/lookup/probe/fixture/transaction/UI/external authority.'
+
+  $core = @($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-core' })[0]
+  $budget = @($core.public_packages | Where-Object { $_.path -ceq 'budget' })[0]
+  $checked = @($core.public_packages | Where-Object { $_.path -ceq 'checked' })[0]
+  foreach ($requiredLine in @(
+      'pub fn ResourceCharge::checked_add(Self, Self) -> Result[Self, @error.CoreError]'
+    )) {
+    Assert-Condition (@($budget.semantic_interface | Where-Object { $_ -ceq $requiredLine }).Count -eq 1) "mb-core budget interface must contain exactly '$requiredLine'."
+  }
+  foreach ($requiredLine in @(
+      'pub fn checked_add_int64(Int64, Int64) -> Result[Int64, @error.CoreError]',
+      'pub fn checked_neg_int64(Int64) -> Result[Int64, @error.CoreError]',
+      'pub fn checked_uint64_to_int64(UInt64) -> Result[Int64, @error.CoreError]'
+    )) {
+    Assert-Condition (@($checked.semantic_interface | Where-Object { $_ -ceq $requiredLine }).Count -eq 1) "mb-core checked interface must contain exactly '$requiredLine'."
+  }
+
+  $contractText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-text/text/contract_test.mbt')
+  $contractWhiteBoxText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-text/text/contract_wbtest.mbt')
+  foreach ($requiredEvidence in @(
+      'empty shape traverses one transaction and charges work exactly once',
+      'caller invalid input wins drift and nonempty requests fail closed',
+      'generated exact charge commits once through every budget ancestor',
+      'generated stage precedence is input state data capability then resource',
+      'every generated mutation seam returns immediate state with zero charge',
+      'text-shape-project',
+      'total-advance',
+      'font-source-revision-drift'
+    )) {
+    Assert-Condition (($contractText + "`n" + $contractWhiteBoxText).Contains($requiredEvidence, [StringComparison]::Ordinal)) "Text contract evidence is missing '$requiredEvidence'."
+  }
+
+  $productionText = @(
+    $productionSources |
+      Where-Object { $_ -cne 'moon.pkg' } |
+      ForEach-Object { Get-Content -Raw -LiteralPath (Join-Path $repoRoot "modules/mb-text/text/$_") }
+  ) -join "`n"
+  Assert-Condition ($productionText -cnotmatch '(?i)\b(?:extern|ffi|sdk|http|https|socket|network|registry|canvas|image|frontend|screenshot|responsive|accessibility)\b') 'mb-text production source introduces an external, FFI, registry, media, or UI integration.'
+
+  $readmePath = Join-Path $repoRoot 'modules/mb-text/README.mbt.md'
+  $changelogPath = Join-Path $repoRoot 'modules/mb-text/CHANGELOG.md'
+  Assert-Condition (Test-Path -LiteralPath $readmePath -PathType Leaf) 'mb-text README.mbt.md is missing.'
+  Assert-Condition (Test-Path -LiteralPath $changelogPath -PathType Leaf) 'mb-text CHANGELOG.md is missing.'
+  $readmeText = Get-Content -Raw -LiteralPath $readmePath
+  $changelogText = Get-Content -Raw -LiteralPath $changelogPath
+  foreach ($requiredFact in @('candidate', 'js', 'wasm', 'wasm-gc', 'native', 'Phase 113', 'CapabilityUnavailable', 'work=1', 'scalar index', 'one combined', 'synchronous', 'no cache', 'no UI')) {
+    Assert-Condition ($readmeText.Contains($requiredFact, [StringComparison]::OrdinalIgnoreCase)) "Text README is missing required contract fact '$requiredFact'."
+  }
+  Assert-Condition (($readmeText + "`n" + $changelogText) -cnotmatch '(?i)Phase 108[^\r\n]*(?:semantic(?:ally)? qualified|qualification authority)') 'Phase 108 documentation overstates semantic four-target qualification.'
+  Assert-Condition (($readmeText + "`n" + $changelogText) -cnotmatch '(?i)(?:successful|supports|implements)[^\r\n]*nonempty[^\r\n]*(?:real[- ]font|font shaping)') 'Phase 108 documentation overstates successful nonempty real-font shaping.'
+
+  function Confirm-TextRejected([string]$Name, [scriptblock]$Action, [string]$ExpectedPattern) {
+    $failure = $null
+    try { & $Action } catch { $failure = $_.Exception.Message }
+    Assert-Condition ($null -ne $failure -and $failure -cmatch $ExpectedPattern) "Text policy accepted negative fixture '$Name': '$failure'."
+  }
+  Confirm-TextRejected 'reverse font dependency' {
+    Assert-AcyclicDependencyGraph -Modules @($policy.modules) -AllowedEdges @($policy.allowed_dependency_edges + [pscustomobject]@{ from='tchivs/mb-font'; to='tchivs/mb-text' })
+  } 'cycle'
+  Confirm-TextRejected 'unplanned import' {
+    Assert-ExactSet 'Text negative imports' @($imports + 'tchivs/mb-core/io') $imports
+  } 'count mismatch'
+  Confirm-TextRejected 'omitted source' {
+    Assert-ExactSequence 'Text negative sources' @($productionSources | Where-Object { $_ -cne 'shape.mbt' }) $productionSources
+  } 'count mismatch'
+  foreach ($forbiddenLine in @(
+      'pub fn ShapedRun::glyphs(Self) -> Array[PositionedGlyph]',
+      'pub fn FontShapeScope::commit(Self) -> Unit',
+      'pub struct GeneratedShapeFixture {',
+      'pub fn shape_nonempty_success(@font.Font) -> ShapedRun',
+      'pub fn ShapeLimits::default() -> ShapeLimits',
+      'pub fn ShapeLimits::max_work(Self) -> UInt64'
+    )) {
+    Confirm-TextRejected "forbidden interface line $forbiddenLine" {
+      Assert-ExactSequence 'Text negative interface' @($interface + $forbiddenLine) $expectedInterface
+    } 'count mismatch'
+  }
+
+  $modulePath = Join-Path $repoRoot 'modules/mb-text'
+  & moon -C $modulePath info --target all --frozen
+  if ($LASTEXITCODE -ne 0) { throw "Text interface generation failed (exit $LASTEXITCODE)." }
+  if (Get-Command Assert-GeneratedInterface -ErrorAction SilentlyContinue) {
+    Assert-GeneratedInterface -ModulePolicy $textModule -RepositoryRoot $repoRoot
+  } else {
+    $interfacePath = Join-Path $repoRoot 'modules/mb-text/text/pkg.generated.mbti'
+    $semanticLines = @(Get-Content -LiteralPath $interfacePath | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' -and -not $_.TrimStart().StartsWith('//') })
+    Assert-ExactSequence 'Text generated semantic interface' $semanticLines $expectedInterface
+  }
+  Write-Host 'Text module, DAG, source, interface, evidence, documentation, portability, and no-leakage policy verified.'
 }
 
 function Assert-PngFoundationPolicy {
