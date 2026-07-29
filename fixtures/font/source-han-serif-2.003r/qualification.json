@@ -1,0 +1,627 @@
+{
+  "schema": "cff-licensed-qualification/1.0.0",
+  "artifact": {
+    "origin": "generated",
+    "source": "repository-derived:scripts/fixtures/Generate-FontQualification.ps1",
+    "author": "MoonBit Native Foundation project generator",
+    "license": "Apache-2.0",
+    "encoding": "UTF-8 without BOM; LF; exactly one final newline"
+  },
+  "upstream": {
+    "repository": "https://github.com/adobe-fonts/source-han-serif",
+    "release_tag": "2.003R",
+    "release_url": "https://github.com/adobe-fonts/source-han-serif/releases/tag/2.003R",
+    "archive_url": "https://github.com/adobe-fonts/source-han-serif/releases/download/2.003R/12_SourceHanSerifJP.zip",
+    "archive_length": 36831708,
+    "archive_sha256": "c5a3bbc213980cea04932457899c9fc2da4784d3d1d7cae469c41909dd112230",
+    "archive_member": "SubsetOTF/JP/SourceHanSerifJP-Regular.otf",
+    "relationship": "exact-upstream-release-member",
+    "author": "Adobe; Source Han Serif project contributors",
+    "license": "OFL-1.1",
+    "retrieval_date": "2026-07-29"
+  },
+  "font": {
+    "path": "fixtures/font/source-han-serif-2.003r/SourceHanSerifJP-Regular.otf",
+    "length": 6210796,
+    "sha256": "e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785"
+  },
+  "notice": {
+    "path": "fixtures/font/source-han-serif-2.003r/LICENSE.txt",
+    "source_url": "https://github.com/adobe-fonts/source-han-serif/releases/download/2.003R/12_SourceHanSerifJP.zip",
+    "length": 4463,
+    "sha256": "9ff5bb567e1b92c801fc1069e5fbf992ff8efccacb9db94e5959a5b3ba9bb903"
+  },
+  "redistribution": {
+    "status": "confirmed",
+    "expected_use": "Phase 107 licensed CID-keyed multi-FD CJK static CFF1 interoperability and public-workflow qualification"
+  },
+  "profile": {
+    "sfnt_flavor": "OTTO",
+    "cff_version": "1.0",
+    "keying": "cid",
+    "ros": [
+      "Adobe",
+      "Identity",
+      0
+    ],
+    "glyph_count": 17923,
+    "fd_count": 18,
+    "used_fds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+    ],
+    "local_subr_counts": [
+      16,
+      46,
+      7,
+      2004,
+      39,
+      131,
+      0,
+      1,
+      7,
+      0,
+      0,
+      205,
+      21626,
+      237,
+      389,
+      17,
+      0,
+      231
+    ],
+    "global_subrs": 1599,
+    "high_gid": 17922,
+    "high_gid_fd": 17,
+    "high_gid_program_tokens": 136
+  },
+  "semantic_oracles": {
+    "schema": "cff-two-reader-agreement/1.0.0",
+    "scalar": "U+0041",
+    "exact_normalized_agreement": true,
+    "normalized_projection": {
+      "schema": "cff-semantic-reader/1.0.0",
+      "source_sha256": "e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785",
+      "face_index": 0,
+      "scalar": "U+0041",
+      "gid": 34,
+      "advance": 718,
+      "lsb": 12,
+      "bounds": [
+        12,
+        0,
+        711,
+        734
+      ],
+      "commands": [
+        {
+          "op": "MoveTo",
+          "points": [
+            332,
+            643
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            450,
+            281
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            216,
+            281
+          ]
+        },
+        {
+          "op": "MoveTo",
+          "points": [
+            418,
+            0
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            711,
+            0
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            711,
+            30
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            619,
+            38
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            384,
+            734
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            328,
+            734
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            97,
+            40
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            12,
+            30
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            12,
+            0
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            236,
+            0
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            236,
+            30
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            139,
+            40
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            206,
+            249
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            461,
+            249
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            529,
+            39
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            418,
+            30
+          ]
+        }
+      ],
+      "cff_profile": "CFF1"
+    },
+    "readers": [
+      {
+        "id": "fonttools",
+        "version": "4.63.0",
+        "package_sha256": "59ac449f8cca9b4ffa08d2e7bbadad87ce710d69d1eda5c3c1ce579baa987272",
+        "adapter_sha256": "3b9078807826b77437b8472a84012591d3203174b7cc644abff3234a47fd31eb",
+        "invoked_identities": [
+          {
+            "id": "runtime.cpython",
+            "sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a"
+          },
+          {
+            "id": "fonttools-adapter",
+            "sha256": "3b9078807826b77437b8472a84012591d3203174b7cc644abff3234a47fd31eb"
+          }
+        ],
+        "projection": {
+          "schema": "cff-semantic-reader/1.0.0",
+          "source_sha256": "e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785",
+          "face_index": 0,
+          "scalar": "U+0041",
+          "glyph_name": "cid00034",
+          "gid": 34,
+          "advance": 718,
+          "lsb": 12,
+          "bounds": [
+            12,
+            0,
+            711,
+            734
+          ],
+          "commands": [
+            {
+              "op": "MoveTo",
+              "points": [
+                332,
+                643
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                450,
+                281
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                216,
+                281
+              ]
+            },
+            {
+              "op": "Close",
+              "points": []
+            },
+            {
+              "op": "MoveTo",
+              "points": [
+                418,
+                0
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                711,
+                0
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                711,
+                30
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                619,
+                38
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                384,
+                734
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                328,
+                734
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                97,
+                40
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                12,
+                30
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                12,
+                0
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                236,
+                0
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                236,
+                30
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                139,
+                40
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                206,
+                249
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                461,
+                249
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                529,
+                39
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                418,
+                30
+              ]
+            },
+            {
+              "op": "Close",
+              "points": []
+            }
+          ],
+          "cff_profile": "CFF1",
+          "keying": "cid",
+          "reader": "fonttools",
+          "reader_version": "4.63.0"
+        }
+      },
+      {
+        "id": "afdko",
+        "version": "5.0.1",
+        "package_sha256": "c5aca7e9c8ed8ad3f411ba9e60cdcc5e820ca2326efc8332168fec995600c15a",
+        "adapter_sha256": "9bca4f8daa0e3eea94c814f62acd1489c17ff1e645e5d7eadad16cf49cc134d3",
+        "invoked_identities": [
+          {
+            "id": "runtime.cpython",
+            "sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a"
+          },
+          {
+            "id": "afdko-adapter",
+            "sha256": "9bca4f8daa0e3eea94c814f62acd1489c17ff1e645e5d7eadad16cf49cc134d3"
+          },
+          {
+            "id": "tx-runner",
+            "sha256": "fafdca3f23da8b3bed17a6946c272b0c2f10a0ee733210d824fb07c84436c1d7"
+          }
+        ],
+        "projection": {
+          "schema": "cff-semantic-reader/1.0.0",
+          "source_sha256": "e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785",
+          "face_index": 0,
+          "scalar": "U+0041",
+          "glyph_name": "34",
+          "gid": 34,
+          "advance": 718,
+          "lsb": 12,
+          "bounds": [
+            12,
+            0,
+            711,
+            734
+          ],
+          "commands": [
+            {
+              "op": "MoveTo",
+              "points": [
+                332,
+                643
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                450,
+                281
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                216,
+                281
+              ]
+            },
+            {
+              "op": "MoveTo",
+              "points": [
+                418,
+                0
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                711,
+                0
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                711,
+                30
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                619,
+                38
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                384,
+                734
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                328,
+                734
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                97,
+                40
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                12,
+                30
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                12,
+                0
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                236,
+                0
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                236,
+                30
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                139,
+                40
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                206,
+                249
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                461,
+                249
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                529,
+                39
+              ]
+            },
+            {
+              "op": "LineTo",
+              "points": [
+                418,
+                30
+              ]
+            },
+            {
+              "op": "Close",
+              "points": []
+            }
+          ],
+          "cff_profile": "CFF1",
+          "keying": "name",
+          "reader": "afdko",
+          "reader_version": "5.0.1"
+        }
+      }
+    ]
+  },
+  "structural_oracle": {
+    "id": "ots",
+    "role": "structural-only",
+    "executable_sha256": "8c252e3b058972a299fa0d2ebe37b19c70e6aaf6be6db7c717fef2ce55067421",
+    "accepted": true,
+    "semantic_authority": false
+  },
+  "host_chain": {
+    "handoff_schema": "mnf-phase107-host-toolchain-handoff/1.0.0",
+    "handoff_sha256": "340e878b488ae3bec90a6b55c380d85cd33673611ce5258c4291d46ffc45dc3e",
+    "manifest_sha256": "6ff664ca0e03ae75388947a6dd4a80626d11cf61198ef2934d5808ef908ceaa9",
+    "lock_sha256": "670a357041d61e8315f930e08951de878aca49d92f384824e8f759eeea221bc5",
+    "sdk_inventory_sha256": "d4dcf1d9d1fae39bcd4f6e1daea4cea5e49d4a4da26b8d6fa1c0c6bef7f20e50",
+    "invoked_identities_sha256": "5da3a3c6f295930a80eb14698d2a9ffc96fc35e4ed9f4326f460436cae79a4ca",
+    "preflight_validated": true,
+    "provisioning_validated": true
+  }
+}

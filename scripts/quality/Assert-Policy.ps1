@@ -1115,7 +1115,13 @@ function Assert-FontQualificationFixtureManifest {
     'font-qualification-cases',
     'font-collection-qualification-cases',
     'font-dejavu-sans-2.37-two-face-v1',
-    'font-dejavu-sans-2.37-collection-oracle'
+    'font-dejavu-sans-2.37-collection-oracle',
+    'font-source-sans-3.052R',
+    'font-source-sans-3.052R-license',
+    'font-source-sans-3.052R-qualification',
+    'font-source-han-serif-jp-2.003R',
+    'font-source-han-serif-jp-2.003R-license',
+    'font-source-han-serif-jp-2.003R-qualification'
   )
   Assert-ExactSequence 'Fixture manifest record order' @($manifest.records.id) $expectedIds
 
@@ -1163,7 +1169,7 @@ function Assert-FontQualificationFixtureManifest {
       source = 'repository-derived:scripts/fixtures/Generate-FontQualification.ps1'
       author = 'MoonBit Native Foundation project generator'
       retrieval_date = '2026-07-28'
-      sha256 = 'e09fda0ce87abb4212d5f8451f59a5744fe25a335dd6dcd4f37c1ca0fe470b61'
+      sha256 = 'e8bdf1353fb52f93971410208a99f4b18e8c525ab2834596100358ff977a5664'
       license = 'Apache-2.0'
       redistribution_status = 'not-applicable'
       expected_use = 'Phase 103 closed public, hostile, mutation, limit, caller-budget, and ancestor-budget collection qualification matrix'
@@ -1191,6 +1197,78 @@ function Assert-FontQualificationFixtureManifest {
       license = 'Apache-2.0'
       redistribution_status = 'not-applicable'
       expected_use = 'Phase 103 independent metadata-only TTC structure, checksum, sharing, lineage, and standalone-oracle binding'
+    },
+    [pscustomobject][ordered]@{
+      id = 'font-source-sans-3.052R'
+      path = 'fixtures/font/source-sans-3.052r/SourceSans3-Regular.otf'
+      origin = 'external'
+      source = 'https://github.com/adobe-fonts/source-sans/releases/download/3.052R/OTF-source-sans-3.052R.zip'
+      author = 'Adobe; Source Sans project contributors'
+      retrieval_date = '2026-07-29'
+      sha256 = '08df266400933d3178d081a45f94a08814c3e55b4b7dd2e0ff69cb1329f13ab6'
+      license = 'OFL-1.1'
+      redistribution_status = 'confirmed'
+      expected_use = 'Phase 107 licensed Latin static CFF1 interoperability and public-workflow qualification'
+    },
+    [pscustomobject][ordered]@{
+      id = 'font-source-sans-3.052R-license'
+      path = 'fixtures/font/source-sans-3.052r/LICENSE.md'
+      origin = 'external'
+      source = 'https://raw.githubusercontent.com/adobe-fonts/source-sans/3.052R/LICENSE.md'
+      author = 'Adobe; Source Sans project contributors'
+      retrieval_date = '2026-07-29'
+      sha256 = '89ad2c4f66dd29127527493e729c31e731f111cf10faf5774c3db9275ed0c22c'
+      license = 'OFL-1.1'
+      redistribution_status = 'confirmed'
+      expected_use = 'Retained upstream notice for Source Sans 3 3.052R'
+    },
+    [pscustomobject][ordered]@{
+      id = 'font-source-sans-3.052R-qualification'
+      path = 'fixtures/font/source-sans-3.052r/qualification.json'
+      origin = 'generated'
+      source = 'repository-derived:scripts/fixtures/Generate-FontQualification.ps1'
+      author = 'MoonBit Native Foundation project generator'
+      retrieval_date = '2026-07-29'
+      sha256 = '18a2e5a9b3f22cdab80b304642283c3f820e9d040a41fce993293c4658be0e73'
+      license = 'Apache-2.0'
+      redistribution_status = 'not-applicable'
+      expected_use = 'Phase 107 closed provenance and independent CFF oracle facts for Source Sans 3 3.052R'
+    },
+    [pscustomobject][ordered]@{
+      id = 'font-source-han-serif-jp-2.003R'
+      path = 'fixtures/font/source-han-serif-2.003r/SourceHanSerifJP-Regular.otf'
+      origin = 'external'
+      source = 'https://github.com/adobe-fonts/source-han-serif/releases/download/2.003R/12_SourceHanSerifJP.zip'
+      author = 'Adobe; Source Han Serif project contributors'
+      retrieval_date = '2026-07-29'
+      sha256 = 'e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785'
+      license = 'OFL-1.1'
+      redistribution_status = 'confirmed'
+      expected_use = 'Phase 107 licensed CID-keyed multi-FD CJK static CFF1 interoperability and public-workflow qualification'
+    },
+    [pscustomobject][ordered]@{
+      id = 'font-source-han-serif-jp-2.003R-license'
+      path = 'fixtures/font/source-han-serif-2.003r/LICENSE.txt'
+      origin = 'external'
+      source = 'https://github.com/adobe-fonts/source-han-serif/releases/download/2.003R/12_SourceHanSerifJP.zip'
+      author = 'Adobe; Source Han Serif project contributors'
+      retrieval_date = '2026-07-29'
+      sha256 = '9ff5bb567e1b92c801fc1069e5fbf992ff8efccacb9db94e5959a5b3ba9bb903'
+      license = 'OFL-1.1'
+      redistribution_status = 'confirmed'
+      expected_use = 'Retained upstream notice for Source Han Serif JP 2.003R'
+    },
+    [pscustomobject][ordered]@{
+      id = 'font-source-han-serif-jp-2.003R-qualification'
+      path = 'fixtures/font/source-han-serif-2.003r/qualification.json'
+      origin = 'generated'
+      source = 'repository-derived:scripts/fixtures/Generate-FontQualification.ps1'
+      author = 'MoonBit Native Foundation project generator'
+      retrieval_date = '2026-07-29'
+      sha256 = '574e064cace153a7e58bd4095918b1158e6497ff0b671ca660fd42f124d5b99f'
+      license = 'Apache-2.0'
+      redistribution_status = 'not-applicable'
+      expected_use = 'Phase 107 closed provenance and independent CFF oracle facts for Source Han Serif JP 2.003R'
     }
   )
   foreach ($expected in $expectedFontRecords) {

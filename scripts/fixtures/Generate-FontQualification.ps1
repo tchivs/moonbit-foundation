@@ -4131,6 +4131,7 @@ function Invoke-CffLicensedIntake {
     throw 'Licensed destinations changed during validation.'
   }
   Publish-CffLicensedBundles $bundles
+  Update-OrCheckCffLicensedProvenance
   Write-Host 'Exact Source Sans and Source Han licensed bundles published atomically.'
 }
 
@@ -4249,17 +4250,385 @@ function Assert-CffCanonicalLicensedIntake {
   Write-Host 'Canonical licensed CFF intake is exact and closed.'
 }
 
-function Assert-CffProvenanceArtifacts {
-  [void](Assert-CffExecutionHandoff)
-  $records = @(Get-CffLicensedSpecimens)
-  foreach ($record in $records) {
-    $destination = Get-CffLicensedDestination $record
-    $qualificationPath = Join-Path $destination.directory 'qualification.json'
-    if (-not (Test-Path -LiteralPath $qualificationPath -PathType Leaf)) {
-      throw "Licensed CFF qualification document is missing: $($record.id)"
+function Get-CffLicensedUpstreamFacts {
+  param([Parameter(Mandatory)]$Record)
+  if ($Record.id -ceq 'source-sans-3.052R') {
+    return [ordered]@{
+      repository = 'https://github.com/adobe-fonts/source-sans'
+      release_tag = '3.052R'
+      release_url = 'https://github.com/adobe-fonts/source-sans/releases/tag/3.052R'
+      archive_url = [string]$Record.archive.url
+      license_url =
+        'https://raw.githubusercontent.com/adobe-fonts/source-sans/3.052R/LICENSE.md'
+      author = 'Adobe; Source Sans project contributors'
+      license = 'OFL-1.1'
+      expected_use =
+        'Phase 107 licensed Latin static CFF1 interoperability and public-workflow qualification'
     }
   }
-  throw 'Licensed CFF provenance reconstruction is not implemented.'
+  return [ordered]@{
+    repository = 'https://github.com/adobe-fonts/source-han-serif'
+    release_tag = '2.003R'
+    release_url = 'https://github.com/adobe-fonts/source-han-serif/releases/tag/2.003R'
+    archive_url = [string]$Record.archive.url
+    license_url = [string]$Record.archive.url
+    author = 'Adobe; Source Han Serif project contributors'
+    license = 'OFL-1.1'
+    expected_use =
+      'Phase 107 licensed CID-keyed multi-FD CJK static CFF1 interoperability and public-workflow qualification'
+  }
+}
+
+function New-CffLicensedQualificationDocument {
+  param(
+    [Parameter(Mandatory)]$Context,
+    [Parameter(Mandatory)]$Record,
+    [Parameter(Mandatory)]$Profile,
+    [Parameter(Mandatory)]$Oracles
+  )
+  $destination = Get-CffLicensedDestination $Record
+  $relativeDirectory = $destination.directory.Substring($RepositoryRoot.Length + 1).
+    Replace('\','/')
+  $fontPath = "$relativeDirectory/$($destination.font)"
+  $noticePath = "$relativeDirectory/$($destination.license)"
+  $upstream = Get-CffLicensedUpstreamFacts $Record
+  $tools = Read-CffQualificationJson $CffOracleToolsPath 'CFF oracle tools'
+  Assert-CffOracleToolsDocument $tools
+  $fontToolsPackage = @($tools.packages | Where-Object id -CEQ 'fonttools')[0]
+  $afdkoPackage = @($tools.packages | Where-Object id -CEQ 'afdko')[0]
+  $invokedById = @{}
+  foreach ($identity in @($Context.handoff.invoked_identities)) {
+    $invokedById[[string]$identity.id] = [string]$identity.sha256
+  }
+  return [ordered]@{
+    schema = 'cff-licensed-qualification/1.0.0'
+    artifact = [ordered]@{
+      origin = 'generated'
+      source = 'repository-derived:scripts/fixtures/Generate-FontQualification.ps1'
+      author = 'MoonBit Native Foundation project generator'
+      license = 'Apache-2.0'
+      encoding = 'UTF-8 without BOM; LF; exactly one final newline'
+    }
+    upstream = [ordered]@{
+      repository = $upstream.repository
+      release_tag = $upstream.release_tag
+      release_url = $upstream.release_url
+      archive_url = $upstream.archive_url
+      archive_length = [long]$Record.archive.length
+      archive_sha256 = [string]$Record.archive.sha256
+      archive_member = [string]$Record.member.path
+      relationship = 'exact-upstream-release-member'
+      author = $upstream.author
+      license = $upstream.license
+      retrieval_date = $CffLicensedRetrievalDate
+    }
+    font = [ordered]@{
+      path = $fontPath
+      length = [long]$Record.member.length
+      sha256 = [string]$Record.member.sha256
+    }
+    notice = [ordered]@{
+      path = $noticePath
+      source_url = $upstream.license_url
+      length = [long]$Record.license_file.length
+      sha256 = [string]$Record.license_file.sha256
+    }
+    redistribution = [ordered]@{
+      status = 'confirmed'
+      expected_use = $upstream.expected_use
+    }
+    profile = [ordered]@{
+      sfnt_flavor = [string]$Profile.sfnt_flavor
+      cff_version = [string]$Profile.cff_version
+      keying = [string]$Profile.keying
+      ros = $Profile.ros
+      glyph_count = [int]$Profile.glyph_count
+      fd_count = $Profile.fd_count
+      used_fds = @($Profile.used_fds)
+      local_subr_counts = @($Profile.local_subr_counts)
+      global_subrs = [int]$Profile.global_subrs
+      high_gid = $Profile.high_gid
+      high_gid_fd = $Profile.high_gid_fd
+      high_gid_program_tokens = $Profile.high_gid_program_tokens
+    }
+    semantic_oracles = [ordered]@{
+      schema = 'cff-two-reader-agreement/1.0.0'
+      scalar = 'U+0041'
+      exact_normalized_agreement = $true
+      normalized_projection = $Oracles.agreement
+      readers = @(
+        [ordered]@{
+          id = 'fonttools'
+          version = [string]$fontToolsPackage.version
+          package_sha256 = [string]$fontToolsPackage.sha256
+          adapter_sha256 = [string]$Context.handoff.adapter_sha256.fonttools
+          invoked_identities = @(
+            [ordered]@{
+              id = 'runtime.cpython'
+              sha256 = $invokedById['runtime.cpython']
+            },
+            [ordered]@{
+              id = 'fonttools-adapter'
+              sha256 = $invokedById['fonttools-adapter']
+            }
+          )
+          projection = $Oracles.fonttools
+        },
+        [ordered]@{
+          id = 'afdko'
+          version = [string]$afdkoPackage.version
+          package_sha256 = [string]$afdkoPackage.sha256
+          adapter_sha256 = [string]$Context.handoff.adapter_sha256.afdko
+          invoked_identities = @(
+            [ordered]@{
+              id = 'runtime.cpython'
+              sha256 = $invokedById['runtime.cpython']
+            },
+            [ordered]@{
+              id = 'afdko-adapter'
+              sha256 = $invokedById['afdko-adapter']
+            },
+            [ordered]@{
+              id = 'tx-runner'
+              sha256 = $invokedById['tx-runner']
+            }
+          )
+          projection = $Oracles.afdko
+        }
+      )
+    }
+    structural_oracle = [ordered]@{
+      id = 'ots'
+      role = 'structural-only'
+      executable_sha256 = [string]$Context.handoff.ots_executable_sha256
+      accepted = [bool]$Oracles.ots_accepted
+      semantic_authority = $false
+    }
+    host_chain = [ordered]@{
+      handoff_schema = [string]$Context.handoff.schema
+      handoff_sha256 = $CffExecutionHandoffSha256
+      manifest_sha256 = [string]$Context.handoff.manifest_sha256
+      lock_sha256 = [string]$Context.handoff.lock_sha256
+      sdk_inventory_sha256 = [string]$Context.handoff.sdk_inventory_sha256
+      invoked_identities_sha256 = [string]$Context.handoff.invoked_identities_sha256
+      preflight_validated = $true
+      provisioning_validated = $true
+    }
+  }
+}
+
+function Get-CffLicensedManifestRecords {
+  param(
+    [Parameter(Mandatory)][object[]]$Specimens,
+    [Parameter(Mandatory)][hashtable]$QualificationShaById
+  )
+  $result = [Collections.Generic.List[object]]::new()
+  foreach ($record in $Specimens) {
+    $destination = Get-CffLicensedDestination $record
+    $relativeDirectory = $destination.directory.Substring($RepositoryRoot.Length + 1).
+      Replace('\','/')
+    $upstream = Get-CffLicensedUpstreamFacts $record
+    $result.Add([ordered]@{
+      id = "font-$($record.id)"
+      path = "$relativeDirectory/$($destination.font)"
+      origin = 'external'
+      source = [string]$record.archive.url
+      author = $upstream.author
+      retrieval_date = $CffLicensedRetrievalDate
+      sha256 = [string]$record.member.sha256
+      license = $upstream.license
+      redistribution_status = 'confirmed'
+      expected_use = $upstream.expected_use
+    })
+    $result.Add([ordered]@{
+      id = "font-$($record.id)-license"
+      path = "$relativeDirectory/$($destination.license)"
+      origin = 'external'
+      source = $upstream.license_url
+      author = $upstream.author
+      retrieval_date = $CffLicensedRetrievalDate
+      sha256 = [string]$record.license_file.sha256
+      license = $upstream.license
+      redistribution_status = 'confirmed'
+      expected_use = "Retained upstream notice for $($record.family) $($record.tag)"
+    })
+    $result.Add([ordered]@{
+      id = "font-$($record.id)-qualification"
+      path = "$relativeDirectory/qualification.json"
+      origin = 'generated'
+      source = 'repository-derived:scripts/fixtures/Generate-FontQualification.ps1'
+      author = 'MoonBit Native Foundation project generator'
+      retrieval_date = $CffLicensedRetrievalDate
+      sha256 = [string]$QualificationShaById[[string]$record.id]
+      license = 'Apache-2.0'
+      redistribution_status = 'not-applicable'
+      expected_use =
+        "Phase 107 closed provenance and independent CFF oracle facts for $($record.family) $($record.tag)"
+    })
+  }
+  return @($result)
+}
+
+function Assert-CffLicensedManifestRows {
+  param(
+    [Parameter(Mandatory)]$Manifest,
+    [Parameter(Mandatory)][object[]]$Expected
+  )
+  $existing = @($Manifest.records)
+  $expectedIds = @($Expected.id)
+  $indices = [Collections.Generic.List[int]]::new()
+  foreach ($id in $expectedIds) {
+    $matches = @($existing | Where-Object id -CEQ $id)
+    if ($matches.Count -ne 1) {
+      throw "Licensed CFF manifest record is missing or duplicated: $id"
+    }
+    for ($index = 0; $index -lt $existing.Count; $index++) {
+      if ($existing[$index].id -ceq $id) { $indices.Add($index); break }
+    }
+  }
+  for ($index = 0; $index -lt $indices.Count; $index++) {
+    if ($indices[$index] -ne $indices[0] + $index) {
+      throw 'Licensed CFF manifest rows are not adjacent in canonical order.'
+    }
+    Assert-ManifestRecord $existing[$indices[$index]] $Expected[$index]
+  }
+}
+
+function Get-CffLicensedQualificationSet {
+  $context = Assert-CffExecutionHandoff
+  $specimens = @(Get-CffLicensedSpecimens)
+  $documents = [ordered]@{}
+  $rendered = [ordered]@{}
+  foreach ($record in $specimens) {
+    $destination = Get-CffLicensedDestination $record
+    $fontPath = Join-Path $destination.directory $destination.font
+    $licensePath = Join-Path $destination.directory $destination.license
+    Assert-ExactBytesIdentity "$($record.id) canonical font" `
+      ([IO.File]::ReadAllBytes($fontPath)) ([long]$record.member.length) `
+      ([string]$record.member.sha256)
+    Assert-ExactBytesIdentity "$($record.id) canonical license" `
+      ([IO.File]::ReadAllBytes($licensePath)) ([long]$record.license_file.length) `
+      ([string]$record.license_file.sha256)
+    $profile = Invoke-CffPinnedProfileReader $context $fontPath $record
+    Assert-CffLicensedProfile $profile $record
+    $oracles = Invoke-CffLicensedOracleAgreement $context $fontPath $record
+    $document = New-CffLicensedQualificationDocument $context $record $profile $oracles
+    $documents[[string]$record.id] = $document
+    $rendered[[string]$record.id] = ConvertTo-StableJson $document
+  }
+  return [ordered]@{
+    context = $context
+    specimens = $specimens
+    documents = $documents
+    rendered = $rendered
+  }
+}
+
+function Update-OrCheckCffLicensedProvenance {
+  param([switch]$CheckOnly)
+  $set = Get-CffLicensedQualificationSet
+  $qualificationSha = @{}
+  foreach ($record in @($set.specimens)) {
+    $text = [string]$set.rendered[[string]$record.id]
+    $qualificationSha[[string]$record.id] = Get-CffTextSha256 $text
+  }
+  $expectedManifest = @(
+    Get-CffLicensedManifestRecords @($set.specimens) $qualificationSha
+  )
+
+  if ($CheckOnly) {
+    foreach ($record in @($set.specimens)) {
+      $destination = Get-CffLicensedDestination $record
+      $path = Join-Path $destination.directory 'qualification.json'
+      if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Licensed CFF qualification document is missing: $($record.id)"
+      }
+      $actualBytes = [IO.File]::ReadAllBytes($path)
+      $expectedBytes = $Utf8NoBom.GetBytes(
+        [string]$set.rendered[[string]$record.id]
+      )
+      if (-not [Linq.Enumerable]::SequenceEqual(
+          [byte[]]$actualBytes,
+          [byte[]]$expectedBytes
+        )) {
+        throw "Licensed CFF qualification document drifted: $($record.id)"
+      }
+      if ((Get-CffFileSha256 $path) -cne
+          [string]$qualificationSha[[string]$record.id]) {
+        throw "Licensed CFF qualification digest drifted: $($record.id)"
+      }
+    }
+    $manifest = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json
+    Assert-CffLicensedManifestRows $manifest $expectedManifest
+    Write-Host 'Licensed CFF provenance, oracle documents, and manifest reconstruct exactly.'
+    return
+  }
+
+  $manifest = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json
+  $existingIds = @($manifest.records.id)
+  $present = @($expectedManifest | Where-Object { $_.id -cin $existingIds })
+  $qualificationPresent = @()
+  foreach ($record in @($set.specimens)) {
+    $destination = Get-CffLicensedDestination $record
+    $qualificationPresent += Test-Path -LiteralPath (
+      Join-Path $destination.directory 'qualification.json'
+    ) -PathType Leaf
+  }
+  if ($present.Count -ne 0 -or $qualificationPresent -contains $true) {
+    if ($present.Count -ne $expectedManifest.Count -or
+        $qualificationPresent -contains $false) {
+      throw 'Refusing partial licensed CFF provenance publication.'
+    }
+    $canonicalManifest = (
+      ($manifest | ConvertTo-Json -Depth 100).Replace("`r`n", "`n") + "`n"
+    )
+    [IO.File]::WriteAllText($ManifestPath, $canonicalManifest, $Utf8NoBom)
+    Update-OrCheckCffLicensedProvenance -CheckOnly
+    return
+  }
+  $manifest.records = @($manifest.records) + $expectedManifest
+  $manifestText = (
+    ($manifest | ConvertTo-Json -Depth 100).Replace("`r`n", "`n") + "`n"
+  )
+  $transaction = [guid]::NewGuid().ToString('N')
+  $published = [Collections.Generic.List[string]]::new()
+  $temporaryFiles = [Collections.Generic.List[string]]::new()
+  try {
+    foreach ($record in @($set.specimens)) {
+      $destination = Get-CffLicensedDestination $record
+      $path = Join-Path $destination.directory 'qualification.json'
+      $temporary = "$path.tmp-$transaction"
+      [IO.File]::WriteAllText(
+        $temporary,
+        [string]$set.rendered[[string]$record.id],
+        $Utf8NoBom
+      )
+      $temporaryFiles.Add($temporary)
+    }
+    $manifestTemporary = "$ManifestPath.tmp-$transaction"
+    [IO.File]::WriteAllText($manifestTemporary, $manifestText, $Utf8NoBom)
+    $temporaryFiles.Add($manifestTemporary)
+    foreach ($temporary in @($temporaryFiles | Select-Object -SkipLast 1)) {
+      $destination = $temporary.Substring(0, $temporary.Length - (5 + $transaction.Length))
+      Move-Item -LiteralPath $temporary -Destination $destination
+      $published.Add($destination)
+    }
+    Move-Item -LiteralPath $manifestTemporary -Destination $ManifestPath -Force
+  } catch {
+    foreach ($path in $published) {
+      if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
+    }
+    throw
+  } finally {
+    foreach ($path in $temporaryFiles) {
+      if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
+    }
+  }
+  Update-OrCheckCffLicensedProvenance -CheckOnly
+}
+
+function Assert-CffProvenanceArtifacts {
+  Update-OrCheckCffLicensedProvenance -CheckOnly
 }
 
 if ($CheckGeneratedTracer) {
