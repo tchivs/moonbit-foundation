@@ -19,6 +19,7 @@ param(
   [switch]$CheckPublicPrivateBoundary,
   [switch]$CheckPrivateOracleFacts,
   [switch]$CheckPrivateEvidenceMirrors,
+  [switch]$MaterializePrivateEvidenceMirrors,
   [switch]$CheckSinglePayloadOwner,
   [ValidateSet('js', 'wasm', 'wasm-gc', 'native')]
   [string]$Target = 'native',
@@ -4431,6 +4432,37 @@ function Assert-CffPrivateEvidenceMirrors {
   Write-Host 'CFF private hostile/mutation/B8 mirror facts are canonical and region-exact.'
 }
 
+function Set-CffPrivateEvidenceMirrors {
+  $inputs = Get-CffEvidenceInputs
+  $rows = @(
+    foreach ($group in @($inputs.cases.hostile_groups)) {
+      foreach ($row in @($group.rows)) {
+        Assert-CffQualificationSourceLocator ([string]$row.source) "CFF hostile row $($row.id)"
+        '// hostile ' + (
+          [ordered]@{ group = [string]$group.id; row = $row } |
+            ConvertTo-Json -Compress -Depth 100
+        )
+      }
+    }
+  )
+  $path = Join-Path $RepositoryRoot 'modules/mb-font/font/cff_hostile_fixture_wbtest.mbt'
+  $text = [IO.File]::ReadAllText($path, $Utf8NoBom).Replace("`r`n", "`n")
+  $marker = 'font-cff1-v3 private hostile'
+  $begin = "// $marker`:begin"
+  $end = "// $marker`:end"
+  if ($text.Contains($begin, [StringComparison]::Ordinal) -or
+      $text.Contains($end, [StringComparison]::Ordinal)) {
+    throw 'Private hostile region already exists; materialization is one-shot.'
+  }
+  $region = (@($begin) + $rows + @($end)) -join "`n"
+  [IO.File]::WriteAllText(
+    $path,
+    ($text.TrimEnd("`n") + "`n`n" + $region + "`n"),
+    $Utf8NoBom
+  )
+  Write-Host 'CFF private hostile/mutation/B8 mirror facts materialized.'
+}
+
 function Assert-CffSinglePayloadOwner {
   Write-CffGeneratedEvidenceSource -CheckOnly
   $source = [IO.File]::ReadAllText($CffGeneratedEvidencePath, $Utf8NoBom)
@@ -6099,6 +6131,10 @@ if ($CheckPrivateOracleFacts) {
 }
 if ($CheckPrivateEvidenceMirrors) {
   Assert-CffPrivateEvidenceMirrors
+  return
+}
+if ($MaterializePrivateEvidenceMirrors) {
+  Set-CffPrivateEvidenceMirrors
   return
 }
 if ($CheckSinglePayloadOwner) {

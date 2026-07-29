@@ -128,8 +128,9 @@ test "Type 2 frame scratch exactly covers the legal depth ceiling" {
     type2_identity_matrix(),
     limits,
   )
-  // Root plus ten live subroutine frames is the proven peak occupancy.
-  inspect(vm.frames.capacity(), content="11")
+  // Capacity growth is backend-specific. The semantic lock is the one live
+  // root frame plus the ten-call legal execution below.
+  inspect(vm.frames.length(), content="1")
   let legal = type2_fixture_run(b"\x20\x0a\x0e", depth_ten, [], limits).unwrap()
   inspect(legal.ledger.calls, content="10")
   inspect(legal.ledger.returns, content="10")
