@@ -1,9 +1,11 @@
-[CmdletBinding(DefaultParameterSetName = 'Run')]
+[CmdletBinding()]
 param(
-  [Parameter(ParameterSetName = 'Run')]
-  [string]$EvidenceDirectory = 'artifacts/release-qualification/font-v2',
-  [Parameter(Mandatory, ParameterSetName = 'Import')]
-  [switch]$ImportOnly
+  [string]$EvidenceDirectory = 'artifacts/release-qualification/font-v3',
+  [switch]$ImportOnly,
+  [switch]$ContractOnly,
+  [ValidateSet('js', 'wasm', 'wasm-gc', 'native')]
+  [string]$Target,
+  [switch]$TracerOnly
 )
 
 Set-StrictMode -Version Latest
@@ -12,125 +14,188 @@ $ErrorActionPreference = 'Stop'
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Targets = @('js', 'wasm', 'wasm-gc', 'native')
-$EvidenceWorkflowId = 'font-complete-public-v2'
-$EvidenceSchemaVersion = '2.0.0'
-$FocusedPassSummary = 'Total tests: 1, passed: 1, failed: 0.'
-$SupportedOutlineScalars = @('U+0041', 'U+034C', 'U+10300')
+$EvidenceWorkflowId = 'font-complete-public-v3'
+$EvidenceSchemaVersion = '3.0.0'
 $EvidenceMarkerName = '.mnf-font-qualification-managed.json'
-$EvidenceMarkerSchema = 'mnf-font-qualification-evidence/v2'
+$EvidenceMarkerSchema = 'mnf-font-qualification-evidence/v3'
+$EvidenceProductNames = @(
+  'js.json',
+  'wasm.json',
+  'wasm-gc.json',
+  'native.json',
+  'comparison.json'
+)
+$NormalizationRemoved = @('target', 'runner')
+$FocusedPassSummary = 'Total tests: 1, passed: 1, failed: 0.'
 $RecordKeys = @(
   'schema_version',
   'workflow_id',
   'target',
   'toolchain',
   'fixtures',
-  'standalone_baseline',
-  'generated_collection_facts',
-  'licensed_derivative_facts',
-  'collection_hostile_outcomes',
+  'oracle_facts',
+  'generated_cff_facts',
+  'licensed_cff_facts',
+  'public_workflow_facts',
+  'cff_hostile_outcomes',
   'mutation_atomicity_facts',
+  'glyf_compatibility_facts',
+  'benchmark_correctness_facts',
   'boundary_facts',
   'dependency_facts',
-  'focused_assertions',
   'source_identities',
+  'focused_assertions',
   'runner',
   'pass'
 )
-$FocusedSourceFiles = @(
-  'modules/mb-font/font/collection_test.mbt',
-  'modules/mb-font/font/collection_wbtest.mbt',
-  'modules/mb-font/font/font_test.mbt',
-  'modules/mb-font/font/font_wbtest.mbt',
-  'modules/mb-font/font/generated_fonts_wbtest.mbt',
-  'modules/mb-font/font/generated_font_qualification_test.mbt',
-  'modules/mb-font/font/font_qualification_test.mbt',
-  'modules/mb-font/font/font_qualification_hostile_test.mbt'
-)
-$FocusedAssertions = @(
+
+$PublicEvidenceAssertions = @(
   [pscustomobject][ordered]@{
-    group = 'standalone'
-    file = 'font/font_qualification_test.mbt'
-    name = 'font-complete-public freezes compact public workflow facts'
+    kind = 'public'
+    module = 'benchmarks/font-cff'
+    file = 'cff_qualification_wbtest.mbt'
+    name = 'font-cff1-v3 carrier-public generated-name standalone and selected tracer'
   },
   [pscustomobject][ordered]@{
-    group = 'standalone'
-    file = 'font/font_qualification_test.mbt'
-    name = 'font-complete-public exercises the compact format-4 branch'
+    kind = 'public'
+    module = 'benchmarks/font-cff'
+    file = 'cff_qualification_wbtest.mbt'
+    name = 'font-cff1-v3 carrier-public every standalone and selected workflow'
   },
   [pscustomobject][ordered]@{
-    group = 'standalone'
-    file = 'font/font_qualification_test.mbt'
-    name = 'font-complete-public freezes DejaVu Sans 2.37 public facts'
+    kind = 'public'
+    module = 'benchmarks/font-cff'
+    file = 'cff_qualification_wbtest.mbt'
+    name = 'font-cff1-v3 carrier-public caller mutation is exact and atomic'
   },
   [pscustomobject][ordered]@{
-    group = 'standalone-hostile'
-    file = 'font/font_qualification_hostile_test.mbt'
-    name = 'font qualification executes the closed hostile outcome matrix'
-  },
-  [pscustomobject][ordered]@{
-    group = 'standalone-capability'
-    file = 'font/font_test.mbt'
-    name = 'unsupported containers outlines variations color and bitmap profiles are capabilities'
-  },
-  [pscustomobject][ordered]@{
-    group = 'generated-collection'
-    file = 'font/font_qualification_test.mbt'
-    name = 'font-complete-public qualifies generated collection workflows'
-  },
-  [pscustomobject][ordered]@{
-    group = 'licensed-collection'
-    file = 'font/font_qualification_test.mbt'
-    name = 'font-complete-public qualifies licensed DejaVu collection faces'
-  },
-  [pscustomobject][ordered]@{
-    group = 'collection-hostile'
-    file = 'font/font_qualification_hostile_test.mbt'
-    name = 'font qualification executes the closed collection hostile outcome matrix'
-  },
-  [pscustomobject][ordered]@{
-    group = 'public-mutation'
-    file = 'font/font_qualification_hostile_test.mbt'
-    name = 'font qualification preserves public collection mutation atomicity'
-  },
-  [pscustomobject][ordered]@{
-    group = 'private-collection-mutation'
-    file = 'font/collection_wbtest.mbt'
-    name = 'collection qualification preserves mid-operation mutation atomicity'
-  },
-  [pscustomobject][ordered]@{
-    group = 'inherited-query-mutation'
-    file = 'font/font_wbtest.mbt'
-    name = 'glyph_for_scalar rejects post-read revision drift'
-  },
-  [pscustomobject][ordered]@{
-    group = 'inherited-query-mutation'
-    file = 'font/font_wbtest.mbt'
-    name = 'kerning rejects post-read revision drift'
-  },
-  [pscustomobject][ordered]@{
-    group = 'inherited-query-mutation'
-    file = 'font/font_wbtest.mbt'
-    name = 'outline rejects post-decode revision drift without path publication'
-  },
-  [pscustomobject][ordered]@{
-    group = 'inherited-query-mutation'
-    file = 'font/font_wbtest.mbt'
-    name = 'composite outline rejects post-decode revision drift without publication'
+    kind = 'public'
+    module = 'benchmarks/font-cff'
+    file = 'cff_qualification_wbtest.mbt'
+    name = 'font-cff1-v3 carrier-public timing-free correctness workloads'
   }
 )
-$HostileOutcomeIds = @(
-  'malformed-directory-range',
-  'unsupported-outline-profile',
-  'mutation-after-open',
-  'checked-range-overflow',
-  'limit-source-exact',
-  'limit-source-one-short',
-  'budget-open-exact',
-  'budget-open-one-short',
-  'budget-outline-exact',
-  'budget-outline-one-short',
-  'nested-composite-recognized'
+$PrivateFocusedAssertions = @(
+  [pscustomobject][ordered]@{
+    kind = 'private'
+    module = 'modules/mb-font'
+    file = 'font/cff_cid_fixture_wbtest.mbt'
+    name = 'font-cff1-v3 private fd oracle'
+  },
+  [pscustomobject][ordered]@{
+    kind = 'private'
+    module = 'modules/mb-font'
+    file = 'font/cff_hostile_fixture_wbtest.mbt'
+    name = 'font-cff1-v3 private hostile outcomes'
+  },
+  [pscustomobject][ordered]@{
+    kind = 'private'
+    module = 'modules/mb-font'
+    file = 'font/cff_hostile_fixture_wbtest.mbt'
+    name = 'font-cff1-v3 private mutation windows and atomic budgets'
+  }
 )
+$FocusedAssertions = @($PublicEvidenceAssertions + $PrivateFocusedAssertions)
+
+$ProductionSourcePaths = @(
+  'modules/mb-font/moon.mod.json',
+  'modules/mb-font/font/moon.pkg',
+  'modules/mb-font/font/cmap.mbt',
+  'modules/mb-font/font/collection.mbt',
+  'modules/mb-font/font/collection_limits.mbt',
+  'modules/mb-font/font/collection_parser.mbt',
+  'modules/mb-font/font/cursor.mbt',
+  'modules/mb-font/font/directory.mbt',
+  'modules/mb-font/font/font.mbt',
+  'modules/mb-font/font/kern.mbt',
+  'modules/mb-font/font/limits.mbt',
+  'modules/mb-font/font/metrics.mbt',
+  'modules/mb-font/font/outline.mbt',
+  'modules/mb-font/font/tables.mbt',
+  'modules/mb-font/font/cff_index.mbt',
+  'modules/mb-font/font/cff_dict.mbt',
+  'modules/mb-font/font/cff_keying.mbt',
+  'modules/mb-font/font/cff_type2_fixed.mbt',
+  'modules/mb-font/font/cff_type2.mbt',
+  'modules/mb-font/font/cff_type2_bounds.mbt',
+  'modules/mb-font/font/cff_type2_path.mbt',
+  'modules/mb-font/font/cff_admission.mbt'
+)
+$FontTestSourcePaths = @(
+  'modules/mb-font/font/cff_admission_wbtest.mbt',
+  'modules/mb-font/font/cff_cid_fixture_wbtest.mbt',
+  'modules/mb-font/font/cff_dict_wbtest.mbt',
+  'modules/mb-font/font/cff_hostile_fixture_wbtest.mbt',
+  'modules/mb-font/font/cff_index_wbtest.mbt',
+  'modules/mb-font/font/cff_keying_wbtest.mbt',
+  'modules/mb-font/font/cff_name_keyed_fixture_wbtest.mbt',
+  'modules/mb-font/font/cff_type2_bounds_wbtest.mbt',
+  'modules/mb-font/font/cff_type2_fixed_wbtest.mbt',
+  'modules/mb-font/font/cff_type2_fixture_wbtest.mbt',
+  'modules/mb-font/font/cff_type2_path_wbtest.mbt',
+  'modules/mb-font/font/cff_type2_wbtest.mbt',
+  'modules/mb-font/font/collection_test.mbt',
+  'modules/mb-font/font/collection_wbtest.mbt',
+  'modules/mb-font/font/font_qualification_hostile_test.mbt',
+  'modules/mb-font/font/font_qualification_test.mbt',
+  'modules/mb-font/font/font_test.mbt',
+  'modules/mb-font/font/font_wbtest.mbt',
+  'modules/mb-font/font/generated_font_qualification_test.mbt',
+  'modules/mb-font/font/generated_fonts_wbtest.mbt'
+)
+$EvidenceSourcePaths = @(
+  'benchmarks/font-cff/moon.mod.json',
+  'benchmarks/font-cff/moon.pkg',
+  'benchmarks/font-cff/generated_cff_evidence.mbt',
+  'benchmarks/font-cff/cff_qualification_wbtest.mbt'
+)
+$FixtureSourcePaths = @(
+  'fixtures/manifest.json',
+  'fixtures/font/cff-qualification-cases.json',
+  'fixtures/font/cff-oracle-tools.json',
+  'fixtures/font/cff/host-toolchain.lock.json',
+  'fixtures/font/source-sans-3.052r/SourceSans3-Regular.otf',
+  'fixtures/font/source-sans-3.052r/LICENSE.md',
+  'fixtures/font/source-sans-3.052r/qualification.json',
+  'fixtures/font/source-han-serif-2.003r/SourceHanSerifJP-Regular.otf',
+  'fixtures/font/source-han-serif-2.003r/LICENSE.txt',
+  'fixtures/font/source-han-serif-2.003r/qualification.json'
+)
+$OracleToolSourcePaths = @(
+  'scripts/fixtures/Provision-CffQualificationTools.ps1',
+  'scripts/fixtures/Test-CffQualificationTools.ps1',
+  'scripts/fixtures/Test-CffQualificationContracts.ps1',
+  'scripts/fixtures/oracles/fonttools_cff_oracle.py',
+  'scripts/fixtures/oracles/Invoke-AfdkoCffOracle.ps1'
+)
+$QualificationToolSourcePaths = @(
+  'scripts/fixtures/Generate-FontQualification.ps1',
+  'scripts/quality/Assert-Policy.ps1',
+  'scripts/quality/Invoke-FontQualification.ps1',
+  'scripts/quality/Test-FontQualificationEvidenceBoundary.ps1'
+)
+$ProductionImports = @(
+  'tchivs/mb-core/budget',
+  'tchivs/mb-core/bytes',
+  'tchivs/mb-core/checked',
+  'tchivs/mb-core/error',
+  'tchivs/mb-core/math'
+)
+$EvidencePackageImports = @(
+  'moonbitlang/core/bench',
+  'tchivs/mb-core/budget',
+  'tchivs/mb-core/bytes',
+  'tchivs/mb-core/error',
+  'tchivs/mb-core/math',
+  'tchivs/mb-font/font'
+)
+$EvidenceTestOnlyCoreImports = @(
+  'tchivs/mb-core/budget',
+  'tchivs/mb-core/bytes',
+  'tchivs/mb-core/error',
+  'tchivs/mb-core/math'
+)
+$script:ExpectedSemanticSections = $null
 
 function Get-FontQualificationSha256 {
   param([Parameter(Mandatory)][byte[]]$Bytes)
@@ -140,39 +205,6 @@ function Get-FontQualificationSha256 {
   ).ToLowerInvariant()
 }
 
-function Get-FontQualificationFileFact {
-  param([Parameter(Mandatory)][string]$Path)
-
-  $resolved = (Resolve-Path -LiteralPath $Path).Path
-  $bytes = [IO.File]::ReadAllBytes($resolved)
-  return [pscustomobject][ordered]@{
-    path = [IO.Path]::GetRelativePath($RepositoryRoot, $resolved).Replace('\', '/')
-    length = $bytes.Length
-    sha256 = Get-FontQualificationSha256 $bytes
-  }
-}
-
-function Get-FontQualificationSourceIdentities {
-  $commit = (& git -C $RepositoryRoot rev-parse HEAD).Trim()
-  if ($LASTEXITCODE -ne 0 -or $commit -cnotmatch '^[0-9a-f]{40}$') {
-    throw 'Font qualification could not resolve the repository commit identity.'
-  }
-  $tree = (& git -C $RepositoryRoot rev-parse 'HEAD^{tree}').Trim()
-  if ($LASTEXITCODE -ne 0 -or $tree -cnotmatch '^[0-9a-f]{40}$') {
-    throw 'Font qualification could not resolve the repository tree identity.'
-  }
-  return [pscustomobject][ordered]@{
-    repository_commit = $commit
-    repository_tree = $tree
-    files = @(
-      $FocusedSourceFiles |
-        ForEach-Object {
-          Get-FontQualificationFileFact (Join-Path $RepositoryRoot $_)
-        }
-    )
-  }
-}
-
 function ConvertTo-FontQualificationJson {
   param(
     [Parameter(Mandatory)]$Value,
@@ -180,9 +212,9 @@ function ConvertTo-FontQualificationJson {
   )
 
   $json = if ($Compress) {
-    $Value | ConvertTo-Json -Depth 32 -Compress
+    $Value | ConvertTo-Json -Depth 100 -Compress
   } else {
-    $Value | ConvertTo-Json -Depth 32
+    $Value | ConvertTo-Json -Depth 100
   }
   return $json.Replace("`r`n", "`n")
 }
@@ -193,98 +225,392 @@ function Write-FontQualificationJson {
     [Parameter(Mandatory)]$Value
   )
 
-  $json = (ConvertTo-FontQualificationJson $Value) + "`n"
-  [IO.File]::WriteAllText($Path, $json, $Utf8NoBom)
+  [IO.File]::WriteAllText(
+    $Path,
+    (ConvertTo-FontQualificationJson $Value) + "`n",
+    $Utf8NoBom
+  )
 }
 
-function Assert-FontQualificationEvidenceWriteBoundary {
-  param(
-    [Parameter(Mandatory)][string]$Directory,
-    [Parameter(Mandatory)][string]$ManagedRoot,
-    [Parameter(Mandatory)][string]$FileName
-  )
+function Read-FontQualificationJson {
+  param([Parameter(Mandatory)][string]$Path)
 
-  if ([IO.Path]::GetFileName($FileName) -cne $FileName -or
-      $FileName -cnotin (@($Targets | ForEach-Object { "$_.json" }) + 'comparison.json')) {
-    throw "Evidence destination '$FileName' is not a managed qualification record."
-  }
-  Assert-FontQualificationEvidencePathHasNoLinks `
-    -Directory $Directory `
-    -ManagedRoot $ManagedRoot
-  Assert-FontQualificationEvidenceMarker $Directory
-  $destination = Join-Path $Directory $FileName
-  $parent = [IO.Path]::GetFullPath((Split-Path -Parent $destination))
-  if ($parent -cne [IO.Path]::GetFullPath($Directory)) {
-    throw "Evidence destination '$destination' escaped its managed directory."
-  }
-  $item = Get-Item -Force -LiteralPath $destination -ErrorAction SilentlyContinue
-  if ($null -ne $item -and
-      ($item.PSIsContainer -or
-       ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
-    throw "Evidence destination must be a regular file: '$destination'."
-  }
-  return $destination
+  return Get-Content -Raw -LiteralPath (Join-Path $RepositoryRoot $Path) |
+    ConvertFrom-Json -Depth 100
 }
 
-function Write-FontQualificationEvidenceJson {
+function Assert-FontQualificationClosedKeys {
   param(
-    [Parameter(Mandatory)][string]$Directory,
-    [Parameter(Mandatory)][string]$ManagedRoot,
-    [Parameter(Mandatory)][string]$FileName,
-    [Parameter(Mandatory)]$Value
+    [Parameter(Mandatory)]$Value,
+    [Parameter(Mandatory)][string[]]$Expected,
+    [Parameter(Mandatory)][string]$Label
   )
 
-  $destination = Assert-FontQualificationEvidenceWriteBoundary `
-    -Directory $Directory `
-    -ManagedRoot $ManagedRoot `
-    -FileName $FileName
-  $json = (ConvertTo-FontQualificationJson $Value) + "`n"
-  $temporaryName = '.mnf-font-qualification-' +
-    [Guid]::NewGuid().ToString('N') + '.tmp'
-  $temporaryPath = Join-Path $Directory $temporaryName
-  try {
-    # A completed link/junction swap is rejected above before any write.  The
-    # same-directory CreateNew + exclusive handle and immediate revalidation
-    # minimize the remaining path-based API window on portable PowerShell.
-    $stream = [IO.FileStream]::new(
-      $temporaryPath,
-      [IO.FileMode]::CreateNew,
-      [IO.FileAccess]::Write,
-      [IO.FileShare]::None
+  $actual = @($Value.PSObject.Properties.Name)
+  if (($actual -join "`0") -cne ($Expected -join "`0")) {
+    throw "$Label keys or order drifted."
+  }
+}
+
+function Assert-FontQualificationExactValue {
+  param(
+    [Parameter(Mandatory)]$Actual,
+    [Parameter(Mandatory)]$Expected,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  if ((ConvertTo-FontQualificationJson $Actual -Compress) -cne
+      (ConvertTo-FontQualificationJson $Expected -Compress)) {
+    throw "$Label exact ordered value drifted."
+  }
+}
+
+function Get-FontQualificationFileFact {
+  param([Parameter(Mandatory)][string]$Path)
+
+  $resolved = (Resolve-Path -LiteralPath (Join-Path $RepositoryRoot $Path)).Path
+  $bytes = [IO.File]::ReadAllBytes($resolved)
+  return [pscustomobject][ordered]@{
+    path = [IO.Path]::GetRelativePath($RepositoryRoot, $resolved).Replace('\', '/')
+    length = [int64]$bytes.LongLength
+    sha256 = Get-FontQualificationSha256 $bytes
+  }
+}
+
+function Get-FontQualificationFileFacts {
+  param([Parameter(Mandatory)][string[]]$Paths)
+
+  return @($Paths | ForEach-Object { Get-FontQualificationFileFact $_ })
+}
+
+function Assert-FontQualificationExactPaths {
+  param(
+    [Parameter(Mandatory)][object[]]$Facts,
+    [Parameter(Mandatory)][string[]]$Paths,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  if ($Facts.Count -ne $Paths.Count) {
+    throw "$Label count drifted."
+  }
+  for ($index = 0; $index -lt $Paths.Count; $index++) {
+    Assert-FontQualificationClosedKeys `
+      $Facts[$index] @('path','length','sha256') "$Label $index"
+    if ([string]$Facts[$index].path -cne $Paths[$index]) {
+      throw "$Label order drifted at $index."
+    }
+  }
+}
+
+function Get-FontQualificationExpectedToolchain {
+  $policy = Read-FontQualificationJson 'policy/foundation.json'
+  Assert-FontQualificationClosedKeys `
+    $policy.toolchain @('moon','moonc','moonrun') 'Pinned toolchain'
+  return [pscustomobject][ordered]@{
+    moon = (
+      "moon $($policy.toolchain.moon.version) " +
+      "($($policy.toolchain.moon.commit) $($policy.toolchain.moon.release_date))"
     )
-    try {
-      $bytes = $Utf8NoBom.GetBytes($json)
-      $stream.Write($bytes, 0, $bytes.Length)
-      $stream.Flush($true)
-    } finally {
-      $stream.Dispose()
-    }
-    Assert-FontQualificationEvidencePathHasNoLinks `
-      -Directory $Directory `
-      -ManagedRoot $ManagedRoot
-    Assert-FontQualificationEvidenceMarker $Directory
-    $temporaryItem = Get-Item -Force -LiteralPath $temporaryPath
-    if ($temporaryItem.PSIsContainer -or
-        ($temporaryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-      throw "Evidence staging destination is not a regular file: '$temporaryPath'."
-    }
-    [IO.File]::Move($temporaryPath, $destination, $true)
-    $validated = Assert-FontQualificationEvidenceWriteBoundary `
-      -Directory $Directory `
-      -ManagedRoot $ManagedRoot `
-      -FileName $FileName
-    if ($validated -cne $destination) {
-      throw "Evidence destination changed during write: '$FileName'."
-    }
-  } finally {
-    if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
-      Assert-FontQualificationEvidencePathHasNoLinks `
-        -Directory $Directory `
-        -ManagedRoot $ManagedRoot
-      Remove-Item -LiteralPath $temporaryPath -Force
-    }
+    moonc = (
+      "moonc $($policy.toolchain.moonc.version) " +
+      "($($policy.toolchain.moonc.release_date))"
+    )
+    moonrun = (
+      "moonrun $($policy.toolchain.moonrun.version) " +
+      "($($policy.toolchain.moonrun.commit) $($policy.toolchain.moonrun.release_date))"
+    )
   }
-  return $destination
+}
+
+function Get-FontQualificationToolchain {
+  $lines = @(& moon version --all)
+  if ($LASTEXITCODE -ne 0 -or $lines.Count -lt 3) {
+    throw 'Unable to capture the complete MoonBit toolchain identity.'
+  }
+  $captured = [pscustomobject][ordered]@{
+    moon = [regex]::Match($lines[0], '^moon \S+ \([^)]+\)').Value
+    moonc = [regex]::Match($lines[1], '^moonc \S+ \([^)]+\)').Value
+    moonrun = [regex]::Match($lines[2], '^moonrun \S+ \([^)]+\)').Value
+  }
+  Assert-FontQualificationExactValue `
+    $captured (Get-FontQualificationExpectedToolchain) 'Pinned toolchain identity'
+  return $captured
+}
+
+function Get-FontQualificationSemanticSections {
+  if ($null -ne $script:ExpectedSemanticSections) {
+    return $script:ExpectedSemanticSections
+  }
+
+  $cases = Read-FontQualificationJson 'fixtures/font/cff-qualification-cases.json'
+  $sans = Read-FontQualificationJson (
+    'fixtures/font/source-sans-3.052r/qualification.json'
+  )
+  $han = Read-FontQualificationJson (
+    'fixtures/font/source-han-serif-2.003r/qualification.json'
+  )
+  $oracleTools = Read-FontQualificationJson 'fixtures/font/cff-oracle-tools.json'
+  $hostLock = Read-FontQualificationJson 'fixtures/font/cff/host-toolchain.lock.json'
+  $policy = Read-FontQualificationJson 'policy/foundation.json'
+  $fontPolicy = @(
+    $policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-font' }
+  )
+  if ($fontPolicy.Count -ne 1) {
+    throw 'Policy must contain exactly one tchivs/mb-font module.'
+  }
+  $fontPackage = @(
+    $fontPolicy[0].public_packages |
+      Where-Object { $_.name -ceq 'tchivs/mb-font/font' }
+  )
+  if ($fontPackage.Count -ne 1 -or
+      @($fontPackage[0].semantic_interface).Count -ne 85) {
+    throw 'Policy must retain the exact 85-line mb-font interface.'
+  }
+  $fontManifest = Read-FontQualificationJson 'modules/mb-font/moon.mod.json'
+  $evidenceManifest = Read-FontQualificationJson 'benchmarks/font-cff/moon.mod.json'
+  $productionPackageText = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'modules/mb-font/font/moon.pkg'
+  )
+  $evidencePackageText = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'benchmarks/font-cff/moon.pkg'
+  )
+  $productionImports = @(
+    [regex]::Matches(
+      $productionPackageText,
+      '"(?<path>tchivs/mb-core/[^"]+)"'
+    ) | ForEach-Object { $_.Groups['path'].Value }
+  )
+  $evidenceImports = @(
+    [regex]::Matches(
+      $evidencePackageText,
+      '(?m)^\s*"(?<path>[^"]+)"(?:\s+@[A-Za-z0-9_]+)?,?\s*$'
+    ) |
+      ForEach-Object { $_.Groups['path'].Value }
+  )
+  if (($productionImports -join "`0") -cne ($ProductionImports -join "`0")) {
+    throw 'mb-font production imports drifted from the exact five-import contract.'
+  }
+  if (($evidenceImports -join "`0") -cne ($EvidencePackageImports -join "`0")) {
+    throw 'Non-published evidence package imports drifted.'
+  }
+  if (($cases.targets -join "`0") -cne ($Targets -join "`0")) {
+    throw 'Canonical CFF target order drifted.'
+  }
+  $mutationGroup = @(
+    $cases.hostile_groups | Where-Object { $_.id -ceq 'mutation' }
+  )
+  if ($mutationGroup.Count -ne 1) {
+    throw 'Canonical CFF mutation group is missing or duplicated.'
+  }
+  $hostileCount = @(
+    $cases.hostile_groups | ForEach-Object { @($_.rows).Count }
+  ) | Measure-Object -Sum
+  if ([int]$hostileCount.Sum -ne 53) {
+    throw 'Canonical CFF hostile corpus must contain exactly 53 rows.'
+  }
+
+  $sourceIdentities = [pscustomobject][ordered]@{
+    production = Get-FontQualificationFileFacts $ProductionSourcePaths
+    mb_font_tests = Get-FontQualificationFileFacts $FontTestSourcePaths
+    evidence_module = Get-FontQualificationFileFacts $EvidenceSourcePaths
+    fixtures = Get-FontQualificationFileFacts $FixtureSourcePaths
+    oracle_tools = Get-FontQualificationFileFacts $OracleToolSourcePaths
+    qualification_tools = Get-FontQualificationFileFacts (
+      $QualificationToolSourcePaths
+    )
+  }
+  Assert-FontQualificationExactPaths `
+    @($sourceIdentities.production) $ProductionSourcePaths 'production identities'
+  Assert-FontQualificationExactPaths `
+    @($sourceIdentities.mb_font_tests) $FontTestSourcePaths 'test identities'
+  Assert-FontQualificationExactPaths `
+    @($sourceIdentities.evidence_module) $EvidenceSourcePaths 'evidence identities'
+  Assert-FontQualificationExactPaths `
+    @($sourceIdentities.fixtures) $FixtureSourcePaths 'fixture identities'
+  Assert-FontQualificationExactPaths `
+    @($sourceIdentities.oracle_tools) $OracleToolSourcePaths 'oracle identities'
+  Assert-FontQualificationExactPaths `
+    @($sourceIdentities.qualification_tools) `
+    $QualificationToolSourcePaths `
+    'qualification identities'
+
+  $sections = [pscustomobject][ordered]@{
+    fixtures = [pscustomobject][ordered]@{
+      canonical_corpus = Get-FontQualificationFileFact (
+        'fixtures/font/cff-qualification-cases.json'
+      )
+      manifest = Get-FontQualificationFileFact 'fixtures/manifest.json'
+      source_sans_font = Get-FontQualificationFileFact (
+        'fixtures/font/source-sans-3.052r/SourceSans3-Regular.otf'
+      )
+      source_sans_notice = Get-FontQualificationFileFact (
+        'fixtures/font/source-sans-3.052r/LICENSE.md'
+      )
+      source_han_font = Get-FontQualificationFileFact (
+        'fixtures/font/source-han-serif-2.003r/SourceHanSerifJP-Regular.otf'
+      )
+      source_han_notice = Get-FontQualificationFileFact (
+        'fixtures/font/source-han-serif-2.003r/LICENSE.txt'
+      )
+    }
+    oracle_facts = [pscustomobject][ordered]@{
+      tool_lock = Get-FontQualificationFileFact (
+        'fixtures/font/cff/host-toolchain.lock.json'
+      )
+      tool_contract = Get-FontQualificationFileFact (
+        'fixtures/font/cff-oracle-tools.json'
+      )
+      ordered_role_ids = @($hostLock.ordered_role_ids)
+      ordered_command_ids = @($hostLock.ordered_command_ids)
+      semantic_readers = $hostLock.semantic_readers
+      structural_reader = $hostLock.structural_reader
+      invoked_identities_sha256 = [string](
+        $oracleTools.invoked_identities_sha256
+      )
+      adapters = $oracleTools.adapters
+      independence = $oracleTools.independence
+      provisioning_validated = [bool]$oracleTools.provisioning_validated
+    }
+    generated_cff_facts = [pscustomobject][ordered]@{
+      schema = [string]$cases.schema
+      license = [string]$cases.license
+      recipes = @($cases.recipes)
+      generated_workflows = @($cases.generated_workflows)
+      expected_facts = @($cases.expected_facts)
+    }
+    licensed_cff_facts = [pscustomobject][ordered]@{
+      source_sans = [pscustomobject][ordered]@{
+        qualification = Get-FontQualificationFileFact (
+          'fixtures/font/source-sans-3.052r/qualification.json'
+        )
+        upstream = $sans.upstream
+        font = $sans.font
+        notice = $sans.notice
+        redistribution = $sans.redistribution
+        profile = $sans.profile
+        semantic_oracles = $sans.semantic_oracles
+        structural_oracle = $sans.structural_oracle
+        host_chain = $sans.host_chain
+      }
+      source_han = [pscustomobject][ordered]@{
+        qualification = Get-FontQualificationFileFact (
+          'fixtures/font/source-han-serif-2.003r/qualification.json'
+        )
+        upstream = $han.upstream
+        font = $han.font
+        notice = $han.notice
+        redistribution = $han.redistribution
+        profile = $han.profile
+        semantic_oracles = $han.semantic_oracles
+        structural_oracle = $han.structural_oracle
+        host_chain = $han.host_chain
+      }
+    }
+    public_workflow_facts = [pscustomobject][ordered]@{
+      workflow_ids = @($cases.public_workflow_ids)
+      generated_workflow_ids = @($cases.generated_workflows.id)
+      observation_surface = @(
+        'Font::open',
+        'FontCollection::open',
+        'FontCollection::open_face',
+        'Font::glyph_for_scalar',
+        'Font::horizontal_metrics',
+        'Font::kerning',
+        'Font::outline'
+      )
+      carrier_visibility = 'package-private'
+      assertions = @($PublicEvidenceAssertions)
+    }
+    cff_hostile_outcomes = [pscustomobject][ordered]@{
+      row_count = 53
+      b8_order = @($cases.b8_order)
+      groups = @($cases.hostile_groups)
+    }
+    mutation_atomicity_facts = [pscustomobject][ordered]@{
+      b8_order = @($cases.b8_order)
+      mutation_rows = @($mutationGroup[0].rows)
+      precedence_cases = @($cases.precedence_cases)
+      assertions = @($PrivateFocusedAssertions | Select-Object -Last 2)
+    }
+    glyf_compatibility_facts = [pscustomobject][ordered]@{
+      lock_ids = @($cases.compatibility_lock_ids)
+      assertion = 'font-cff1-v3 freezes static glyf semantic compatibility'
+      source = Get-FontQualificationFileFact (
+        'modules/mb-font/font/font_qualification_test.mbt'
+      )
+    }
+    benchmark_correctness_facts = [pscustomobject][ordered]@{
+      workloads = @($cases.workloads)
+      timings_in_semantic_records = $false
+      native_baseline = 'observation-only-separate-wave-6'
+      comparison_or_threshold = 'forbidden'
+    }
+    boundary_facts = [pscustomobject][ordered]@{
+      semantic_interface = @($fontPackage[0].semantic_interface)
+      semantic_interface_count = 85
+      production_sources = @($ProductionSourcePaths)
+      production_source_count = $ProductionSourcePaths.Count
+      production_imports = @($ProductionImports)
+      public_cff_or_fixture_symbols = @()
+      runtime_file_network_process_gui_ffi = @()
+      target_specific_runtime_branches = @()
+      deferred_profiles = @(
+        'CFF2',
+        'variable-font-instantiation',
+        'WOFF1',
+        'WOFF2',
+        'shaping',
+        'hint-execution',
+        'rasterization',
+        'color-bitmap',
+        'authoring',
+        'ambient-io',
+        'ffi'
+      )
+      pure_moonbit_runtime = $true
+    }
+    dependency_facts = [pscustomobject][ordered]@{
+      production = [pscustomobject][ordered]@{
+        module_name = [string]$fontManifest.name
+        module_version = [string]$fontManifest.version
+        module_dependencies = @(
+          [pscustomobject][ordered]@{
+            name = 'tchivs/mb-core'
+            version = [string]$fontManifest.deps.'tchivs/mb-core'
+          }
+        )
+        package_imports = @($ProductionImports)
+        supported_targets = [string]$fontManifest.'supported-targets'
+      }
+      evidence_module = [pscustomobject][ordered]@{
+        published = $false
+        module_name = [string]$evidenceManifest.name
+        module_version = [string]$evidenceManifest.version
+        module_dependencies = @(
+          [pscustomobject][ordered]@{
+            name = 'tchivs/mb-core'
+            version = [string]$evidenceManifest.deps.'tchivs/mb-core'
+          },
+          [pscustomobject][ordered]@{
+            name = 'tchivs/mb-font'
+            version = [string]$evidenceManifest.deps.'tchivs/mb-font'
+          }
+        )
+        package_imports = @($EvidencePackageImports)
+        test_only_mb_core_imports = @($EvidenceTestOnlyCoreImports)
+        supported_targets = [string]$evidenceManifest.'supported-targets'
+        local_resolution = 'tracked-workspace-members-only-under-frozen'
+        workspace_members = @(
+          'modules/mb-core',
+          'modules/mb-font',
+          'benchmarks/font-cff'
+        )
+      }
+    }
+    source_identities = $sourceIdentities
+  }
+  $script:ExpectedSemanticSections = $sections
+  return $sections
 }
 
 function Assert-FontQualificationEvidencePathHasNoLinks {
@@ -311,7 +637,6 @@ function Assert-FontQualificationEvidencePathHasNoLinks {
       -not $candidate.StartsWith($prefix, $comparison)) {
     throw "EvidenceDirectory must be contained by '$canonicalRoot'."
   }
-
   $components = [Collections.Generic.List[string]]::new()
   $components.Add($canonicalRoot)
   $relative = [IO.Path]::GetRelativePath($canonicalRoot, $candidate)
@@ -328,12 +653,9 @@ function Assert-FontQualificationEvidencePathHasNoLinks {
       $components.Add($current)
     }
   }
-
   foreach ($component in $components) {
     $item = Get-Item -Force -LiteralPath $component -ErrorAction SilentlyContinue
-    if ($null -eq $item) {
-      break
-    }
+    if ($null -eq $item) { break }
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
       throw "EvidenceDirectory must not traverse a link or reparse point: '$component'."
     }
@@ -368,9 +690,7 @@ function Resolve-FontQualificationEvidencePath {
   if (-not $candidate.StartsWith($prefix, $comparison)) {
     throw "EvidenceDirectory must be a child of '$canonicalRoot'."
   }
-  Assert-FontQualificationEvidencePathHasNoLinks `
-    -Directory $candidate `
-    -ManagedRoot $canonicalRoot
+  Assert-FontQualificationEvidencePathHasNoLinks $candidate $canonicalRoot
   return $candidate
 }
 
@@ -390,11 +710,9 @@ function Assert-FontQualificationEvidenceMarker {
   } catch {
     throw "Managed font qualification evidence marker is invalid in '$Directory'."
   }
-  $keys = @($marker.PSObject.Properties.Name)
-  if ($keys.Count -ne 2 -or
-      $keys[0] -cne 'schema' -or
-      $keys[1] -cne 'workflow_id' -or
-      $marker.schema -cne $EvidenceMarkerSchema -or
+  Assert-FontQualificationClosedKeys `
+    $marker @('schema','workflow_id') 'Managed evidence marker'
+  if ($marker.schema -cne $EvidenceMarkerSchema -or
       $marker.workflow_id -cne $EvidenceWorkflowId) {
     throw "Managed font qualification evidence marker is invalid in '$Directory'."
   }
@@ -406,31 +724,19 @@ function Initialize-FontQualificationEvidenceDirectory {
     [Parameter(Mandatory)][string]$ManagedRoot
   )
 
-  Assert-FontQualificationEvidencePathHasNoLinks `
-    -Directory $Directory `
-    -ManagedRoot $ManagedRoot
+  Assert-FontQualificationEvidencePathHasNoLinks $Directory $ManagedRoot
   if (-not (Test-Path -LiteralPath $Directory -PathType Container)) {
     [void](New-Item -ItemType Directory -Path $Directory)
   }
-  Assert-FontQualificationEvidencePathHasNoLinks `
-    -Directory $Directory `
-    -ManagedRoot $ManagedRoot
+  Assert-FontQualificationEvidencePathHasNoLinks $Directory $ManagedRoot
   $markerPath = Join-Path $Directory $EvidenceMarkerName
   if (Test-Path -LiteralPath $markerPath) {
-    Assert-FontQualificationEvidencePathHasNoLinks `
-      -Directory $Directory `
-      -ManagedRoot $ManagedRoot
     Assert-FontQualificationEvidenceMarker $Directory
     return
   }
   if (@(Get-ChildItem -LiteralPath $Directory -Force).Count -ne 0) {
-    throw (
-      "Refusing non-empty unowned font qualification evidence directory '$Directory'."
-    )
+    throw "Refusing non-empty unowned font qualification evidence directory '$Directory'."
   }
-  Assert-FontQualificationEvidencePathHasNoLinks `
-    -Directory $Directory `
-    -ManagedRoot $ManagedRoot
   Write-FontQualificationJson $markerPath ([pscustomobject][ordered]@{
     schema = $EvidenceMarkerSchema
     workflow_id = $EvidenceWorkflowId
@@ -443,857 +749,114 @@ function Clear-FontQualificationEvidenceFiles {
     [Parameter(Mandatory)][string]$ManagedRoot
   )
 
-  Assert-FontQualificationEvidencePathHasNoLinks `
-    -Directory $Directory `
-    -ManagedRoot $ManagedRoot
+  Assert-FontQualificationEvidencePathHasNoLinks $Directory $ManagedRoot
   Assert-FontQualificationEvidenceMarker $Directory
-  foreach ($evidenceName in @($Targets | ForEach-Object { "$_.json" }) + 'comparison.json') {
-    Assert-FontQualificationEvidencePathHasNoLinks `
-      -Directory $Directory `
-      -ManagedRoot $ManagedRoot
-    $staleEvidence = Join-Path $Directory $evidenceName
-    if (Test-Path -LiteralPath $staleEvidence -PathType Leaf) {
-      Remove-Item -LiteralPath $staleEvidence -Force
-    }
-  }
-}
-
-function Assert-FontQualificationClosedKeys {
-  param(
-    [Parameter(Mandatory)]$Value,
-    [Parameter(Mandatory)][string[]]$Expected,
-    [Parameter(Mandatory)][string]$Label
-  )
-
-  $actual = @($Value.PSObject.Properties.Name)
-  if ($actual.Count -ne $Expected.Count) {
-    throw "$Label key count drifted."
-  }
-  for ($index = 0; $index -lt $Expected.Count; $index++) {
-    if ($actual[$index] -cne $Expected[$index]) {
-      throw "$Label key order drifted at ${index}: expected $($Expected[$index]), got $($actual[$index])."
-    }
-  }
-}
-
-function Assert-FontQualificationExactValue {
-  param(
-    [Parameter(Mandatory)]$Actual,
-    [Parameter(Mandatory)]$Expected,
-    [Parameter(Mandatory)][string]$Label
-  )
-
-  $actualJson = ConvertTo-FontQualificationJson $Actual -Compress
-  $expectedJson = ConvertTo-FontQualificationJson $Expected -Compress
-  if ($actualJson -cne $expectedJson) {
-    throw "$Label exact ordered value drifted."
-  }
-}
-
-function Get-FontQualificationExpectedToolchain {
-  $policyPath = Join-Path $RepositoryRoot 'policy/foundation.json'
-  $policy = Get-Content -Raw -LiteralPath $policyPath |
-    ConvertFrom-Json -Depth 100
-  Assert-FontQualificationClosedKeys $policy.toolchain @(
-    'moon',
-    'moonc',
-    'moonrun'
-  ) 'Pinned toolchain policy'
-  Assert-FontQualificationClosedKeys $policy.toolchain.moon @(
-    'version',
-    'commit',
-    'release_date'
-  ) 'Pinned moon policy'
-  Assert-FontQualificationClosedKeys $policy.toolchain.moonc @(
-    'version',
-    'release_date'
-  ) 'Pinned moonc policy'
-  Assert-FontQualificationClosedKeys $policy.toolchain.moonrun @(
-    'version',
-    'commit',
-    'release_date'
-  ) 'Pinned moonrun policy'
-  return [pscustomobject][ordered]@{
-    moon = (
-      "moon $($policy.toolchain.moon.version) " +
-      "($($policy.toolchain.moon.commit) $($policy.toolchain.moon.release_date))"
-    )
-    moonc = (
-      "moonc $($policy.toolchain.moonc.version) " +
-      "($($policy.toolchain.moonc.release_date))"
-    )
-    moonrun = (
-      "moonrun $($policy.toolchain.moonrun.version) " +
-      "($($policy.toolchain.moonrun.commit) $($policy.toolchain.moonrun.release_date))"
-    )
-  }
-}
-
-function Assert-FontQualificationPinnedToolchain {
-  param([Parameter(Mandatory)]$Toolchain)
-
-  Assert-FontQualificationClosedKeys $Toolchain @(
-    'moon',
-    'moonc',
-    'moonrun'
-  ) 'Captured FontQualification toolchain'
-  Assert-FontQualificationExactValue `
-    $Toolchain `
-    (Get-FontQualificationExpectedToolchain) `
-    'FontQualification pinned toolchain identity'
-}
-
-function Assert-FontQualificationCaseFact {
-  param(
-    [Parameter(Mandatory)]$Case,
-    [Parameter(Mandatory)][string]$Label
-  )
-
-  Assert-FontQualificationClosedKeys $Case @(
-    'id',
-    'fixture_id',
-    'stage',
-    'entrypoint',
-    'face_index',
-    'mutation_window',
-    'authority',
-    'boundary',
-    'error',
-    'publication',
-    'budget_before',
-    'budget_after'
-  ) $Label
-  Assert-FontQualificationClosedKeys $Case.error @(
-    'category',
-    'code',
-    'operation',
-    'context',
-    'source_offset',
-    'requested',
-    'limit'
-  ) "$Label error"
-  foreach ($budgetName in @('budget_before', 'budget_after')) {
-    Assert-FontQualificationClosedKeys $Case.$budgetName @(
-      'bytes',
-      'allocations',
-      'allocation_size',
-      'width',
-      'height',
-      'pixels',
-      'depth',
-      'work'
-    ) "$Label $budgetName"
-  }
-  if ($Case.boundary -cnotin @('success', 'failure', 'exact', 'one-short') -or
-      $Case.publication -cnotin @(
-        'none',
-        'collection',
-        'font',
-        'limits',
-        'existing-collection-only',
-        'existing-font-only'
-      )) {
-    throw "$Label enum drifted."
-  }
-  if ($Case.boundary -in @('failure', 'one-short')) {
-    Assert-FontQualificationExactValue `
-      $Case.budget_after `
-      $Case.budget_before `
-      "$Label failed budget atomicity"
-  }
-}
-
-function Assert-FontQualificationEvidenceRecord {
-  param([Parameter(Mandatory)]$Record)
-
-  Assert-FontQualificationClosedKeys $Record $RecordKeys "$($Record.target) record"
-  Assert-FontQualificationClosedKeys $Record.toolchain @('moon','moonc','moonrun') "$($Record.target) toolchain"
-  Assert-FontQualificationPinnedToolchain -Toolchain $Record.toolchain
-  Assert-FontQualificationClosedKeys $Record.fixtures @(
-    'dejavu_sans_237',
-    'dejavu_license',
-    'independent_oracle',
-    'hostile_cases',
-    'collection_cases',
-    'licensed_derivative',
-    'collection_oracle',
-    'generated_source',
-    'workflow_test',
-    'hostile_test'
-  ) "$($Record.target) fixtures"
-  foreach ($fixture in $Record.fixtures.PSObject.Properties) {
-    Assert-FontQualificationClosedKeys $fixture.Value @('path','length','sha256') "$($Record.target) fixture $($fixture.Name)"
-  }
-  Assert-FontQualificationClosedKeys $Record.standalone_baseline @(
-    'public_facts',
-    'hostile_outcomes',
-    'capability_assertion'
-  ) "$($Record.target) standalone baseline"
-  Assert-FontQualificationClosedKeys $Record.standalone_baseline.public_facts @(
-    'compact',
-    'dejavu_sans_237'
-  ) "$($Record.target) standalone public facts"
-  if (@($Record.standalone_baseline.hostile_outcomes).Count -ne $HostileOutcomeIds.Count) {
-    throw "$($Record.target) standalone hostile outcome count drifted."
-  }
-  for ($index = 0; $index -lt $HostileOutcomeIds.Count; $index++) {
-    $outcome = $Record.standalone_baseline.hostile_outcomes[$index]
-    Assert-FontQualificationClosedKeys $outcome @(
-      'id',
-      'stage',
-      'category',
-      'code',
-      'context',
-      'requested',
-      'limit',
-      'publication'
-    ) "$($Record.target) standalone hostile outcome $index"
-    if ($outcome.id -cne $HostileOutcomeIds[$index]) {
-      throw "$($Record.target) standalone hostile outcome ID drifted at index $index."
-    }
-  }
-  if ($Record.standalone_baseline.capability_assertion -cne
-      'unsupported containers outlines variations color and bitmap profiles are capabilities') {
-    throw "$($Record.target) standalone capability assertion drifted."
-  }
-  Assert-FontQualificationClosedKeys $Record.generated_collection_facts @(
-    'corpus_schema_version',
-    'corpus_workflow_id',
-    'corpus_sha256',
-    'fixture_ids',
-    'public_workflow_ids'
-  ) "$($Record.target) generated collection facts"
-  if ($Record.generated_collection_facts.corpus_schema_version -cne '1.0.0' -or
-      $Record.generated_collection_facts.corpus_workflow_id -cne
-        'font-collection-complete-public-v2' -or
-      @($Record.generated_collection_facts.fixture_ids).Count -ne 6 -or
-      @($Record.generated_collection_facts.public_workflow_ids).Count -ne 6) {
-    throw "$($Record.target) generated collection contract drifted."
-  }
-  Assert-FontQualificationClosedKeys $Record.licensed_derivative_facts @(
-    'path',
-    'length',
-    'sha256',
-    'face_count',
-    'face_offsets',
-    'payload_start',
-    'shared_table_count',
-    'shared_table_coordinates',
-    'profiles',
-    'standalone_oracle_sha256',
-    'both_faces_equal_standalone'
-  ) "$($Record.target) licensed derivative facts"
-  if ([int64]$Record.licensed_derivative_facts.length -ne 757428 -or
-      $Record.licensed_derivative_facts.sha256 -cne
-        '833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b' -or
-      [int]$Record.licensed_derivative_facts.face_count -ne 2 -or
-      [int]$Record.licensed_derivative_facts.shared_table_count -ne 20 -or
-      $Record.licensed_derivative_facts.both_faces_equal_standalone -ne $true) {
-    throw "$($Record.target) licensed derivative identity or sharing drifted."
-  }
-  Assert-FontQualificationClosedKeys $Record.collection_hostile_outcomes @(
-    'hostile',
-    'limits',
-    'budgets'
-  ) "$($Record.target) collection hostile outcomes"
-  foreach ($groupName in @('hostile', 'limits', 'budgets')) {
-    foreach ($case in @($Record.collection_hostile_outcomes.$groupName)) {
-      Assert-FontQualificationCaseFact $case "$($Record.target) $groupName case"
-    }
-  }
-  if (@($Record.collection_hostile_outcomes.hostile).Count -ne 24 -or
-      @($Record.collection_hostile_outcomes.limits).Count -ne 44 -or
-      @($Record.collection_hostile_outcomes.budgets).Count -ne 12) {
-    throw "$($Record.target) collection hostile/limit/budget counts drifted."
-  }
-  Assert-FontQualificationClosedKeys $Record.mutation_atomicity_facts @(
-    'cases',
-    'public_assertion',
-    'private_collection_assertion',
-    'inherited_query_assertions'
-  ) "$($Record.target) mutation atomicity facts"
-  foreach ($case in @($Record.mutation_atomicity_facts.cases)) {
-    Assert-FontQualificationCaseFact $case "$($Record.target) mutation case"
-  }
-  if (@($Record.mutation_atomicity_facts.cases).Count -ne 9 -or
-      @($Record.mutation_atomicity_facts.inherited_query_assertions).Count -ne 4) {
-    throw "$($Record.target) mutation atomicity contract drifted."
-  }
-  Assert-FontQualificationClosedKeys $Record.boundary_facts @(
-    'semantic_interface',
-    'semantic_interface_count',
-    'production_sources',
-    'production_source_count',
-    'container_capabilities',
-    'no_ffi',
-    'no_ambient_io'
-  ) "$($Record.target) boundary facts"
-  Assert-FontQualificationClosedKeys $Record.boundary_facts.container_capabilities @(
-    'woff1',
-    'woff2',
-    'otto',
-    'cff',
-    'cff2',
-    'variable',
-    'dsig'
-  ) "$($Record.target) container capabilities"
-  if ([int]$Record.boundary_facts.semantic_interface_count -ne 85 -or
-      @($Record.boundary_facts.semantic_interface).Count -ne 85 -or
-      [int]$Record.boundary_facts.production_source_count -ne 13 -or
-      @($Record.boundary_facts.production_sources).Count -ne 13 -or
-      $Record.boundary_facts.no_ffi -ne $true -or
-      $Record.boundary_facts.no_ambient_io -ne $true -or
-      $Record.boundary_facts.container_capabilities.woff1 -cne 'CapabilityUnavailable' -or
-      $Record.boundary_facts.container_capabilities.woff2 -cne 'CapabilityUnavailable' -or
-      $Record.boundary_facts.container_capabilities.otto -cne 'CapabilityUnavailable' -or
-      $Record.boundary_facts.container_capabilities.cff -cne 'inspect-only' -or
-      $Record.boundary_facts.container_capabilities.cff2 -cne 'inspect-only' -or
-      $Record.boundary_facts.container_capabilities.variable -cne 'inspect-only' -or
-      $Record.boundary_facts.container_capabilities.dsig -cne 'present-unverified') {
-    throw "$($Record.target) API/source/capability boundary drifted."
-  }
-  Assert-FontQualificationClosedKeys $Record.dependency_facts @(
-    'module_name',
-    'module_version',
-    'module_dependencies',
-    'package_imports',
-    'supported_targets'
-  ) "$($Record.target) dependency facts"
-  if ($Record.dependency_facts.module_name -cne 'tchivs/mb-font' -or
-      @($Record.dependency_facts.module_dependencies).Count -ne 1 -or
-      $Record.dependency_facts.module_dependencies[0].name -cne 'tchivs/mb-core' -or
-      $Record.dependency_facts.supported_targets -cne '+js+wasm+wasm-gc+native') {
-    throw "$($Record.target) dependency evidence drifted."
-  }
-  $expectedImports = @(
-    'tchivs/mb-core/budget',
-    'tchivs/mb-core/bytes',
-    'tchivs/mb-core/checked',
-    'tchivs/mb-core/error',
-    'tchivs/mb-core/math'
-  )
-  if ((Compare-Object $expectedImports @($Record.dependency_facts.package_imports))) {
-    throw "$($Record.target) package-import evidence drifted."
-  }
-  Assert-FontQualificationClosedKeys $Record.source_identities @(
-    'repository_commit',
-    'repository_tree',
-    'files'
-  ) "$($Record.target) source identities"
-  if ([string]$Record.source_identities.repository_commit -cnotmatch '^[0-9a-f]{40}$' -or
-      [string]$Record.source_identities.repository_tree -cnotmatch '^[0-9a-f]{40}$' -or
-      @($Record.source_identities.files).Count -ne $FocusedSourceFiles.Count) {
-    throw "$($Record.target) source identity count or git identity drifted."
-  }
-  $expectedSources = Get-FontQualificationSourceIdentities
-  if ((ConvertTo-FontQualificationJson $Record.source_identities -Compress) -cne
-      (ConvertTo-FontQualificationJson $expectedSources -Compress)) {
-    throw "$($Record.target) focused source identities drifted."
-  }
-  for ($index = 0; $index -lt $FocusedSourceFiles.Count; $index++) {
-    Assert-FontQualificationClosedKeys `
-      $Record.source_identities.files[$index] `
-      @('path','length','sha256') `
-      "$($Record.target) source identity $index"
-    if ([string]$Record.source_identities.files[$index].path -cne
-        $FocusedSourceFiles[$index]) {
-      throw "$($Record.target) focused source identity order drifted at $index."
-    }
-  }
-  $focused = @($Record.focused_assertions)
-  if ($focused.Count -ne $FocusedAssertions.Count) {
-    throw "$($Record.target) focused assertion count drifted."
-  }
-  for ($index = 0; $index -lt $FocusedAssertions.Count; $index++) {
-    Assert-FontQualificationClosedKeys $focused[$index] @(
-      'group',
-      'file',
-      'name'
-    ) "$($Record.target) focused assertion $index"
-    foreach ($key in @('group', 'file', 'name')) {
-      if ([string]$focused[$index].$key -cne [string]$FocusedAssertions[$index].$key) {
-        throw "$($Record.target) focused assertion identity/order drifted at $index."
+  foreach ($evidenceName in $EvidenceProductNames) {
+    Assert-FontQualificationEvidencePathHasNoLinks $Directory $ManagedRoot
+    $path = Join-Path $Directory $evidenceName
+    $item = Get-Item -Force -LiteralPath $path -ErrorAction SilentlyContinue
+    if ($null -ne $item) {
+      if ($item.PSIsContainer -or
+          ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Managed evidence product must be a regular file: '$path'."
       }
+      Remove-Item -LiteralPath $path -Force
     }
   }
-  Assert-FontQualificationClosedKeys $Record.runner @(
-    'generator_command',
-    'policy_command',
-    'check_command',
-    'focused_commands',
-    'focused_gate_count',
-    'full_package_command',
-    'full_package_passed',
-    'full_package_pass_total',
-    'full_package_summary',
-    'target_directory',
-    'no_parallelize'
-  ) "$($Record.target) runner"
-  if ([int]$Record.runner.focused_gate_count -ne $FocusedAssertions.Count -or
-      @($Record.runner.focused_commands).Count -ne $FocusedAssertions.Count -or
-      $Record.runner.full_package_passed -ne $true -or
-      [int]$Record.runner.full_package_pass_total -lt 1 -or
-      $Record.runner.no_parallelize -ne $true -or
-      $Record.runner.target_directory -cne
-        "target/phase103-font-qualification-$($Record.target)") {
-    throw "$($Record.target) runner result drifted."
+}
+
+function Assert-FontQualificationEvidenceWriteBoundary {
+  param(
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot,
+    [Parameter(Mandatory)][string]$FileName
+  )
+
+  if ([IO.Path]::GetFileName($FileName) -cne $FileName -or
+      $FileName -cnotin $EvidenceProductNames) {
+    throw "Evidence destination '$FileName' is not a managed qualification record."
   }
-  foreach ($result in @($Record.runner.focused_commands)) {
-    Assert-FontQualificationClosedKeys $result @(
-      'group',
-      'file',
-      'name',
-      'command',
-      'passed',
-      'pass_total'
-    ) "$($Record.target) focused command"
-    if ($result.passed -ne $true -or [int]$result.pass_total -ne 1 -or
-        [string]$result.command -cnotmatch
-          [regex]::Escape("--target $($Record.target)")) {
-      throw "$($Record.target) focused command result drifted."
+  Assert-FontQualificationEvidencePathHasNoLinks $Directory $ManagedRoot
+  Assert-FontQualificationEvidenceMarker $Directory
+  $destination = Join-Path $Directory $FileName
+  if ([IO.Path]::GetFullPath((Split-Path -Parent $destination)) -cne
+      [IO.Path]::GetFullPath($Directory)) {
+    throw "Evidence destination '$destination' escaped its managed directory."
+  }
+  $item = Get-Item -Force -LiteralPath $destination -ErrorAction SilentlyContinue
+  if ($null -ne $item -and
+      ($item.PSIsContainer -or
+       ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+    throw "Evidence destination must be a regular file: '$destination'."
+  }
+  return $destination
+}
+
+function Write-FontQualificationEvidenceJson {
+  param(
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot,
+    [Parameter(Mandatory)][string]$FileName,
+    [Parameter(Mandatory)]$Value
+  )
+
+  $destination = Assert-FontQualificationEvidenceWriteBoundary `
+    $Directory $ManagedRoot $FileName
+  $temporaryPath = Join-Path $Directory (
+    '.mnf-font-qualification-' + [Guid]::NewGuid().ToString('N') + '.tmp'
+  )
+  try {
+    $bytes = $Utf8NoBom.GetBytes(
+      (ConvertTo-FontQualificationJson $Value) + "`n"
+    )
+    $stream = [IO.FileStream]::new(
+      $temporaryPath,
+      [IO.FileMode]::CreateNew,
+      [IO.FileAccess]::Write,
+      [IO.FileShare]::None
+    )
+    try {
+      $stream.Write($bytes, 0, $bytes.Length)
+      $stream.Flush($true)
+    } finally {
+      $stream.Dispose()
+    }
+    Assert-FontQualificationEvidencePathHasNoLinks $Directory $ManagedRoot
+    Assert-FontQualificationEvidenceMarker $Directory
+    $item = Get-Item -Force -LiteralPath $temporaryPath
+    if ($item.PSIsContainer -or
+        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw 'Evidence staging destination is not a regular file.'
+    }
+    [IO.File]::Move($temporaryPath, $destination, $true)
+    [void](Assert-FontQualificationEvidenceWriteBoundary `
+      $Directory $ManagedRoot $FileName)
+  } finally {
+    if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+      Assert-FontQualificationEvidencePathHasNoLinks $Directory $ManagedRoot
+      Remove-Item -LiteralPath $temporaryPath -Force
     }
   }
-  $expectedFixtures = [pscustomobject][ordered]@{
-    dejavu_sans_237 = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf'
-    )
-    dejavu_license = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/LICENSE'
-    )
-    independent_oracle = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/oracle.json'
-    )
-    hostile_cases = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'fixtures/font/qualification-cases.json'
-    )
-    collection_cases = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'fixtures/font/collection-qualification-cases.json'
-    )
-    licensed_derivative = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/DejaVuSans-two-face-v1.ttc'
-    )
-    collection_oracle = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/collection-oracle.json'
-    )
-    generated_source = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'modules/mb-font/font/generated_font_qualification_test.mbt'
-    )
-    workflow_test = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'modules/mb-font/font/font_qualification_test.mbt'
-    )
-    hostile_test = Get-FontQualificationFileFact (
-      Join-Path $RepositoryRoot 'modules/mb-font/font/font_qualification_hostile_test.mbt'
-    )
-  }
-  $oracle = Get-Content -Raw -LiteralPath (
-    Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/oracle.json'
-  ) | ConvertFrom-Json
-  $cases = Get-Content -Raw -LiteralPath (
-    Join-Path $RepositoryRoot 'fixtures/font/qualification-cases.json'
-  ) | ConvertFrom-Json
-  $collectionCases = Get-Content -Raw -LiteralPath (
-    Join-Path $RepositoryRoot 'fixtures/font/collection-qualification-cases.json'
-  ) | ConvertFrom-Json
-  $collectionOracle = Get-Content -Raw -LiteralPath (
-    Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/collection-oracle.json'
-  ) | ConvertFrom-Json
-  $expectedCollection = Get-FontQualificationCollectionFacts `
-    -Corpus $collectionCases `
-    -CollectionOracle $collectionOracle `
-    -Fixtures $expectedFixtures
-  $expectedFocused = @(
+  return $destination
+}
+
+function Get-FontQualificationFocusedFacts {
+  return @(
     $FocusedAssertions | ForEach-Object {
       [pscustomobject][ordered]@{
-        group = [string]$_.group
+        kind = [string]$_.kind
+        module = [string]$_.module
         file = [string]$_.file
         name = [string]$_.name
       }
     }
   )
-  foreach ($section in @(
-      [pscustomobject]@{ Label = 'fixtures'; Actual = $Record.fixtures; Expected = $expectedFixtures },
-      [pscustomobject]@{ Label = 'standalone public facts'; Actual = $Record.standalone_baseline.public_facts; Expected = (Get-FontQualificationPublicFacts $oracle) },
-      [pscustomobject]@{ Label = 'standalone hostile outcomes'; Actual = $Record.standalone_baseline.hostile_outcomes; Expected = (Get-FontQualificationHostileOutcomes $cases) },
-      [pscustomobject]@{ Label = 'generated collection facts'; Actual = $Record.generated_collection_facts; Expected = $expectedCollection.generated },
-      [pscustomobject]@{ Label = 'licensed derivative facts'; Actual = $Record.licensed_derivative_facts; Expected = $expectedCollection.licensed },
-      [pscustomobject]@{ Label = 'collection hostile outcomes'; Actual = $Record.collection_hostile_outcomes; Expected = $expectedCollection.hostile },
-      [pscustomobject]@{ Label = 'mutation atomicity facts'; Actual = $Record.mutation_atomicity_facts; Expected = $expectedCollection.mutation },
-      [pscustomobject]@{ Label = 'boundary facts'; Actual = $Record.boundary_facts; Expected = (Get-FontQualificationBoundaryFacts) },
-      [pscustomobject]@{ Label = 'dependency facts'; Actual = $Record.dependency_facts; Expected = (Get-FontQualificationDependencyFacts) },
-      [pscustomobject]@{ Label = 'focused assertions'; Actual = $Record.focused_assertions; Expected = $expectedFocused }
-    )) {
-    Assert-FontQualificationExactValue `
-      $section.Actual `
-      $section.Expected `
-      "$($Record.target) $($section.Label)"
-  }
-  if ($Record.schema_version -cne $EvidenceSchemaVersion -or
-      $Record.workflow_id -cne $EvidenceWorkflowId -or
-      $Targets -cnotcontains [string]$Record.target -or
-      $Record.pass -ne $true) {
-    throw "$($Record.target) qualification identity or pass state drifted."
-  }
 }
 
-function Get-FontQualificationToolchain {
-  $lines = @(& moon version --all)
-  if ($LASTEXITCODE -ne 0 -or $lines.Count -lt 3) {
-    throw 'Unable to capture the complete MoonBit toolchain identity.'
-  }
-  $moon = [regex]::Match($lines[0], '^moon \S+ \([^)]+\)').Value
-  $moonc = [regex]::Match($lines[1], '^moonc \S+ \([^)]+\)').Value
-  $moonrun = [regex]::Match($lines[2], '^moonrun \S+ \([^)]+\)').Value
-  if (-not $moon -or -not $moonc -or -not $moonrun) {
-    throw 'MoonBit toolchain identity format drifted.'
-  }
-  $captured = [pscustomobject][ordered]@{
-    moon = $moon
-    moonc = $moonc
-    moonrun = $moonrun
-  }
-  Assert-FontQualificationPinnedToolchain -Toolchain $captured
-  return $captured
-}
-
-function Get-FontQualificationGlyphFact {
-  param(
-    [Parameter(Mandatory)]$OracleGlyph,
-    [switch]$SupportedOutline
-  )
-
-  $outline = if ($SupportedOutline) {
-    $commands = @($OracleGlyph.path.commands)
-    if ([int]$OracleGlyph.path.command_count -ne $commands.Count -or
-        [string]::IsNullOrWhiteSpace([string]$OracleGlyph.path.fingerprint_sha256)) {
-      throw "Independent oracle $($OracleGlyph.scalar) complete outline drifted."
-    }
-    [pscustomobject][ordered]@{
-      status = 'path'
-      command_count = [int]$OracleGlyph.path.command_count
-      fingerprint_sha256 = [string]$OracleGlyph.path.fingerprint_sha256
-      selected_commands = @($commands | Select-Object -First 8)
-    }
-  } else {
-    [pscustomobject][ordered]@{
-      status = 'capability'
-      category = 'Capability'
-      code = 'CapabilityUnavailable'
-      context = 'font-outline-grid-rounding'
-    }
-  }
-  return [pscustomobject][ordered]@{
-    scalar = [string]$OracleGlyph.scalar
-    glyph_id = [int]$OracleGlyph.glyph_id
-    horizontal_metrics = [pscustomobject][ordered]@{
-      advance = [int]$OracleGlyph.horizontal_metrics.advance
-      lsb = [int]$OracleGlyph.horizontal_metrics.lsb
-    }
-    bounds = [pscustomobject][ordered]@{
-      x_min = [int]$OracleGlyph.bounds.x_min
-      y_min = [int]$OracleGlyph.bounds.y_min
-      x_max = [int]$OracleGlyph.bounds.x_max
-      y_max = [int]$OracleGlyph.bounds.y_max
-    }
-    outline = $outline
-  }
-}
-
-function Get-FontQualificationPublicFacts {
-  param([Parameter(Mandatory)]$Oracle)
-
-  $glyphs = @{}
-  foreach ($glyph in @($Oracle.glyphs)) {
-    $glyphs[[string]$glyph.scalar] = $glyph
-  }
-  foreach ($scalar in @('U+0041', 'U+00E9', 'U+034C', 'U+10300')) {
-    if (-not $glyphs.ContainsKey($scalar)) {
-      throw "Independent oracle is missing public scalar $scalar."
-    }
-  }
-  $supported = @(
-    $Oracle.glyphs |
-      Where-Object { $SupportedOutlineScalars -ccontains [string]$_.scalar }
-  )
-  if ($supported.Count -ne $SupportedOutlineScalars.Count -or
-      (Compare-Object -CaseSensitive $SupportedOutlineScalars @($supported.scalar))) {
-    throw 'Independent oracle supported complete-outline set drifted.'
-  }
-  foreach ($glyph in $supported) {
-    $commands = @($glyph.path.commands)
-    if ([int]$glyph.path.command_count -ne $commands.Count -or
-        [string]::IsNullOrWhiteSpace([string]$glyph.path.fingerprint_sha256)) {
-      throw "Independent oracle supported glyph $($glyph.scalar) vector/count drifted."
-    }
-    $actualFingerprint = Get-FontQualificationSha256 (
-      $Utf8NoBom.GetBytes($commands -join '|')
-    )
-    if ($actualFingerprint -cne [string]$glyph.path.fingerprint_sha256) {
-      throw "Independent oracle supported glyph $($glyph.scalar) fingerprint drifted."
-    }
-  }
-
-  $compactSimple = @(
-    'M:0,0',
-    'Q:50,0:75,0',
-    'Q:100,0:100,100',
-    'L:0,100',
-    'Z'
-  )
-  $compactComposite = @(
-    'M:10,-4',
-    'Q:35,-4:47.5,-4',
-    'Q:60,-4:60,46',
-    'L:10,46',
-    'Z',
-    'M:60,46',
-    'Q:85,46:97.5,46',
-    'Q:110,46:110,96',
-    'L:60,96',
-    'Z'
-  )
-  return [pscustomobject][ordered]@{
-    compact = [pscustomobject][ordered]@{
-      source_length = 580
-      units_per_em = 1000
-      mappings = @(
-        [pscustomobject][ordered]@{ scalar = 'U+0041'; glyph_id = 1 },
-        [pscustomobject][ordered]@{ scalar = 'U+10300'; glyph_id = 2 }
-      )
-      global_bounds = [pscustomobject][ordered]@{
-        x_min = 0; y_min = 0; x_max = 0; y_max = 0
-      }
-      hhea = [pscustomobject][ordered]@{
-        ascent = 0; descent = 0; line_gap = 0
-      }
-      typographic = [pscustomobject][ordered]@{
-        ascent = 0; descent = 0; line_gap = 0
-      }
-      simple_path = [pscustomobject][ordered]@{
-        command_count = $compactSimple.Count
-        fingerprint_sha256 = Get-FontQualificationSha256 (
-          $Utf8NoBom.GetBytes($compactSimple -join '|')
-        )
-        commands = $compactSimple
-      }
-      composite_path = [pscustomobject][ordered]@{
-        command_count = $compactComposite.Count
-        fingerprint_sha256 = Get-FontQualificationSha256 (
-          $Utf8NoBom.GetBytes($compactComposite -join '|')
-        )
-        commands = $compactComposite
-      }
-      kerning = [pscustomobject][ordered]@{
-        left_glyph = 1; right_glyph = 2; adjustment = -37
-      }
-      format4_lookup = [pscustomobject][ordered]@{
-        scalar = 'U+0041'; glyph_id = 1
-      }
-    }
-    dejavu_sans_237 = [pscustomobject][ordered]@{
-      units_per_em = [int]$Oracle.profile.units_per_em
-      global_bounds = [pscustomobject][ordered]@{
-        x_min = [int]$Oracle.metrics.global_bounds.x_min
-        y_min = [int]$Oracle.metrics.global_bounds.y_min
-        x_max = [int]$Oracle.metrics.global_bounds.x_max
-        y_max = [int]$Oracle.metrics.global_bounds.y_max
-      }
-      hhea = [pscustomobject][ordered]@{
-        ascent = [int]$Oracle.metrics.hhea.ascent
-        descent = [int]$Oracle.metrics.hhea.descent
-        line_gap = [int]$Oracle.metrics.hhea.line_gap
-      }
-      typographic = [pscustomobject][ordered]@{
-        ascent = [int]$Oracle.metrics.os2_typographic.ascent
-        descent = [int]$Oracle.metrics.os2_typographic.descent
-        line_gap = [int]$Oracle.metrics.os2_typographic.line_gap
-      }
-      glyphs = @(
-        (Get-FontQualificationGlyphFact $glyphs['U+0041'] -SupportedOutline),
-        (Get-FontQualificationGlyphFact $glyphs['U+00E9']),
-        (Get-FontQualificationGlyphFact $glyphs['U+034C'] -SupportedOutline),
-        (Get-FontQualificationGlyphFact $glyphs['U+10300'] -SupportedOutline)
-      )
-      kerning = [pscustomobject][ordered]@{
-        left_glyph = [int]$Oracle.kern.selected_pair.left_glyph
-        right_glyph = [int]$Oracle.kern.selected_pair.right_glyph
-        adjustment = [int]$Oracle.kern.selected_pair.adjustment
-      }
-    }
-  }
-}
-
-function Get-FontQualificationHostileOutcomes {
-  param([Parameter(Mandatory)]$CasesDocument)
-
-  $outcomes = @(
-    foreach ($case in @($CasesDocument.cases)) {
-      [pscustomobject][ordered]@{
-        id = [string]$case.id
-        stage = [string]$case.stage
-        category = [string]$case.category
-        code = [string]$case.code
-        context = [string]$case.context
-        requested = $case.requested
-        limit = $case.limit
-        publication = [string]$case.publication
-      }
-    }
-  )
-  if ($outcomes.Count -ne 11 -or (@($outcomes.id) | Select-Object -Unique).Count -ne 11) {
-    throw 'Closed hostile qualification matrix is incomplete or duplicated.'
-  }
-  return $outcomes
-}
-
-function Get-FontQualificationDependencyFacts {
-  $module = Get-Content -Raw -LiteralPath 'modules/mb-font/moon.mod.json' |
-    ConvertFrom-Json
-  $dependencyNames = @($module.deps.PSObject.Properties.Name)
-  if ($dependencyNames.Count -ne 1 -or $dependencyNames[0] -cne 'tchivs/mb-core') {
-    throw 'mb-font module dependency boundary drifted.'
-  }
-  $packageText = Get-Content -Raw -LiteralPath 'modules/mb-font/font/moon.pkg'
-  $imports = @(
-    [regex]::Matches($packageText, '"(tchivs/mb-core/[^"]+)"') |
-      ForEach-Object { $_.Groups[1].Value }
-  )
-  $expectedImports = @(
-    'tchivs/mb-core/budget',
-    'tchivs/mb-core/bytes',
-    'tchivs/mb-core/checked',
-    'tchivs/mb-core/error',
-    'tchivs/mb-core/math'
-  )
-  if ((Compare-Object $expectedImports $imports)) {
-    throw 'mb-font package import boundary drifted.'
-  }
-  return [pscustomobject][ordered]@{
-    module_name = [string]$module.name
-    module_version = [string]$module.version
-    module_dependencies = @(
-      [pscustomobject][ordered]@{
-        name = 'tchivs/mb-core'
-        version = [string]$module.deps.'tchivs/mb-core'
-      }
-    )
-    package_imports = $expectedImports
-    supported_targets = [string]$module.'supported-targets'
-  }
-}
-
-function Get-FontQualificationCollectionFacts {
-  param(
-    [Parameter(Mandatory)]$Corpus,
-    [Parameter(Mandatory)]$CollectionOracle,
-    [Parameter(Mandatory)]$Fixtures
-  )
-
-  $generatedFixtures = @(
-    $Corpus.fixtures | Where-Object { $_.origin -ceq 'generated' }
-  )
-  $generatedWorkflows = @(
-    $Corpus.public_workflows | Where-Object { $_.authority -ceq 'generated' }
-  )
-  $licensedFixture = $Fixtures.licensed_derivative
-  $sharedCoordinates = @(
-    $CollectionOracle.shared_tables | ForEach-Object {
-      [pscustomobject][ordered]@{
-        tag = [string]$_.tag
-        root_offset = [int64]$_.root_offset
-        length = [int64]$_.length
-      }
-    }
-  )
-  return [pscustomobject][ordered]@{
-    generated = [pscustomobject][ordered]@{
-      corpus_schema_version = [string]$Corpus.schema_version
-      corpus_workflow_id = [string]$Corpus.workflow_id
-      corpus_sha256 = [string]$Fixtures.collection_cases.sha256
-      fixture_ids = @($generatedFixtures.id)
-      public_workflow_ids = @($generatedWorkflows.id)
-    }
-    licensed = [pscustomobject][ordered]@{
-      path = [string]$licensedFixture.path
-      length = [int64]$licensedFixture.length
-      sha256 = [string]$licensedFixture.sha256
-      face_count = [int]$CollectionOracle.collection.face_count
-      face_offsets = @($CollectionOracle.collection.face_offsets)
-      payload_start = [int64]$CollectionOracle.collection.payload_start
-      shared_table_count = $sharedCoordinates.Count
-      shared_table_coordinates = $sharedCoordinates
-      profiles = @($CollectionOracle.collection.profiles)
-      standalone_oracle_sha256 = [string](
-        $CollectionOracle.standalone_oracle_binding.sha256
-      )
-      both_faces_equal_standalone = (
-        @($CollectionOracle.standalone_oracle_binding.face_indices).Count -eq 2
-      )
-    }
-    hostile = [pscustomobject][ordered]@{
-      hostile = @($Corpus.hostile_cases)
-      limits = @($Corpus.limit_cases)
-      budgets = @($Corpus.budget_cases)
-    }
-    mutation = [pscustomobject][ordered]@{
-      cases = @($Corpus.mutation_cases)
-      public_assertion = 'font qualification preserves public collection mutation atomicity'
-      private_collection_assertion = 'collection qualification preserves mid-operation mutation atomicity'
-      inherited_query_assertions = @(
-        $FocusedAssertions |
-          Where-Object { $_.group -ceq 'inherited-query-mutation' } |
-          ForEach-Object { $_.name }
-      )
-    }
-  }
-}
-
-function Get-FontQualificationBoundaryFacts {
-  $policy = Get-Content -Raw -LiteralPath 'policy/foundation.json' |
-    ConvertFrom-Json
-  $module = @(
-    $policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-font' }
-  )
-  if ($module.Count -ne 1) {
-    throw 'Foundation policy must contain exactly one mb-font module.'
-  }
-  $package = @(
-    $module[0].public_packages |
-      Where-Object { $_.name -ceq 'tchivs/mb-font/font' }
-  )
-  if ($package.Count -ne 1) {
-    throw 'Foundation policy must contain exactly one public mb-font package.'
-  }
-  return [pscustomobject][ordered]@{
-    semantic_interface = @($package[0].semantic_interface)
-    semantic_interface_count = @($package[0].semantic_interface).Count
-    production_sources = @($package[0].production_sources)
-    production_source_count = @($package[0].production_sources).Count
-    container_capabilities = [pscustomobject][ordered]@{
-      woff1 = 'CapabilityUnavailable'
-      woff2 = 'CapabilityUnavailable'
-      otto = 'CapabilityUnavailable'
-      cff = 'inspect-only'
-      cff2 = 'inspect-only'
-      variable = 'inspect-only'
-      dsig = 'present-unverified'
-    }
-    no_ffi = $true
-    no_ambient_io = $true
-  }
-}
-
-function New-FontQualificationEvidenceRecord {
+function New-FontQualificationRunnerFact {
   param(
     [Parameter(Mandatory)][string]$Target,
-    [Parameter(Mandatory)]$Toolchain,
-    [Parameter(Mandatory)]$Fixtures,
-    [Parameter(Mandatory)]$PublicFacts,
-    [Parameter(Mandatory)]$HostileOutcomes,
-    [Parameter(Mandatory)]$CollectionFacts,
-    [Parameter(Mandatory)]$BoundaryFacts,
-    [Parameter(Mandatory)]$DependencyFacts,
-    [Parameter(Mandatory)]$SourceIdentities,
-    [Parameter(Mandatory)][string]$TargetDirectory,
+    [Parameter(Mandatory)][ValidateSet('full','tracer')][string]$Mode,
     [Parameter(Mandatory)][object[]]$FocusedResults,
     [Parameter(Mandatory)][string]$FullPackageCommand,
     [Parameter(Mandatory)][int]$FullPackagePassTotal,
@@ -1301,70 +864,174 @@ function New-FontQualificationEvidenceRecord {
   )
 
   return [pscustomobject][ordered]@{
+    mode = $Mode
+    workspace_members = @(
+      'modules/mb-core',
+      'modules/mb-font',
+      'benchmarks/font-cff'
+    )
+    manifest_sha256 = [pscustomobject][ordered]@{
+      mb_core = (Get-FontQualificationFileFact (
+        'modules/mb-core/moon.mod.json'
+      )).sha256
+      mb_font = (Get-FontQualificationFileFact (
+        'modules/mb-font/moon.mod.json'
+      )).sha256
+      font_cff = (Get-FontQualificationFileFact (
+        'benchmarks/font-cff/moon.mod.json'
+      )).sha256
+    }
+    check_command = "moon check benchmarks/font-cff --target $Target --frozen"
+    focused_commands = $FocusedResults
+    full_package_command = $FullPackageCommand
+    full_package_passed = $true
+    full_package_pass_total = $FullPackagePassTotal
+    full_package_summary = $FullPackageSummary
+    target_directory = "isolated/phase107-font-v3-$Target"
+    empty_cache = $true
+    no_parallelize = $true
+  }
+}
+
+function New-FontQualificationEvidenceRecord {
+  param(
+    [Parameter(Mandatory)][string]$Target,
+    [Parameter(Mandatory)]$Toolchain,
+    [Parameter(Mandatory)]$Runner
+  )
+
+  $sections = Get-FontQualificationSemanticSections
+  return [pscustomobject][ordered]@{
     schema_version = $EvidenceSchemaVersion
     workflow_id = $EvidenceWorkflowId
     target = $Target
     toolchain = $Toolchain
-    fixtures = $Fixtures
-    standalone_baseline = [pscustomobject][ordered]@{
-      public_facts = $PublicFacts
-      hostile_outcomes = $HostileOutcomes
-      capability_assertion = (
-        'unsupported containers outlines variations color and bitmap profiles are capabilities'
-      )
-    }
-    generated_collection_facts = $CollectionFacts.generated
-    licensed_derivative_facts = $CollectionFacts.licensed
-    collection_hostile_outcomes = $CollectionFacts.hostile
-    mutation_atomicity_facts = $CollectionFacts.mutation
-    boundary_facts = $BoundaryFacts
-    dependency_facts = $DependencyFacts
-    focused_assertions = @(
-      $FocusedAssertions | ForEach-Object {
-        [pscustomobject][ordered]@{
-          group = [string]$_.group
-          file = [string]$_.file
-          name = [string]$_.name
-        }
-      }
-    )
-    source_identities = $SourceIdentities
-    runner = [pscustomobject][ordered]@{
-      generator_command = './scripts/fixtures/Generate-FontQualification.ps1 -Check'
-      policy_command = 'Assert-FontFoundationPolicy -PolicyPath ./policy/foundation.json'
-      check_command = "moon -C modules/mb-font check --target $Target --frozen --target-dir `"$TargetDirectory`" --serial"
-      focused_commands = $FocusedResults
-      focused_gate_count = $FocusedResults.Count
-      full_package_command = $FullPackageCommand
-      full_package_passed = $true
-      full_package_pass_total = $FullPackagePassTotal
-      full_package_summary = $FullPackageSummary
-      target_directory = $TargetDirectory.Replace('\', '/')
-      no_parallelize = $true
-    }
+    fixtures = $sections.fixtures
+    oracle_facts = $sections.oracle_facts
+    generated_cff_facts = $sections.generated_cff_facts
+    licensed_cff_facts = $sections.licensed_cff_facts
+    public_workflow_facts = $sections.public_workflow_facts
+    cff_hostile_outcomes = $sections.cff_hostile_outcomes
+    mutation_atomicity_facts = $sections.mutation_atomicity_facts
+    glyf_compatibility_facts = $sections.glyf_compatibility_facts
+    benchmark_correctness_facts = $sections.benchmark_correctness_facts
+    boundary_facts = $sections.boundary_facts
+    dependency_facts = $sections.dependency_facts
+    source_identities = $sections.source_identities
+    focused_assertions = Get-FontQualificationFocusedFacts
+    runner = $Runner
     pass = $true
   }
+}
+
+function Assert-FontQualificationRunnerFact {
+  param(
+    [Parameter(Mandatory)]$Runner,
+    [Parameter(Mandatory)][string]$Target
+  )
+
+  Assert-FontQualificationClosedKeys $Runner @(
+    'mode',
+    'workspace_members',
+    'manifest_sha256',
+    'check_command',
+    'focused_commands',
+    'full_package_command',
+    'full_package_passed',
+    'full_package_pass_total',
+    'full_package_summary',
+    'target_directory',
+    'empty_cache',
+    'no_parallelize'
+  ) "$Target runner"
+  Assert-FontQualificationClosedKeys `
+    $Runner.manifest_sha256 @('mb_core','mb_font','font_cff') "$Target manifests"
+  if ($Runner.mode -cnotin @('full','tracer') -or
+      $Runner.full_package_passed -ne $true -or
+      [int]$Runner.full_package_pass_total -lt 1 -or
+      $Runner.empty_cache -ne $true -or
+      $Runner.no_parallelize -ne $true -or
+      $Runner.target_directory -cne "isolated/phase107-font-v3-$Target") {
+    throw "$Target runner closed values drifted."
+  }
+  $expectedAssertions = if ($Runner.mode -ceq 'tracer') {
+    @($PublicEvidenceAssertions[0]) + @($PrivateFocusedAssertions)
+  } else {
+    @($FocusedAssertions)
+  }
+  $results = @($Runner.focused_commands)
+  if ($results.Count -ne $expectedAssertions.Count) {
+    throw "$Target focused execution count drifted."
+  }
+  for ($index = 0; $index -lt $results.Count; $index++) {
+    Assert-FontQualificationClosedKeys $results[$index] @(
+      'kind','module','file','name','command','passed','pass_total'
+    ) "$Target focused result $index"
+    foreach ($key in @('kind','module','file','name')) {
+      if ([string]$results[$index].$key -cne
+          [string]$expectedAssertions[$index].$key) {
+        throw "$Target focused assertion identity/order drifted at $index."
+      }
+    }
+    if ($results[$index].passed -ne $true -or
+        [int]$results[$index].pass_total -ne 1 -or
+        [string]$results[$index].command -cnotmatch
+          [regex]::Escape("--target $Target")) {
+      throw "$Target focused assertion result drifted at $index."
+    }
+  }
+}
+
+function Assert-FontQualificationEvidenceRecord {
+  param([Parameter(Mandatory)]$Record)
+
+  Assert-FontQualificationClosedKeys `
+    $Record $RecordKeys "$($Record.target) record"
+  if ($Record.schema_version -cne $EvidenceSchemaVersion -or
+      $Record.workflow_id -cne $EvidenceWorkflowId -or
+      $Targets -cnotcontains [string]$Record.target -or
+      $Record.pass -ne $true) {
+    throw "$($Record.target) qualification identity or pass state drifted."
+  }
+  Assert-FontQualificationExactValue `
+    $Record.toolchain `
+    (Get-FontQualificationExpectedToolchain) `
+    "$($Record.target) toolchain"
+  $expected = Get-FontQualificationSemanticSections
+  foreach ($key in @(
+      'fixtures',
+      'oracle_facts',
+      'generated_cff_facts',
+      'licensed_cff_facts',
+      'public_workflow_facts',
+      'cff_hostile_outcomes',
+      'mutation_atomicity_facts',
+      'glyf_compatibility_facts',
+      'benchmark_correctness_facts',
+      'boundary_facts',
+      'dependency_facts',
+      'source_identities'
+    )) {
+    Assert-FontQualificationExactValue `
+      $Record.$key $expected.$key "$($Record.target) $key"
+  }
+  Assert-FontQualificationExactValue `
+    $Record.focused_assertions `
+    (Get-FontQualificationFocusedFacts) `
+    "$($Record.target) focused assertions"
+  Assert-FontQualificationRunnerFact $Record.runner ([string]$Record.target)
 }
 
 function Get-FontQualificationSemanticPayload {
   param([Parameter(Mandatory)]$Record)
 
-  return [pscustomobject][ordered]@{
-    schema_version = $Record.schema_version
-    workflow_id = $Record.workflow_id
-    toolchain = $Record.toolchain
-    fixtures = $Record.fixtures
-    standalone_baseline = $Record.standalone_baseline
-    generated_collection_facts = $Record.generated_collection_facts
-    licensed_derivative_facts = $Record.licensed_derivative_facts
-    collection_hostile_outcomes = $Record.collection_hostile_outcomes
-    mutation_atomicity_facts = $Record.mutation_atomicity_facts
-    boundary_facts = $Record.boundary_facts
-    dependency_facts = $Record.dependency_facts
-    focused_assertions = $Record.focused_assertions
-    source_identities = $Record.source_identities
-    pass = $Record.pass
+  $semantic = [ordered]@{}
+  foreach ($key in $RecordKeys) {
+    if ($key -cnotin $NormalizationRemoved) {
+      $semantic[$key] = $Record.$key
+    }
   }
+  return [pscustomobject]$semantic
 }
 
 function Assert-FontQualificationComparisonRecord {
@@ -1384,49 +1051,38 @@ function Assert-FontQualificationComparisonRecord {
     'equal'
   ) 'font qualification comparison'
   Assert-FontQualificationClosedKeys `
-    $Comparison.record_sha256 `
-    $Targets `
-    'font qualification comparison record hashes'
+    $Comparison.record_sha256 $Targets 'comparison record hashes'
   if ($Comparison.schema_version -cne $EvidenceSchemaVersion -or
       $Comparison.workflow_id -cne $EvidenceWorkflowId -or
       (@($Comparison.normalization_removed) -join "`0") -cne
-        (@('target','runner') -join "`0") -or
+        ($NormalizationRemoved -join "`0") -or
       (@($Comparison.targets) -join "`0") -cne ($Targets -join "`0") -or
       $Comparison.equal -ne $true) {
     throw 'Font qualification comparison identity or closed values drifted.'
   }
-
-  $records = [Collections.Generic.List[object]]::new()
-  foreach ($target in $Targets) {
-    $path = Assert-FontQualificationEvidenceWriteBoundary `
-      -Directory $Directory `
-      -ManagedRoot $ManagedRoot `
-      -FileName "$target.json"
-    $bytes = [IO.File]::ReadAllBytes($path)
-    $actualHash = Get-FontQualificationSha256 $bytes
-    if ([string]$Comparison.record_sha256.$target -cne $actualHash) {
-      throw "Font qualification comparison hash drifted for target '$target'."
-    }
-    $record = $Utf8NoBom.GetString($bytes) | ConvertFrom-Json
-    Assert-FontQualificationEvidenceRecord $record
-    if ([string]$record.target -cne $target) {
-      throw "Font qualification comparison target/read-back drifted for '$target'."
-    }
-    $records.Add($record)
-  }
   $canonical = @(
-    $records |
-      ForEach-Object {
-        ConvertTo-FontQualificationJson `
-          (Get-FontQualificationSemanticPayload $_) `
-          -Compress
+    foreach ($target in $Targets) {
+      $path = Assert-FontQualificationEvidenceWriteBoundary `
+        $Directory $ManagedRoot "$target.json"
+      $bytes = [IO.File]::ReadAllBytes($path)
+      if ([string]$Comparison.record_sha256.$target -cne
+          (Get-FontQualificationSha256 $bytes)) {
+        throw "Font qualification comparison hash drifted for '$target'."
       }
+      $record = $Utf8NoBom.GetString($bytes) | ConvertFrom-Json -Depth 100
+      Assert-FontQualificationEvidenceRecord $record
+      if ($record.target -cne $target) {
+        throw "Font qualification comparison target drifted for '$target'."
+      }
+      ConvertTo-FontQualificationJson `
+        (Get-FontQualificationSemanticPayload $record) -Compress
+    }
   )
   if (@($canonical | Select-Object -Unique).Count -ne 1) {
     throw 'Font qualification comparison read-back semantics differ.'
   }
-  $semanticHash = Get-FontQualificationSha256 $Utf8NoBom.GetBytes($canonical[0])
-  if ([string]$Comparison.semantic_sha256 -cne $semanticHash) {
+  if ($Comparison.semantic_sha256 -cne
+      (Get-FontQualificationSha256 $Utf8NoBom.GetBytes($canonical[0]))) {
     throw 'Font qualification comparison semantic hash drifted.'
   }
 }
@@ -1441,62 +1097,50 @@ function Compare-FontQualificationEvidence {
   if ($Records.Count -ne 4) {
     throw 'Exactly four target evidence records are required.'
   }
-  $recordTargets = @($Records | ForEach-Object { [string]$_.target })
-  if (@($recordTargets | Select-Object -Unique).Count -ne $Targets.Count) {
+  for ($index = 0; $index -lt $Targets.Count; $index++) {
+    if ([string]$Records[$index].target -cne $Targets[$index]) {
+      throw "Target evidence order drifted at index $index."
+    }
+  }
+  if (@($Records.target | Select-Object -Unique).Count -ne 4) {
     throw 'Target evidence records must be unique.'
   }
-  for ($index = 0; $index -lt $Targets.Count; $index++) {
-    if ($recordTargets[$index] -cne $Targets[$index]) {
-      throw "Target evidence order drifted at index ${index}: expected $($Targets[$index]), got $($recordTargets[$index])."
-    }
-  }
-  $semanticPayloads = @(
+  $canonical = @(
     foreach ($record in $Records) {
       Assert-FontQualificationEvidenceRecord $record
-      Get-FontQualificationSemanticPayload $record
+      ConvertTo-FontQualificationJson `
+        (Get-FontQualificationSemanticPayload $record) -Compress
     }
   )
-  $canonical = @(
-    $semanticPayloads |
-      ForEach-Object { ConvertTo-FontQualificationJson $_ -Compress }
-  )
-  $equal = @($canonical | Select-Object -Unique).Count -eq 1
-  if (-not $equal) {
+  if (@($canonical | Select-Object -Unique).Count -ne 1) {
     throw 'Four-target font qualification semantics differ.'
   }
   $recordHashes = [pscustomobject][ordered]@{}
-  foreach ($record in $Records) {
-    $path = Join-Path $Directory "$($record.target).json"
-    $recordHashes | Add-Member -NotePropertyName $record.target -NotePropertyValue (
-      Get-FontQualificationSha256 ([IO.File]::ReadAllBytes($path))
-    )
+  foreach ($target in $Targets) {
+    $path = Join-Path $Directory "$target.json"
+    $recordHashes | Add-Member `
+      -NotePropertyName $target `
+      -NotePropertyValue (
+        Get-FontQualificationSha256 ([IO.File]::ReadAllBytes($path))
+      )
   }
-  $semanticHash = Get-FontQualificationSha256 $Utf8NoBom.GetBytes($canonical[0])
   $comparison = [pscustomobject][ordered]@{
     schema_version = $EvidenceSchemaVersion
     workflow_id = $EvidenceWorkflowId
-    normalization_removed = @('target', 'runner')
-    targets = $Targets
+    normalization_removed = @($NormalizationRemoved)
+    targets = @($Targets)
     record_sha256 = $recordHashes
-    semantic_sha256 = $semanticHash
+    semantic_sha256 = Get-FontQualificationSha256 (
+      $Utf8NoBom.GetBytes($canonical[0])
+    )
     equal = $true
   }
-  $comparisonPath = Write-FontQualificationEvidenceJson `
-    -Directory $Directory `
-    -ManagedRoot $ManagedRoot `
-    -FileName 'comparison.json' `
-    -Value $comparison
-  $comparisonBytes = [IO.File]::ReadAllBytes(
-    (Assert-FontQualificationEvidenceWriteBoundary `
-      -Directory $Directory `
-      -ManagedRoot $ManagedRoot `
-      -FileName 'comparison.json')
-  )
-  $readBack = $Utf8NoBom.GetString($comparisonBytes) | ConvertFrom-Json
-  Assert-FontQualificationComparisonRecord `
-    -Comparison $readBack `
-    -Directory $Directory `
-    -ManagedRoot $ManagedRoot
+  [void](Write-FontQualificationEvidenceJson `
+    $Directory $ManagedRoot 'comparison.json' $comparison)
+  $readBack = Get-Content -Raw -LiteralPath (
+    Join-Path $Directory 'comparison.json'
+  ) | ConvertFrom-Json -Depth 100
+  Assert-FontQualificationComparisonRecord $readBack $Directory $ManagedRoot
   return $readBack
 }
 
@@ -1514,448 +1158,396 @@ function Confirm-FontQualificationEvidenceRejected {
   }
 }
 
+function New-FontQualificationContractRunner {
+  param(
+    [Parameter(Mandatory)][string]$Target,
+    [ValidateSet('full','tracer')][string]$Mode = 'full'
+  )
+
+  $assertions = if ($Mode -ceq 'tracer') {
+    @($PublicEvidenceAssertions[0]) + @($PrivateFocusedAssertions)
+  } else {
+    @($FocusedAssertions)
+  }
+  $results = @(
+    $assertions | ForEach-Object {
+      [pscustomobject][ordered]@{
+        kind = [string]$_.kind
+        module = [string]$_.module
+        file = [string]$_.file
+        name = [string]$_.name
+        command = "moon test $($_.file) -f '$($_.name)' --target $Target --frozen"
+        passed = $true
+        pass_total = 1
+      }
+    }
+  )
+  return New-FontQualificationRunnerFact `
+    $Target $Mode $results `
+    "moon test modules/mb-font/font --target $Target --frozen" `
+    1 `
+    'Total tests: 1, passed: 1, failed: 0.'
+}
+
+function Invoke-FontQualificationContractNegatives {
+  $record = New-FontQualificationEvidenceRecord `
+    'native' `
+    (Get-FontQualificationExpectedToolchain) `
+    (New-FontQualificationContractRunner 'native')
+  Assert-FontQualificationEvidenceRecord $record
+  $probes = @(
+    @{ Name = 'schema'; Path = 'schema_version'; Value = '2.0.0' },
+    @{ Name = 'workflow'; Path = 'workflow_id'; Value = 'font-complete-public-v2' },
+    @{ Name = 'fixture digest'; Path = 'fixtures.canonical_corpus.sha256'; Value = '00' },
+    @{ Name = 'oracle lock'; Path = 'oracle_facts.invoked_identities_sha256'; Value = '00' },
+    @{ Name = 'generated fact'; Path = 'generated_cff_facts.expected_facts.0.id'; Value = 'drift' },
+    @{ Name = 'licensed profile'; Path = 'licensed_cff_facts.source_han.profile.high_gid_fd'; Value = 0 },
+    @{ Name = 'public workflow'; Path = 'public_workflow_facts.workflow_ids.0'; Value = 'drift' },
+    @{ Name = 'hostile error'; Path = 'cff_hostile_outcomes.groups.0.rows.0.code'; Value = 'drift' },
+    @{ Name = 'hostile gid'; Path = 'cff_hostile_outcomes.groups.0.rows.0.gid'; Value = 999 },
+    @{ Name = 'hostile publication'; Path = 'cff_hostile_outcomes.groups.0.rows.0.publication'; Value = 'drift' },
+    @{ Name = 'hostile B8'; Path = 'cff_hostile_outcomes.groups.0.rows.0.caller_after.7'; Value = 999 },
+    @{ Name = 'mutation'; Path = 'mutation_atomicity_facts.mutation_rows.0.context'; Value = 'drift' },
+    @{ Name = 'glyf'; Path = 'glyf_compatibility_facts.lock_ids.0'; Value = 'drift' },
+    @{ Name = 'workload'; Path = 'benchmark_correctness_facts.workloads.0.correctness_input_sha256'; Value = '00' },
+    @{ Name = 'API'; Path = 'boundary_facts.semantic_interface_count'; Value = 86 },
+    @{ Name = 'production import'; Path = 'dependency_facts.production.package_imports.0'; Value = 'other' },
+    @{ Name = 'evidence import'; Path = 'dependency_facts.evidence_module.test_only_mb_core_imports.0'; Value = 'other' },
+    @{ Name = 'source'; Path = 'source_identities.production.0.sha256'; Value = '00' },
+    @{ Name = 'assertion'; Path = 'focused_assertions.0.name'; Value = 'drift' },
+    @{ Name = 'pass'; Path = 'pass'; Value = $false }
+  )
+  foreach ($probe in $probes) {
+    Confirm-FontQualificationEvidenceRejected $probe.Name {
+      $copy = ConvertTo-FontQualificationJson $record -Compress |
+        ConvertFrom-Json -Depth 100
+      $segments = [string]$probe.Path -split '[.]'
+      $owner = $copy
+      for ($index = 0; $index -lt $segments.Count - 1; $index++) {
+        $segment = $segments[$index]
+        if ($segment -cmatch '^\d+$') {
+          $owner = $owner[[int]$segment]
+        } else {
+          $owner = $owner.$segment
+        }
+      }
+      $leaf = $segments[-1]
+      if ($leaf -cmatch '^\d+$') {
+        $owner[[int]$leaf] = $probe.Value
+      } else {
+        $owner.$leaf = $probe.Value
+      }
+      Assert-FontQualificationEvidenceRecord $copy
+    } 'drifted'
+  }
+  Confirm-FontQualificationEvidenceRejected 'top-level extra key' {
+    $copy = ConvertTo-FontQualificationJson $record -Compress |
+      ConvertFrom-Json -Depth 100
+    $copy | Add-Member unexpected $true
+    Assert-FontQualificationEvidenceRecord $copy
+  } 'keys or order drifted'
+  Confirm-FontQualificationEvidenceRejected 'top-level key order' {
+    $copy = [pscustomobject][ordered]@{}
+    foreach ($key in @($RecordKeys[1], $RecordKeys[0]) + $RecordKeys[2..17]) {
+      $copy | Add-Member -NotePropertyName $key -NotePropertyValue $record.$key
+    }
+    Assert-FontQualificationEvidenceRecord $copy
+  } 'keys or order drifted'
+  Write-Host (
+    'PASS: FontQualification v3 closed contract and one-field negatives'
+  )
+}
+
+function Invoke-FontQualificationMoon {
+  param([Parameter(Mandatory)][string[]]$Arguments)
+
+  $moon = (Get-Command moon -ErrorAction Stop).Source
+  $info = [Diagnostics.ProcessStartInfo]::new()
+  $info.FileName = $moon
+  $info.UseShellExecute = $false
+  $info.RedirectStandardOutput = $true
+  $info.RedirectStandardError = $true
+  $info.CreateNoWindow = $true
+  foreach ($argument in $Arguments) {
+    [void]$info.ArgumentList.Add($argument)
+  }
+  $process = [Diagnostics.Process]::new()
+  $process.StartInfo = $info
+  [void]$process.Start()
+  $stdout = $process.StandardOutput.ReadToEndAsync()
+  $stderr = $process.StandardError.ReadToEndAsync()
+  if (-not $process.WaitForExit(900000)) {
+    $process.Kill($true)
+    $process.WaitForExit()
+    throw 'Font qualification MoonBit command timed out.'
+  }
+  $stdoutText = $stdout.GetAwaiter().GetResult()
+  $stderrText = $stderr.GetAwaiter().GetResult()
+  if ($stdoutText) { Write-Host $stdoutText.TrimEnd() }
+  if ($stderrText) { Write-Host $stderrText.TrimEnd() }
+  return [pscustomobject]@{
+    exit_code = $process.ExitCode
+    lines = @(
+      (($stdoutText + "`n" + $stderrText) -split "`r?`n") |
+        Where-Object { $_ -ne '' }
+    )
+  }
+}
+
+function Remove-FontQualificationTempRoot {
+  param([Parameter(Mandatory)][string]$Path)
+
+  $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
+    [IO.Path]::DirectorySeparatorChar,
+    [IO.Path]::AltDirectorySeparatorChar
+  )
+  $full = [IO.Path]::GetFullPath($Path)
+  $leaf = Split-Path -Leaf $full
+  if (-not $full.StartsWith(
+        $tempRoot + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase
+      ) -or
+      -not $leaf.StartsWith(
+        'mnf-font-qualification-v3-',
+        [StringComparison]::Ordinal
+      )) {
+    throw "Refusing to remove unowned qualification workspace '$full'."
+  }
+  if (Test-Path -LiteralPath $full) {
+    Remove-Item -LiteralPath $full -Recurse -Force
+  }
+}
+
+function Invoke-FontQualificationTarget {
+  param(
+    [Parameter(Mandatory)][string]$Target,
+    [switch]$TracerOnly
+  )
+
+  $members = @(
+    [IO.Path]::GetFullPath((Join-Path $RepositoryRoot 'modules/mb-core')),
+    [IO.Path]::GetFullPath((Join-Path $RepositoryRoot 'modules/mb-font')),
+    [IO.Path]::GetFullPath((Join-Path $RepositoryRoot 'benchmarks/font-cff'))
+  )
+  foreach ($member in $members) {
+    if (-not (Test-Path -LiteralPath $member -PathType Container)) {
+      throw "Tracked workspace member is missing: '$member'."
+    }
+    $item = Get-Item -Force -LiteralPath $member
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "Tracked workspace member must not be a link: '$member'."
+    }
+  }
+  $tempRoot = Join-Path ([IO.Path]::GetTempPath()) (
+    'mnf-font-qualification-v3-' + $Target + '-' +
+    [Guid]::NewGuid().ToString('N')
+  )
+  $recordValidated = $false
+  try {
+    [void](New-Item -ItemType Directory -Path $tempRoot)
+    [void](New-Item -ItemType Directory -Path (Join-Path $tempRoot '.repos'))
+    $targetRoot = Join-Path $tempRoot 'target'
+    $workspaceText = (
+      "members = [`n" +
+      (($members | ForEach-Object {
+        '  "' + $_.Replace('\', '/') + '",'
+      }) -join "`n") +
+      "`n]`n"
+    )
+    [IO.File]::WriteAllText(
+      (Join-Path $tempRoot 'moon.work'),
+      $workspaceText,
+      $Utf8NoBom
+    )
+    $check = Invoke-FontQualificationMoon @(
+      '-C', $tempRoot,
+      'check', $members[2],
+      '--target', $Target,
+      '--frozen',
+      '--target-dir', $targetRoot,
+      '--serial'
+    )
+    if ($check.exit_code -ne 0) {
+      throw "CFF evidence check failed for $Target."
+    }
+    $assertions = if ($TracerOnly) {
+      @($PublicEvidenceAssertions[0]) + @($PrivateFocusedAssertions)
+    } else {
+      @($FocusedAssertions)
+    }
+    $focusedResults = @(
+      foreach ($assertion in $assertions) {
+        $root = if ($assertion.kind -ceq 'public') {
+          $members[2]
+        } else {
+          $members[1]
+        }
+        $testPath = Join-Path $root $assertion.file
+        $command = (
+          "moon test $($assertion.module)/$($assertion.file) " +
+          "-f '$($assertion.name)' --target $Target --frozen " +
+          '--no-parallelize'
+        )
+        $result = Invoke-FontQualificationMoon @(
+          '-C', $tempRoot,
+          'test', $testPath,
+          '-f', $assertion.name,
+          '--target', $Target,
+          '--frozen',
+          '--target-dir', $targetRoot,
+          '--no-parallelize'
+        )
+        if ($result.exit_code -ne 0) {
+          throw "Focused assertion '$($assertion.name)' failed for $Target."
+        }
+        $summaries = @($result.lines | Where-Object { $_ -ceq $FocusedPassSummary })
+        if ($summaries.Count -ne 1) {
+          throw "Focused assertion '$($assertion.name)' did not pass exactly once."
+        }
+        [pscustomobject][ordered]@{
+          kind = [string]$assertion.kind
+          module = [string]$assertion.module
+          file = [string]$assertion.file
+          name = [string]$assertion.name
+          command = $command
+          passed = $true
+          pass_total = 1
+        }
+      }
+    )
+    $fullPackageCommand = (
+      "moon test modules/mb-font/font --target $Target --frozen " +
+      '--no-parallelize'
+    )
+    $full = Invoke-FontQualificationMoon @(
+      '-C', $tempRoot,
+      'test', (Join-Path $members[1] 'font'),
+      '--target', $Target,
+      '--frozen',
+      '--target-dir', $targetRoot,
+      '--no-parallelize'
+    )
+    if ($full.exit_code -ne 0) {
+      throw "Complete mb-font suite failed for $Target."
+    }
+    $fullSummaries = @(
+      $full.lines |
+        Where-Object {
+          $_ -cmatch '^Total tests: \d+, passed: \d+, failed: \d+\.$'
+        }
+    )
+    if ($fullSummaries.Count -ne 1) {
+      throw "Complete mb-font suite summary drifted for $Target."
+    }
+    $match = [regex]::Match(
+      $fullSummaries[0],
+      '^Total tests: (?<total>\d+), passed: (?<passed>\d+), failed: (?<failed>\d+)\.$'
+    )
+    $total = [int]$match.Groups['total'].Value
+    $passed = [int]$match.Groups['passed'].Value
+    $failed = [int]$match.Groups['failed'].Value
+    if ($total -lt 1 -or $passed -ne $total -or $failed -ne 0) {
+      throw "Complete mb-font suite did not pass its discovered total for $Target."
+    }
+    if (@(Get-ChildItem -LiteralPath (Join-Path $tempRoot '.repos') -Force).Count -ne 0) {
+      throw "Frozen local resolution populated the empty cache for $Target."
+    }
+    $mode = if ($TracerOnly) { 'tracer' } else { 'full' }
+    $runner = New-FontQualificationRunnerFact `
+      $Target $mode $focusedResults $fullPackageCommand $passed $fullSummaries[0]
+    $record = New-FontQualificationEvidenceRecord `
+      $Target (Get-FontQualificationToolchain) $runner
+    Assert-FontQualificationEvidenceRecord $record
+    $recordValidated = $true
+    return $record
+  } finally {
+    if ($recordValidated) {
+      Remove-FontQualificationTempRoot $tempRoot
+    } elseif (Test-Path -LiteralPath $tempRoot) {
+      Write-Warning "Preserved failed qualification workspace for inspection: $tempRoot"
+    }
+  }
+}
+
 function Invoke-FontQualification {
   [CmdletBinding()]
   param(
-    [string]$EvidenceDirectory = 'artifacts/release-qualification/font-v2'
+    [string]$EvidenceDirectory = 'artifacts/release-qualification/font-v3',
+    [switch]$ContractOnly,
+    [ValidateSet('js', 'wasm', 'wasm-gc', 'native')]
+    [string]$Target,
+    [switch]$TracerOnly
   )
-
-  $managedEvidenceRoot = [IO.Path]::GetFullPath(
-    (Join-Path $RepositoryRoot 'artifacts/release-qualification')
-  )
-  $resolvedEvidence = Resolve-FontQualificationEvidencePath `
-    -EvidenceDirectory $EvidenceDirectory `
-    -ManagedRoot $managedEvidenceRoot `
-    -RepositoryRoot $RepositoryRoot
-  Initialize-FontQualificationEvidenceDirectory `
-    -Directory $resolvedEvidence `
-    -ManagedRoot $managedEvidenceRoot
 
   Push-Location $RepositoryRoot
   try {
+    if ($ContractOnly) {
+      Invoke-FontQualificationContractNegatives
+      return
+    }
     & ./scripts/fixtures/Generate-FontQualification.ps1 -Check
     if (-not $?) {
       throw 'Font qualification generator check failed.'
     }
-
-    . ./scripts/quality/Assert-Policy.ps1
-    Assert-FontFoundationPolicy -PolicyPath ./policy/foundation.json
-
-    Clear-FontQualificationEvidenceFiles `
-      -Directory $resolvedEvidence `
-      -ManagedRoot $managedEvidenceRoot
-
-    $oracle = Get-Content -Raw -LiteralPath (
-      'fixtures/font/dejavu-sans-2.37/oracle.json'
-    ) | ConvertFrom-Json
-    $cases = Get-Content -Raw -LiteralPath (
-      'fixtures/font/qualification-cases.json'
-    ) | ConvertFrom-Json
-    $collectionCases = Get-Content -Raw -LiteralPath (
-      'fixtures/font/collection-qualification-cases.json'
-    ) | ConvertFrom-Json
-    $collectionOracle = Get-Content -Raw -LiteralPath (
-      'fixtures/font/dejavu-sans-2.37/collection-oracle.json'
-    ) | ConvertFrom-Json
-    $toolchain = Get-FontQualificationToolchain
-    $fixtures = [pscustomobject][ordered]@{
-      dejavu_sans_237 = Get-FontQualificationFileFact (
-        'fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf'
-      )
-      dejavu_license = Get-FontQualificationFileFact (
-        'fixtures/font/dejavu-sans-2.37/LICENSE'
-      )
-      independent_oracle = Get-FontQualificationFileFact (
-        'fixtures/font/dejavu-sans-2.37/oracle.json'
-      )
-      hostile_cases = Get-FontQualificationFileFact (
-        'fixtures/font/qualification-cases.json'
-      )
-      collection_cases = Get-FontQualificationFileFact (
-        'fixtures/font/collection-qualification-cases.json'
-      )
-      licensed_derivative = Get-FontQualificationFileFact (
-        'fixtures/font/dejavu-sans-2.37/DejaVuSans-two-face-v1.ttc'
-      )
-      collection_oracle = Get-FontQualificationFileFact (
-        'fixtures/font/dejavu-sans-2.37/collection-oracle.json'
-      )
-      generated_source = Get-FontQualificationFileFact (
-        'modules/mb-font/font/generated_font_qualification_test.mbt'
-      )
-      workflow_test = Get-FontQualificationFileFact (
-        'modules/mb-font/font/font_qualification_test.mbt'
-      )
-      hostile_test = Get-FontQualificationFileFact (
-        'modules/mb-font/font/font_qualification_hostile_test.mbt'
-      )
+    if (-not $TracerOnly) {
+      . ./scripts/quality/Assert-Policy.ps1
+      Assert-FontFoundationPolicy -PolicyPath ./policy/foundation.json
     }
-    $publicFacts = Get-FontQualificationPublicFacts $oracle
-    $hostileOutcomes = Get-FontQualificationHostileOutcomes $cases
-    $collectionFacts = Get-FontQualificationCollectionFacts `
-      -Corpus $collectionCases `
-      -CollectionOracle $collectionOracle `
-      -Fixtures $fixtures
-    $boundaryFacts = Get-FontQualificationBoundaryFacts
-    $dependencyFacts = Get-FontQualificationDependencyFacts
-    $sourceIdentities = Get-FontQualificationSourceIdentities
+    $managedRoot = [IO.Path]::GetFullPath(
+      (Join-Path $RepositoryRoot 'artifacts/release-qualification')
+    )
+    $resolved = Resolve-FontQualificationEvidencePath `
+      $EvidenceDirectory $managedRoot $RepositoryRoot
+    Initialize-FontQualificationEvidenceDirectory $resolved $managedRoot
+    Clear-FontQualificationEvidenceFiles $resolved $managedRoot
+    $selectedTargets = if ([string]::IsNullOrWhiteSpace($Target)) {
+      @($Targets)
+    } else {
+      @($Target)
+    }
+    if (-not $TracerOnly -and $selectedTargets.Count -ne 4) {
+      throw 'A complete v3 run requires exactly the four literal targets.'
+    }
     $records = @(
-      foreach ($target in $Targets) {
-        $targetDirectory = "target/phase103-font-qualification-$target"
-        & moon -C modules/mb-font check --target $target --frozen `
-          --target-dir $targetDirectory --serial | Out-Host
-        if ($LASTEXITCODE -ne 0) {
-          throw "Font qualification check for target $target failed with exit $LASTEXITCODE."
-        }
-
-        $focusedResults = @(
-          foreach ($assertion in $FocusedAssertions) {
-            $command = (
-              "moon -C modules/mb-font test $($assertion.file) " +
-              "-f '$($assertion.name)' --target $target --frozen " +
-              "--target-dir `"$targetDirectory`" --no-parallelize"
-            )
-            $output = @(
-              & moon -C modules/mb-font test $assertion.file `
-                -f $assertion.name --target $target --frozen `
-                --target-dir $targetDirectory --no-parallelize 2>&1
-            )
-            $exitCode = $LASTEXITCODE
-            $lines = @($output | ForEach-Object { [string]$_ })
-            $lines | ForEach-Object { Write-Host $_ }
-            if ($exitCode -ne 0) {
-              throw (
-                "Focused assertion '$($assertion.name)' for target $target " +
-                "failed with exit $exitCode."
-              )
-            }
-            $passSummaries = @(
-              $lines | Where-Object { $_ -ceq $FocusedPassSummary }
-            )
-            if ($passSummaries.Count -ne 1) {
-              throw (
-                "Focused assertion '$($assertion.name)' for target $target " +
-                'did not report exactly one passing test.'
-              )
-            }
-            [pscustomobject][ordered]@{
-              group = [string]$assertion.group
-              file = [string]$assertion.file
-              name = [string]$assertion.name
-              command = $command
-              passed = $true
-              pass_total = 1
-            }
-          }
-        )
-
-        $fullPackageCommand = (
-          "moon -C modules/mb-font test font --target $target --frozen " +
-          "--target-dir `"$targetDirectory`" --no-parallelize"
-        )
-        $fullOutput = @(
-          & moon -C modules/mb-font test font --target $target --frozen `
-            --target-dir $targetDirectory --no-parallelize 2>&1
-        )
-        $fullExit = $LASTEXITCODE
-        $fullLines = @($fullOutput | ForEach-Object { [string]$_ })
-        $fullLines | ForEach-Object { Write-Host $_ }
-        if ($fullExit -ne 0) {
-          throw "Font qualification target $target failed with exit $fullExit."
-        }
-        $fullSummaries = @(
-          $fullLines |
-            Where-Object {
-              $_ -cmatch '^Total tests: \d+, passed: \d+, failed: \d+\.$'
-            }
-        )
-        if ($fullSummaries.Count -ne 1) {
-          throw "Font qualification target $target has no unique full-package summary."
-        }
-        $fullMatch = [regex]::Match(
-          $fullSummaries[0],
-          '^Total tests: (?<total>\d+), passed: (?<passed>\d+), failed: (?<failed>\d+)\.$'
-        )
-        $fullTotal = [int]$fullMatch.Groups['total'].Value
-        $fullPassed = [int]$fullMatch.Groups['passed'].Value
-        $fullFailed = [int]$fullMatch.Groups['failed'].Value
-        if ($fullTotal -lt 1 -or $fullPassed -ne $fullTotal -or $fullFailed -ne 0) {
-          throw "Font qualification target $target did not pass its discovered package total."
-        }
-
-        $record = New-FontQualificationEvidenceRecord `
-          -Target $target `
-          -Toolchain $toolchain `
-          -Fixtures $fixtures `
-          -PublicFacts $publicFacts `
-          -HostileOutcomes $hostileOutcomes `
-          -CollectionFacts $collectionFacts `
-          -BoundaryFacts $boundaryFacts `
-          -DependencyFacts $dependencyFacts `
-          -SourceIdentities $sourceIdentities `
-          -TargetDirectory $targetDirectory `
-          -FocusedResults $focusedResults `
-          -FullPackageCommand $fullPackageCommand `
-          -FullPackagePassTotal $fullPassed `
-          -FullPackageSummary $fullSummaries[0]
+      foreach ($selectedTarget in $selectedTargets) {
+        $record = Invoke-FontQualificationTarget `
+          $selectedTarget -TracerOnly:$TracerOnly
         Assert-FontQualificationEvidenceRecord $record
         $path = Write-FontQualificationEvidenceJson `
-          -Directory $resolvedEvidence `
-          -ManagedRoot $managedEvidenceRoot `
-          -FileName "$target.json" `
-          -Value $record
-        $readBack = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+          $resolved $managedRoot "$selectedTarget.json" $record
+        $readBack = Get-Content -Raw -LiteralPath $path |
+          ConvertFrom-Json -Depth 100
         Assert-FontQualificationEvidenceRecord $readBack
         $readBack
       }
     )
-
-    $negativeProbeCount = 0
-    $probe = {
-      param([string]$Name, [scriptblock]$Action, [string]$Pattern)
-      Confirm-FontQualificationEvidenceRejected $Name $Action $Pattern
-      $script:fontQualificationNegativeProbeCount++
+    Invoke-FontQualificationContractNegatives
+    if ($records.Count -eq 4) {
+      $comparison = Compare-FontQualificationEvidence `
+        $records $resolved $managedRoot
+      Write-Host (
+        "Font qualification v3 passed: targets=4, records=4, " +
+        "normalization=target,runner, semantic-sha256=$($comparison.semantic_sha256)."
+      )
+    } else {
+      Write-Host (
+        "Font qualification v3 tracer passed: target=$($records[0].target), " +
+        "record=$($records[0].target).json."
+      )
     }
-    $script:fontQualificationNegativeProbeCount = 0
-    & $probe 'missing target evidence record' {
-      Compare-FontQualificationEvidence `
-        @($records | Select-Object -First 3) `
-        $resolvedEvidence `
-        $managedEvidenceRoot
-    } 'Exactly four target evidence records are required'
-    & $probe 'duplicate target evidence record' {
-      $copy = @($records | ForEach-Object {
-        ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
-      })
-      $copy[3].target = 'js'
-      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'unique'
-    & $probe 'reordered target evidence record' {
-      Compare-FontQualificationEvidence `
-        @($records[1], $records[0], $records[2], $records[3]) `
-        $resolvedEvidence `
-        $managedEvidenceRoot
-    } 'Target evidence order drifted'
-    & $probe 'unknown target evidence record' {
-      $copy = @($records | ForEach-Object {
-        ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
-      })
-      $copy[3].target = 'native-unknown'
-      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'Target evidence order drifted'
-    foreach ($identityProbe in @(
-      @{ Name = 'schema'; Key = 'schema_version'; Value = '1.0.0' },
-      @{ Name = 'workflow'; Key = 'workflow_id'; Value = 'font-complete-public-v1' },
-      @{ Name = 'false pass'; Key = 'pass'; Value = $false }
-    )) {
-      & $probe "$($identityProbe.Name) divergence" {
-        $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-          ConvertFrom-Json
-        $copy.($identityProbe.Key) = $identityProbe.Value
-        Assert-FontQualificationEvidenceRecord $copy
-      } 'qualification identity or pass state drifted'
-    }
-    & $probe 'top-level extra key' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy | Add-Member -NotePropertyName unexpected -NotePropertyValue $true
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'key count drifted'
-    & $probe 'nested extra key' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.boundary_facts | Add-Member `
-        -NotePropertyName unexpected `
-        -NotePropertyValue $true
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'key count drifted'
-    & $probe 'missing compact public fact' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.standalone_baseline.public_facts.compact.PSObject.Properties.
-        Remove('units_per_em')
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'exact ordered value drifted'
-    & $probe 'generated fixture ID drift' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.generated_collection_facts.fixture_ids[0] = 'drift'
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'exact ordered value drifted'
-    & $probe 'hostile context drift' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.collection_hostile_outcomes.hostile[0].error.context = 'drift'
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'exact ordered value drifted'
-    & $probe 'failed budget loses atomicity' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.collection_hostile_outcomes.hostile[0].budget_after.work++
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'failed budget atomicity'
-    & $probe 'shared coordinate extra key' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.licensed_derivative_facts.shared_table_coordinates[0] |
-        Add-Member -NotePropertyName unexpected -NotePropertyValue 1
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'exact ordered value drifted'
-    & $probe 'licensed derivative digest divergence' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.licensed_derivative_facts.sha256 = '00'
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'licensed derivative identity'
-    & $probe 'shared coordinate semantic divergence' {
-      $copy = @($records | ForEach-Object {
-        ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
-      })
-      $copy[3].licensed_derivative_facts.shared_table_coordinates[0].root_offset++
-      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'exact ordered value drifted|Four-target font qualification semantics differ'
-    & $probe 'hostile error semantic divergence' {
-      $copy = @($records | ForEach-Object {
-        ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
-      })
-      $copy[3].collection_hostile_outcomes.hostile[0].error.code = 'Drift'
-      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'exact ordered value drifted|Four-target font qualification semantics differ'
-    & $probe 'budget after semantic divergence' {
-      $copy = @($records | ForEach-Object {
-        ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
-      })
-      $copy[3].collection_hostile_outcomes.budgets[0].budget_after.work++
-      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'exact ordered value drifted|Four-target font qualification semantics differ'
-    & $probe 'WOFF boundary divergence' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.boundary_facts.container_capabilities.woff1 = 'supported'
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'API/source/capability boundary'
-    & $probe 'dependency boundary divergence' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.dependency_facts.module_dependencies[0].name = 'other'
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'dependency evidence drifted'
-    & $probe 'assertion identity divergence' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.focused_assertions[0].name = 'drift'
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'focused assertion identity/order'
-    & $probe 'assertion order divergence' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $first = $copy.focused_assertions[0]
-      $copy.focused_assertions[0] = $copy.focused_assertions[1]
-      $copy.focused_assertions[1] = $first
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'focused assertion identity/order'
-    & $probe 'focused source hash divergence' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $copy.source_identities.files[0].sha256 = '00'
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'focused source identities drifted'
-    & $probe 'focused source order divergence' {
-      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-        ConvertFrom-Json
-      $first = $copy.source_identities.files[0]
-      $copy.source_identities.files[0] = $copy.source_identities.files[1]
-      $copy.source_identities.files[1] = $first
-      Assert-FontQualificationEvidenceRecord $copy
-    } 'focused source identities drifted'
-    foreach ($tool in @('moon', 'moonc', 'moonrun')) {
-      & $probe "$tool pinned identity drift" {
-        $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
-          ConvertFrom-Json
-        $copy.toolchain.$tool = "$($copy.toolchain.$tool)-drift"
-        Assert-FontQualificationEvidenceRecord $copy
-      } 'pinned toolchain identity'
-    }
-    & $probe 'mutually consistent unauthorized toolchain substitution' {
-      $copy = @($records | ForEach-Object {
-        ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
-      })
-      foreach ($record in $copy) {
-        $record.toolchain.moon = 'moon 99.0.0 (deadbee 2099-01-01)'
-        $record.toolchain.moonc = 'moonc v99.0.0 (2099-01-01)'
-        $record.toolchain.moonrun = 'moonrun 99.0.0 (deadbee 2099-01-01)'
-      }
-      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'pinned toolchain identity'
-    & $probe 'semantic evidence divergence' {
-      $copy = @($records | ForEach-Object {
-        ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
-      })
-      $copy[3].toolchain.moon = "$($copy[3].toolchain.moon)-drift"
-      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'pinned toolchain identity|Four-target font qualification semantics differ'
-    $negativeProbeCount = $script:fontQualificationNegativeProbeCount
-    Remove-Variable fontQualificationNegativeProbeCount -Scope Script
-
-    $fullPassTotals = @(
-      $records.runner.full_package_pass_total | Select-Object -Unique
-    )
-    if ($fullPassTotals.Count -ne 1) {
-      throw 'Four-target discovered full-package pass totals differ.'
-    }
-    $comparison = Compare-FontQualificationEvidence `
-      $records `
-      $resolvedEvidence `
-      $managedEvidenceRoot
-    Confirm-FontQualificationEvidenceRejected 'comparison missing closed key' {
-      $copy = ConvertTo-FontQualificationJson $comparison -Compress |
-        ConvertFrom-Json
-      $copy.PSObject.Properties.Remove('equal')
-      Assert-FontQualificationComparisonRecord `
-        -Comparison $copy `
-        -Directory $resolvedEvidence `
-        -ManagedRoot $managedEvidenceRoot
-    } 'key count drifted'
-    Confirm-FontQualificationEvidenceRejected 'comparison record hash drift' {
-      $copy = ConvertTo-FontQualificationJson $comparison -Compress |
-        ConvertFrom-Json
-      $copy.record_sha256.js = '00'
-      Assert-FontQualificationComparisonRecord `
-        -Comparison $copy `
-        -Directory $resolvedEvidence `
-        -ManagedRoot $managedEvidenceRoot
-    } 'hash drifted'
-    $writtenTargets = @(
-      Get-ChildItem -LiteralPath $resolvedEvidence -Filter '*.json' |
-        Where-Object {
-          $_.Name -cne 'comparison.json' -and
-          $_.Name -cne $EvidenceMarkerName
-        } |
-        ForEach-Object { $_.BaseName }
-    )
-    if ($writtenTargets.Count -ne $Targets.Count -or
-        (Compare-Object -CaseSensitive $Targets $writtenTargets)) {
-      throw 'Written target evidence record count or identity drifted.'
-    }
-    foreach ($target in $Targets) {
-      $readmeTargetDirectory = "target/phase103-font-readme-$target"
-      & moon -C modules/mb-font check README.mbt.md --target $target --frozen `
-        --target-dir $readmeTargetDirectory --serial | Out-Host
-      if ($LASTEXITCODE -ne 0) {
-        throw "Font README check for target $target failed with exit $LASTEXITCODE."
-      }
-    }
-    Write-Host (
-      "Font qualification v2 passed: targets=$($writtenTargets.Count), " +
-      "records=$($records.Count), focused-gates-per-target=$($FocusedAssertions.Count), " +
-      "full-package-passes=$($fullPassTotals[0]), negative-probes=$negativeProbeCount, " +
-      "comparison-gates=1, semantic-sha256=$($comparison.semantic_sha256)."
-    )
   } finally {
     Pop-Location
   }
 }
 
 if (-not $ImportOnly -and $MyInvocation.InvocationName -cne '.') {
-  Invoke-FontQualification -EvidenceDirectory $EvidenceDirectory
+  $invokeArguments = @{
+    EvidenceDirectory = $EvidenceDirectory
+    ContractOnly = [bool]$ContractOnly
+    TracerOnly = [bool]$TracerOnly
+  }
+  if (-not [string]::IsNullOrWhiteSpace($Target)) {
+    $invokeArguments.Target = $Target
+  }
+  Invoke-FontQualification @invokeArguments
 }
