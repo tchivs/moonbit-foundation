@@ -1267,7 +1267,7 @@ function Assert-CffQualificationCasesDocument {
   Assert-FontQualificationOrderedKeys $Document @(
     'schema','license','recipes','generated_workflows','expected_facts',
     'licensed_intake','public_workflow_ids','compatibility_lock_ids','targets',
-    'workloads','hostile_groups','precedence_cases'
+    'workloads','b8_order','hostile_groups','precedence_cases'
   ) 'CFF qualification cases'
   if ($Document.schema -cne 'cff-qualification-cases/1.0.0' -or
       $Document.license -cne 'Apache-2.0') {
@@ -1412,9 +1412,210 @@ function Assert-CffQualificationCasesDocument {
       throw "CFF workload $($workload.id) correctness identity drifted."
     }
   }
-  if (@($Document.hostile_groups).Count -ne 0 -or
-      @($Document.precedence_cases).Count -ne 0) {
-    throw 'Task 2 corpus must leave hostile groups exclusively to Task 3.'
+  Assert-CffQualificationOrderedValues @($Document.b8_order) @(
+    'bytes','allocations','allocation_size','width','height','pixels','depth','work'
+  ) 'CFF B8 order'
+}
+
+function Get-CffQualificationHostileRows {
+  param([Parameter(Mandatory)]$Document)
+  $rows = [Collections.Generic.List[object]]::new()
+  foreach ($group in @($Document.hostile_groups)) {
+    foreach ($row in @($group.rows)) { $rows.Add($row) }
+  }
+  return @($rows)
+}
+
+function Assert-CffQualificationSourceLocator {
+  param(
+    [Parameter(Mandatory)][string]$Locator,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  if ($Locator -cnotmatch '^(.+\.mbt):([0-9]+):(.+)$') {
+    throw "$Label source locator is not exact."
+  }
+  $path = Join-Path $RepositoryRoot $Matches[1]
+  $lineNumber = [int]$Matches[2]
+  $testName = [string]$Matches[3]
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+    throw "$Label source file is missing."
+  }
+  $lines = @(Get-Content -LiteralPath $path)
+  if ($lineNumber -lt 1 -or $lineNumber -gt $lines.Count -or
+      $lines[$lineNumber - 1].Trim() -cne "test `"$testName`" {") {
+    throw "$Label source assertion locator drifted."
+  }
+}
+
+function Assert-CffQualificationB8 {
+  param(
+    [Parameter(Mandatory)]$Snapshot,
+    [Parameter(Mandatory)][string]$Label
+  )
+  $values = @($Snapshot)
+  if ($values.Count -ne 8) { throw "$Label must contain all eight B8 values." }
+  foreach ($value in $values) {
+    if ($null -eq $value -or [int64]$value -lt 0) {
+      throw "$Label contains an unresolved or negative B8 value."
+    }
+  }
+}
+
+function Assert-CffHostileInventory {
+  param([Parameter(Mandatory)]$Document)
+
+  $groups = @($Document.hostile_groups)
+  Assert-CffQualificationOrderedValues @($groups.id) @(
+    'structural','type2-program','semantic-limit','resource','mutation',
+    'multi-fault-precedence'
+  ) 'CFF hostile groups'
+  $seen = @{}
+  foreach ($group in $groups) {
+    Assert-FontQualificationOrderedKeys $group @('id','rows') "CFF hostile group $($group.id)"
+    if (@($group.rows).Count -eq 0) { throw "CFF hostile group $($group.id) is empty." }
+    foreach ($row in @($group.rows)) {
+      Assert-FontQualificationOrderedKeys $row @(
+        'id','source','category','code','operation','payload','context','gid',
+        'publication','caller_before','caller_after','ancestor_before',
+        'ancestor_after','boundary'
+      ) "CFF hostile row $($row.id)"
+      if (-not $row.id -or $seen.ContainsKey([string]$row.id)) {
+        throw "CFF hostile row ID is missing or duplicated: $($row.id)"
+      }
+      $seen[[string]$row.id] = $true
+      Assert-CffQualificationSourceLocator ([string]$row.source) "CFF hostile row $($row.id)"
+      Assert-FontQualificationOrderedKeys $row.payload @('requested','limit') `
+        "CFF hostile row $($row.id) payload"
+      Assert-FontQualificationOrderedKeys $row.boundary @(
+        'pair_id','kind','dimension','applicable','reason'
+      ) "CFF hostile row $($row.id) boundary"
+      foreach ($name in @('caller_before','caller_after','ancestor_before','ancestor_after')) {
+        Assert-CffQualificationB8 $row.$name "CFF hostile row $($row.id) $name"
+      }
+      if ($null -ne $row.gid -and [int64]$row.gid -lt 0) {
+        throw "CFF hostile row $($row.id) GID is invalid."
+      }
+      if ($row.publication -cnotin @(
+          'none','staged-glyph','existing-font-only','path'
+        )) {
+        throw "CFF hostile row $($row.id) publication state drifted."
+      }
+      $expectedCode = switch ([string]$row.category) {
+        '' { $null }
+        'Data' { 'InvalidEncoding' }
+        'Capability' { 'CapabilityUnavailable' }
+        'Resource' { 'BudgetExceeded' }
+        'State' { 'InvalidRange' }
+        default { throw "CFF hostile row $($row.id) category drifted." }
+      }
+      if ($row.code -cne $expectedCode) {
+        throw "CFF hostile row $($row.id) category/code drifted."
+      }
+      if ($null -eq $row.category) {
+        if ($null -ne $row.context -or $row.publication -cnotin @('staged-glyph','path')) {
+          throw "CFF hostile success row $($row.id) is inconsistent."
+        }
+      } elseif (-not $row.context -or $row.publication -cnotin @('none','existing-font-only')) {
+        throw "CFF hostile failure row $($row.id) is incomplete."
+      }
+    }
+  }
+
+  $precedence = @($Document.precedence_cases)
+  if ($precedence.Count -ne 2) { throw 'CFF precedence case cardinality drifted.' }
+  Assert-FontQualificationOrderedKeys $precedence[0] @(
+    'id','ordered_categories','source'
+  ) 'CFF category precedence'
+  Assert-CffQualificationOrderedValues @($precedence[0].ordered_categories) @(
+    'State','Resource','Capability','Data'
+  ) 'CFF category precedence'
+  Assert-CffQualificationSourceLocator ([string]$precedence[0].source) `
+    'CFF category precedence'
+  Assert-FontQualificationOrderedKeys $precedence[1] @(
+    'id','ordered_gids','source'
+  ) 'CFF GID precedence'
+  Assert-CffQualificationOrderedValues @($precedence[1].ordered_gids) @(0,1,2) `
+    'CFF GID precedence'
+  Assert-CffQualificationSourceLocator ([string]$precedence[1].source) `
+    'CFF GID precedence'
+}
+
+function Assert-CffOutcomeTrace {
+  param([Parameter(Mandatory)]$Document)
+  Assert-CffHostileInventory $Document
+  $rows = Get-CffQualificationHostileRows $Document
+  foreach ($requiredContext in @(
+      'font-cff-header','font-cff-name-index-terminal-extent',
+      'font-cff-top-index-terminal-extent','font-cff-string-index',
+      'font-cff-global-subrs-index','font-cff-charstrings-index-terminal-extent',
+      'font-cff-private-range','font-cff-local-subrs-index',
+      'font-cff-top-dict-arity','font-cff-encoding-supplement',
+      'font-cff-fd-select-fd','font-cff-fd-select-sentinel',
+      'font-cff-fd-private-range','font-cff-font-matrix-arity',
+      'font-cff-cid-charset','font-cff-cid-encoding',
+      'font-cff-type2-stack-underflow','font-cff-type2-operand-stack',
+      'font-cff-type2-division-by-zero',
+      'font-cff-type2-width-duplicate','font-cff-type2-geometry-arity',
+      'font-cff-type2-stems','font-cff-type2-frame-depth',
+      'font-cff-type2-points','font-cff-type2-contours',
+      'font-cff-type2-seac','font-cff-type2-non-tail-endchar',
+      'font-cff-source-revision-drift','font-cff-type2-source-revision-drift',
+      'font-cff-profile','font-cff-type2-reserved-operator',
+      'bytes','allocations','allocation_size','work'
+    )) {
+    if ($requiredContext -cnotin @($rows.context)) {
+      throw "CFF hostile outcome is untraced: $requiredContext"
+    }
+  }
+  $mutationIds = @(@($Document.hostile_groups)[4].rows.id)
+  Assert-CffQualificationOrderedValues $mutationIds @(
+    'mutation-admission-opening','mutation-selected-face','mutation-type2-fetch',
+    'mutation-staged-path','mutation-final-commit'
+  ) 'CFF mutation windows'
+  $smallest = @($rows | Where-Object { $_.id -ceq 'precedence-smallest-failing-gid' })
+  if ($smallest.Count -ne 1 -or $smallest[0].gid -ne 1 -or
+      $smallest[0].publication -cne 'none') {
+    throw 'CFF smallest-failing-GID trace drifted.'
+  }
+}
+
+function Assert-CffBoundaryApplicability {
+  param([Parameter(Mandatory)]$Document)
+  Assert-CffHostileInventory $Document
+  foreach ($group in @($Document.hostile_groups)) {
+    $rows = @($group.rows)
+    for ($index = 0; $index -lt $rows.Count; $index++) {
+      $row = $rows[$index]
+      $kind = [string]$row.boundary.kind
+      if ($kind -cnotin @('exact','one-short','not-applicable','covered-by')) {
+        throw "CFF hostile row $($row.id) boundary kind drifted."
+      }
+      if (-not $row.boundary.reason) {
+        throw "CFF hostile row $($row.id) boundary reason is missing."
+      }
+      if ($kind -ceq 'not-applicable') {
+        if ($row.boundary.applicable -ne $false -or $null -ne $row.boundary.pair_id) {
+          throw "CFF hostile row $($row.id) invented a resource pair."
+        }
+        continue
+      }
+      if ($row.boundary.applicable -ne $true -or -not $row.boundary.pair_id) {
+        throw "CFF hostile row $($row.id) applicable pair is incomplete."
+      }
+      if ($kind -ceq 'covered-by') { continue }
+      if ($kind -ceq 'exact') {
+        if ($index + 1 -ge $rows.Count -or
+            $rows[$index + 1].boundary.kind -cne 'one-short' -or
+            $rows[$index + 1].boundary.pair_id -cne $row.boundary.pair_id) {
+          throw "CFF exact/one-short pair is non-adjacent: $($row.boundary.pair_id)"
+        }
+      } elseif ($index -eq 0 -or
+          $rows[$index - 1].boundary.kind -cne 'exact' -or
+          $rows[$index - 1].boundary.pair_id -cne $row.boundary.pair_id) {
+        throw "CFF one-short row lacks an adjacent exact row: $($row.id)"
+      }
+    }
   }
 }
 
@@ -1549,7 +1750,7 @@ function Invoke-CffQualificationSchemaNegatives {
   foreach ($name in @(
       'license','schema','recipes','generated_workflows','expected_facts',
       'licensed_intake','public_workflow_ids','compatibility_lock_ids','targets',
-      'workloads','hostile_groups','precedence_cases'
+      'workloads','b8_order','hostile_groups','precedence_cases'
     )) {
     $reordered[$name] = $copy.$name
   }
@@ -1570,6 +1771,34 @@ function Invoke-CffQualificationSchemaNegatives {
   $copy.schema = 'cff-oracle-tools/0.0.0'
   Assert-CffQualificationExpectedFailure { Assert-CffOracleToolsDocument $copy } `
     'oracle schema drift'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy.hostile_groups[0].rows[0].caller_before = @(1,2,3,4,5,6,7)
+  Assert-CffQualificationExpectedFailure { Assert-CffHostileInventory $copy } `
+    'incomplete B8 snapshot'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy.hostile_groups[0].rows[0].category = 'Resource'
+  Assert-CffQualificationExpectedFailure { Assert-CffHostileInventory $copy } `
+    'wrong literal category'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy.hostile_groups[0].rows[0].boundary.pair_id = 'invented'
+  $copy.hostile_groups[0].rows[0].boundary.applicable = $true
+  Assert-CffQualificationExpectedFailure { Assert-CffBoundaryApplicability $copy } `
+    'invented exact/one-short pair'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $temporary = $copy.hostile_groups[3].rows[0]
+  $copy.hostile_groups[3].rows[0] = $copy.hostile_groups[3].rows[1]
+  $copy.hostile_groups[3].rows[1] = $temporary
+  Assert-CffQualificationExpectedFailure { Assert-CffBoundaryApplicability $copy } `
+    'non-adjacent exact/one-short pair'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy.generated_workflows[0].expected_fact_id = 'consumer-completed-fact'
+  Assert-CffQualificationExpectedFailure { Assert-CffQualificationCasesDocument $copy } `
+    'consumer completion of expected fact'
 }
 
 function Invoke-CffQualificationContractCheck {
@@ -1577,7 +1806,10 @@ function Invoke-CffQualificationContractCheck {
     [switch]$Contracts,
     [switch]$GeneratedRecipes,
     [switch]$OracleAdapters,
-    [switch]$SchemaNegatives
+    [switch]$SchemaNegatives,
+    [switch]$HostileInventory,
+    [switch]$OutcomeTrace,
+    [switch]$BoundaryApplicability
   )
 
   $tools = Read-CffQualificationJson $CffOracleToolsPath 'CFF oracle tools'
@@ -1597,6 +1829,18 @@ function Invoke-CffQualificationContractCheck {
   }
   if ($SchemaNegatives) {
     Invoke-CffQualificationSchemaNegatives $tools $cases
+  }
+  if ($HostileInventory) {
+    Assert-CffQualificationCasesDocument $cases
+    Assert-CffHostileInventory $cases
+  }
+  if ($OutcomeTrace) {
+    Assert-CffQualificationCasesDocument $cases
+    Assert-CffOutcomeTrace $cases
+  }
+  if ($BoundaryApplicability) {
+    Assert-CffQualificationCasesDocument $cases
+    Assert-CffBoundaryApplicability $cases
   }
   Write-Host 'CFF canonical qualification contract verification passed.'
 }
@@ -3172,12 +3416,16 @@ if ($CheckGeneratedTracer) {
 }
 
 if ($CheckContracts -or $CheckGeneratedRecipes -or $CheckOracleAdapters -or
-    $CheckSchemaNegatives) {
+    $CheckSchemaNegatives -or $CheckHostileInventory -or $CheckOutcomeTrace -or
+    $CheckBoundaryApplicability) {
   Invoke-CffQualificationContractCheck `
     -Contracts:$CheckContracts `
     -GeneratedRecipes:$CheckGeneratedRecipes `
     -OracleAdapters:$CheckOracleAdapters `
-    -SchemaNegatives:$CheckSchemaNegatives
+    -SchemaNegatives:$CheckSchemaNegatives `
+    -HostileInventory:$CheckHostileInventory `
+    -OutcomeTrace:$CheckOutcomeTrace `
+    -BoundaryApplicability:$CheckBoundaryApplicability
   return
 }
 
