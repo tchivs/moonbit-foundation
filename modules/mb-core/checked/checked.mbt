@@ -3,6 +3,15 @@
 let uint64_max : UInt64 = 18446744073709551615UL
 
 ///|
+let int64_max : Int64 = 9223372036854775807L
+
+///|
+let int64_min : Int64 = -9223372036854775807L - 1L
+
+///|
+let int64_max_as_uint64 : UInt64 = 9223372036854775807UL
+
+///|
 /// The backend allocation and index ceiling is the pinned 32-bit signed Int
 /// maximum. Logical quantities remain UInt64 until checked against this value.
 fn int_max_as_uint64() -> UInt64 {
@@ -26,6 +35,15 @@ fn arithmetic_error(
 }
 
 ///|
+fn int64_arithmetic_overflow(operation : String) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::InvalidInput,
+    @error.ErrorCode::ArithmeticOverflow,
+    operation~,
+  )
+}
+
+///|
 /// Add two logical quantities only after proving that the operator cannot wrap.
 pub fn checked_add(
   left : UInt64,
@@ -42,6 +60,52 @@ pub fn checked_add(
     )
   } else {
     Ok(left + right)
+  }
+}
+
+///|
+/// Add signed design-unit quantities only after proving the selected sign
+/// branch cannot cross either exact Int64 boundary.
+pub fn checked_add_int64(
+  left : Int64,
+  right : Int64,
+) -> Result[Int64, @error.CoreError] {
+  if (right > 0L && left > int64_max - right) ||
+    (right < 0L && left < int64_min - right) {
+    Err(int64_arithmetic_overflow("checked_add_int64"))
+  } else {
+    Ok(left + right)
+  }
+}
+
+///|
+/// Negate every signed value except the one value with no positive Int64
+/// representation.
+pub fn checked_neg_int64(value : Int64) -> Result[Int64, @error.CoreError] {
+  if value == int64_min {
+    Err(int64_arithmetic_overflow("checked_neg_int64"))
+  } else {
+    Ok(-value)
+  }
+}
+
+///|
+/// Narrow an unsigned logical value only after proving it is within the exact
+/// nonnegative Int64 range. Reinterpretation preserves the already-proven bits.
+pub fn checked_uint64_to_int64(
+  value : UInt64,
+) -> Result[Int64, @error.CoreError] {
+  if value > int64_max_as_uint64 {
+    Err(
+      arithmetic_error(
+        @error.ErrorCode::ArithmeticOverflow,
+        "checked_uint64_to_int64",
+        value,
+        int64_max_as_uint64,
+      ),
+    )
+  } else {
+    Ok(value.reinterpret_as_int64())
   }
 }
 

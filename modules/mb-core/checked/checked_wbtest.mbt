@@ -4,20 +4,25 @@ test "Int backend ceiling is explicit-width and stable" {
 }
 
 ///|
+fn assert_int64_ok(
+  result : Result[Int64, @error.CoreError],
+  expected : Int64,
+) -> Unit raise {
+  match result {
+    Ok(value) => inspect(value == expected, content="true")
+    Err(_) => fail("checked Int64 operation must succeed")
+  }
+}
+
+///|
 test "checked Int64 addition covers every right-operand sign branch" {
   let maximum = 9223372036854775807L
   let minimum = -9223372036854775807L - 1L
-  inspect(checked_add_int64(7L, 0L), content="Ok(7)")
-  inspect(checked_add_int64(-4L, 9L), content="Ok(5)")
-  inspect(checked_add_int64(4L, -9L), content="Ok(-5)")
-  inspect(
-    checked_add_int64(maximum - 1L, 1L),
-    content="Ok(9223372036854775807)",
-  )
-  inspect(
-    checked_add_int64(minimum + 1L, -1L),
-    content="Ok(-9223372036854775808)",
-  )
+  assert_int64_ok(checked_add_int64(7L, 0L), 7L)
+  assert_int64_ok(checked_add_int64(-4L, 9L), 5L)
+  assert_int64_ok(checked_add_int64(4L, -9L), -5L)
+  assert_int64_ok(checked_add_int64(maximum - 1L, 1L), maximum)
+  assert_int64_ok(checked_add_int64(minimum + 1L, -1L), minimum)
   inspect(checked_add_int64(maximum, 1L) is Err(_), content="true")
   inspect(checked_add_int64(minimum, -1L) is Err(_), content="true")
 }
@@ -25,18 +30,18 @@ test "checked Int64 addition covers every right-operand sign branch" {
 ///|
 test "checked Int64 negation covers zero and both sign branches" {
   let minimum = -9223372036854775807L - 1L
-  inspect(checked_neg_int64(0L), content="Ok(0)")
-  inspect(checked_neg_int64(27L), content="Ok(-27)")
-  inspect(checked_neg_int64(-27L), content="Ok(27)")
+  assert_int64_ok(checked_neg_int64(0L), 0L)
+  assert_int64_ok(checked_neg_int64(27L), -27L)
+  assert_int64_ok(checked_neg_int64(-27L), 27L)
   inspect(checked_neg_int64(minimum) is Err(_), content="true")
 }
 
 ///|
 test "checked UInt64 to Int64 conversion guards before reinterpretation" {
-  inspect(checked_uint64_to_int64(0UL), content="Ok(0)")
-  inspect(
+  assert_int64_ok(checked_uint64_to_int64(0UL), 0L)
+  assert_int64_ok(
     checked_uint64_to_int64(9223372036854775807UL),
-    content="Ok(9223372036854775807)",
+    9223372036854775807L,
   )
   inspect(
     checked_uint64_to_int64(9223372036854775808UL) is Err(_),

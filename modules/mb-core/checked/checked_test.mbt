@@ -60,23 +60,25 @@ fn assert_int64_overflow(
 }
 
 ///|
+fn assert_int64_ok(
+  result : Result[Int64, @error.CoreError],
+  expected : Int64,
+) -> Unit raise {
+  match result {
+    Ok(value) => inspect(value == expected, content="true")
+    Err(_) => fail("checked Int64 operation must succeed")
+  }
+}
+
+///|
 test "checked Int64 addition accepts exact boundaries and rejects one-step overflow" {
   let maximum = 9223372036854775807L
   let minimum = -9223372036854775807L - 1L
-  inspect(@checked.checked_add_int64(maximum, 0L), content="Ok(9223372036854775807)")
-  inspect(
-    @checked.checked_add_int64(minimum, 0L),
-    content="Ok(-9223372036854775808)",
-  )
-  inspect(@checked.checked_add_int64(maximum, minimum), content="Ok(-1)")
-  inspect(
-    @checked.checked_add_int64(maximum - 1L, 1L),
-    content="Ok(9223372036854775807)",
-  )
-  inspect(
-    @checked.checked_add_int64(minimum + 1L, -1L),
-    content="Ok(-9223372036854775808)",
-  )
+  assert_int64_ok(@checked.checked_add_int64(maximum, 0L), maximum)
+  assert_int64_ok(@checked.checked_add_int64(minimum, 0L), minimum)
+  assert_int64_ok(@checked.checked_add_int64(maximum, minimum), -1L)
+  assert_int64_ok(@checked.checked_add_int64(maximum - 1L, 1L), maximum)
+  assert_int64_ok(@checked.checked_add_int64(minimum + 1L, -1L), minimum)
   assert_int64_overflow(
     @checked.checked_add_int64(maximum, 1L).unwrap_err(),
     "checked_add_int64",
@@ -91,13 +93,10 @@ test "checked Int64 addition accepts exact boundaries and rejects one-step overf
 test "checked Int64 negation rejects only the signed minimum" {
   let maximum = 9223372036854775807L
   let minimum = -9223372036854775807L - 1L
-  inspect(@checked.checked_neg_int64(0L), content="Ok(0)")
-  inspect(@checked.checked_neg_int64(1L), content="Ok(-1)")
-  inspect(@checked.checked_neg_int64(-1L), content="Ok(1)")
-  inspect(
-    @checked.checked_neg_int64(maximum),
-    content="Ok(-9223372036854775807)",
-  )
+  assert_int64_ok(@checked.checked_neg_int64(0L), 0L)
+  assert_int64_ok(@checked.checked_neg_int64(1L), -1L)
+  assert_int64_ok(@checked.checked_neg_int64(-1L), 1L)
+  assert_int64_ok(@checked.checked_neg_int64(maximum), -maximum)
   assert_int64_overflow(
     @checked.checked_neg_int64(minimum).unwrap_err(),
     "checked_neg_int64",
@@ -106,19 +105,17 @@ test "checked Int64 negation rejects only the signed minimum" {
 
 ///|
 test "checked UInt64 to Int64 conversion proves the numeric maximum" {
-  inspect(@checked.checked_uint64_to_int64(0UL), content="Ok(0)")
-  inspect(
+  assert_int64_ok(@checked.checked_uint64_to_int64(0UL), 0L)
+  assert_int64_ok(
     @checked.checked_uint64_to_int64(9223372036854775807UL),
-    content="Ok(9223372036854775807)",
+    9223372036854775807L,
   )
   assert_int64_overflow(
     @checked.checked_uint64_to_int64(9223372036854775808UL).unwrap_err(),
     "checked_uint64_to_int64",
   )
   assert_int64_overflow(
-    @checked
-    .checked_uint64_to_int64(18446744073709551615UL)
-    .unwrap_err(),
+    @checked.checked_uint64_to_int64(18446744073709551615UL).unwrap_err(),
     "checked_uint64_to_int64",
   )
 }
