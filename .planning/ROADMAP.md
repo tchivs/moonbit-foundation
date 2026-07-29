@@ -42,7 +42,7 @@
 - [x] **Phase 104: CFF1 Profile and Bounded Data Model** - Establish exact static-CFF1 admission and one bounded name-keyed or CID-keyed execution environment per GID. (completed 2026-07-28)
 - [x] **Phase 105: Bounded Type 2 Validation and Retained Metrics** - Validate every glyph with one deterministic bounded interpreter and retain truthful metric bounds atomically. (completed 2026-07-29)
 - [x] **Phase 106: Cubic Path and Public/TTC Integration** - Publish complete cubic outlines through the existing opaque standalone and collection font contracts. (completed 2026-07-29)
-- [ ] **Phase 107: Hostile, Licensed, and Four-Target Qualification** - Close generated, licensed, hostile, compatibility, benchmark, and four-target evidence.
+- [x] **Phase 107: Hostile, Licensed, and Four-Target Qualification** - Close generated, licensed, hostile, compatibility, benchmark, and four-target evidence. (completed 2026-07-30)
 
 ## Phase Details
 
@@ -141,7 +141,7 @@
 | 104. CFF1 Profile and Bounded Data Model | 4/4 | Complete    | 2026-07-28 |
 | 105. Bounded Type 2 Validation and Retained Metrics | 5/5 | Complete    | 2026-07-29 |
 | 106. Cubic Path and Public/TTC Integration | 3/3 | Complete    | 2026-07-29 |
-| 107. Hostile, Licensed, and Four-Target Qualification | 6/6 | In Progress|  |
+| 107. Hostile, Licensed, and Four-Target Qualification | 6/6 | Complete    | 2026-07-30 |
 
 ---
-*Roadmap last updated: 2026-07-29 for v0.34 CFF Outline Foundation execution.*
+*Roadmap last updated: 2026-07-30 for v0.34 CFF Outline Foundation completion.*

@@ -10,13 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.34 Phase 104 CFF1 Admission Complete
+## Current State: v0.34 CFF Outline Foundation Complete
 
-**Delivered:** Phase 104 added a bounded private static CFF1 profile over standalone OpenType and selected TTC/OTC faces. Shared INDEX and typed DICT parsing, complete name-keyed and CID-keyed charset/Encoding/FDArray/FDSelect resolution, per-GID CharString/private-environment facts, exact resource authority, mutation guards, and closed `Glyf`/`Cff1` outline-source promotion now form the retained foundation for Type 2 execution.
+**Delivered:** Phases 104-107 now provide bounded static CFF1 admission for standalone OpenType and selected TTC/OTC faces, a deterministic Type 2 interpreter with retained metrics, reusable cubic `Path2` outlines through the existing opaque `Font` API, and generated/licensed/hostile qualification. Name-keyed and CID-keyed fonts, shared subroutines, source mutation, exact resource authority, atomic publication, and existing static-`glyf` compatibility are covered without adding a foreign runtime dependency or exposing private CFF data.
 
-**Validated:** Phase 104 passed 8/8 goal must-haves and CFF-01/CFF-02 with no remaining gaps or human-verification debt. The final lane passes 1204/1204 native tests and four-target checks; a three-round code-review fix loop closed parser grammar, required-table, allocation, authority, accounting, and test-oracle findings before the gap closure locked exact PaintType/StrokeWidth semantics and encounter-ordered Capability/Data outcomes. ASVS L1 security verification closes all 19 registered threats with zero open threats.
+**Validated:** All 4 phases and 18 plans are complete. Phase 107 passed 27/27 goal must-haves, CFF-06, and D-01 through D-23 with zero behavior-unverified debt. The final workspace regression passes 1287/1287 tests on each of `js`, `wasm`, `wasm-gc`, and `native`; qualification passes 275/275 with 53/53 hostile rows and 4/4 runtime observations per target. Final code review is 0 Critical/0 Warning, all 33 ASVS L1 threats are closed, and the observation-only native baseline is bound to final tracked inputs and passes a clean read-only audit.
 
-**Next:** Phase 105 adds bounded Type 2 validation and retained metrics over the admitted per-GID CFF1 facts.
+**Next:** Audit and archive v0.34, then begin v0.35 with a bounded, deterministic horizontal text-shaping slice over the validated font foundation.
 
 ## Current Milestone: v0.34 CFF Outline Foundation
 
@@ -60,9 +60,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Library authors can open bounded static OpenType CFF1 fonts and receive the existing opaque `Font` with reusable cubic `Path2` outlines.
-- [ ] Malformed or resource-exhausting CFF/Type 2 programs fail deterministically before publishing partial font state or geometry or charging an uncommitted transaction.
-- [ ] Maintainers can reproduce generated, licensed, hostile, existing-`glyf`, collection, and four-target CFF qualification evidence.
+- [x] Library authors can open bounded static OpenType CFF1 fonts and receive the existing opaque `Font` with reusable cubic `Path2` outlines. — Validated in Phases 104-106.
+- [x] Malformed or resource-exhausting CFF/Type 2 programs fail deterministically before publishing partial font state or geometry or charging an uncommitted transaction. — Validated in Phases 104-107.
+- [x] Maintainers can reproduce generated, licensed, hostile, existing-`glyf`, collection, and four-target CFF qualification evidence. — Validated in Phase 107.
 
 ### Validated
 
