@@ -291,10 +291,7 @@ fn assert_charge_add_overflow(
 ) -> Unit raise {
   let error = first.checked_add(second).unwrap_err()
   inspect(error.category() == @error.ErrorCategory::Resource, content="true")
-  inspect(
-    error.code() == @error.ErrorCode::ArithmeticOverflow,
-    content="true",
-  )
+  inspect(error.code() == @error.ErrorCode::ArithmeticOverflow, content="true")
   inspect(error.operation() == Some("resource-charge-add"), content="true")
   inspect(error.context() == Some(context), content="true")
 }

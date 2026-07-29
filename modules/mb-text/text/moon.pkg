@@ -7,3 +7,5 @@ import {
 }
 
 supported_targets = "+js+wasm+wasm-gc+native"
+
+warnings = "-29"

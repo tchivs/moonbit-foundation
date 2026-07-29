@@ -137,6 +137,87 @@ pub fn ResourceCharge::bytes(bytes : UInt64) -> ResourceCharge {
 }
 
 ///|
+fn resource_charge_add_error(dimension : String) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::ArithmeticOverflow,
+    operation="resource-charge-add",
+    context=dimension,
+  )
+}
+
+///|
+fn resource_charge_checked_sum(
+  first : UInt64,
+  second : UInt64,
+  dimension : String,
+) -> Result[UInt64, @error.CoreError] {
+  match @checked.checked_add(first, second) {
+    Ok(value) => Ok(value)
+    Err(_) => Err(resource_charge_add_error(dimension))
+  }
+}
+
+///|
+fn resource_charge_maximum(first : UInt64, second : UInt64) -> UInt64 {
+  if first > second {
+    first
+  } else {
+    second
+  }
+}
+
+///|
+/// Compose two immutable charges without changing any budget authority.
+///
+/// Consumable dimensions add with overflow checks. Per-operation ceilings use
+/// their maximum because `Budget` compares those dimensions without consuming
+/// them.
+pub fn ResourceCharge::checked_add(
+  self : ResourceCharge,
+  other : ResourceCharge,
+) -> Result[ResourceCharge, @error.CoreError] {
+  let bytes = match
+    resource_charge_checked_sum(self.bytes_value, other.bytes_value, "bytes") {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let allocations = match
+    resource_charge_checked_sum(
+      self.allocations_value,
+      other.allocations_value,
+      "allocations",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let pixels = match
+    resource_charge_checked_sum(self.pixels_value, other.pixels_value, "pixels") {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let work = match
+    resource_charge_checked_sum(self.work_value, other.work_value, "work") {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  Ok(
+    ResourceCharge::new(
+      bytes~,
+      allocations~,
+      allocation_size=resource_charge_maximum(
+        self.allocation_size_value,
+        other.allocation_size_value,
+      ),
+      width=resource_charge_maximum(self.width_value, other.width_value),
+      height=resource_charge_maximum(self.height_value, other.height_value),
+      pixels~,
+      work~,
+    ),
+  )
+}
+
+///|
 struct BudgetWindow {
   mut bytes_remaining : UInt64
   mut allocations_remaining : UInt64
