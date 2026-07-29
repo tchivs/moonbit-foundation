@@ -1,74 +1,62 @@
 ---
 phase: 107
-fixed_at: 2026-07-29T13:35:55.5509321Z
+fixed_at: 2026-07-29T16:05:50Z
 review_path: .planning/phases/107-hostile-licensed-and-four-target-qualification/107-REVIEW.md
-iteration: 1
-findings_in_scope: 5
-fixed: 5
+iteration: 2
+findings_in_scope: 3
+fixed: 3
 skipped: 0
 status: all_fixed
 ---
 
 # Phase 107：代码审查修复报告
 
-**修复时间：** 2026-07-29T13:35:55.5509321Z  
+**修复时间：** 2026-07-29T16:05:50Z  
 **源审查：** `.planning/phases/107-hostile-licensed-and-four-target-qualification/107-REVIEW.md`  
-**迭代：** 1
+**迭代：** 2
 
 **摘要：**
 
-- 范围内问题：5
-- 已修复：5
+- 范围内问题：3
+- 已修复：3
 - 已跳过：0
+- 本轮复审重新编号如下：复审 CR-01 = 原 CR-02，复审 CR-02 = 原 CR-03，复审 CR-03 = 原 CR-05。提交消息沿用原始编号，便于与第一轮审查和修复历史对应。
 
 ## 已修复问题
 
-### CR-01：AFDKO 读取器把所有 CFF 都报告为 name-keyed，CID 证据与真实字体矛盾
-
-**状态：** fixed  
-**修改文件：** `.planning/phases/107-hostile-licensed-and-four-target-qualification/107-01-SUMMARY.md`, `.planning/phases/107-hostile-licensed-and-four-target-qualification/107-02-SUMMARY.md`, `fixtures/font/cff-oracle-tools.json`, `fixtures/font/source-han-serif-2.003r/qualification.json`, `fixtures/font/source-sans-3.052r/qualification.json`, `fixtures/manifest.json`, `policy/foundation.json`, `scripts/fixtures/Generate-FontQualification.ps1`, `scripts/fixtures/oracles/Invoke-AfdkoCffOracle.ps1`, `scripts/fixtures/oracles/fonttools_cff_oracle.py`, `scripts/quality/Assert-Policy.ps1`  
-**提交：** `dd3a7690`  
-**应用的修复：** AFDKO 适配器现在独立解析 CFF Top DICT，报告真实 name/CID keying、ROS、FD 数量、FD 覆盖、选定 FD 与 FDSelect 格式；两个读取器的 agreement projection 与 profile 校验都包含 keying/ROS，并重新生成许可字体资格、manifest 和策略身份。
-
-### CR-02：所谓 53 行 hostile/mutation 矩阵主要只是字符串和注释，并未逐行执行
+### CR-01（原 CR-02）：53 行 hostile coverage 仍由测试名推断，未逐行执行 canonical outcome
 
 **状态：** fixed: requires human verification  
-**修改文件：** `policy/foundation.json`, `scripts/quality/Invoke-FontQualification.ps1`  
-**提交：** `e97f206e`  
-**应用的修复：** 资格运行器从 canonical 53 行导出精确源测试绑定，逐行调用真实 MoonBit 测试，并把有序覆盖、实际通过状态以及 outcome/publication/B8 绑定写入每个目标记录；完整运行确认四个目标各有 53 行且没有未绑定或失败行。
+**修改文件：** `benchmarks/font-cff/generated_cff_evidence.mbt`, `fixtures/font/cff-qualification-cases.json`, `modules/mb-font/font/cff_hostile_fixture_wbtest.mbt`, `policy/foundation.json`, `scripts/quality/Invoke-FontQualification.ps1`  
+**提交：** `e00d3b62`  
+**应用的修复：** 新增 native hostile row observation tracer 和严格闭合 schema parser。53 个 canonical row 逐一执行真实入口，按唯一 row ID 校验 outcome、category、code、operation、payload、context、GID、publication 以及 caller/ancestor B8；runner 拒绝未知、重复、缺失和未绑定行，不再从共享测试名推断覆盖。四目标完整资格运行实际各捕获并绑定 53/53 行。
 
-### CR-03：基准“正确性 SHA-256”只散列工作负载标签，不散列字体运行结果
-
-**状态：** fixed: requires human verification  
-**修改文件：** `benchmarks/font-cff/cff_bench.mbt`, `benchmarks/font-cff/cff_qualification_wbtest.mbt`, `benchmarks/font-cff/generated_cff_evidence.mbt`, `docs/benchmarks/mb-font-cff-native-release-baseline.md`, `fixtures/font/cff-qualification-cases.json`, `policy/foundation.json`, `scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1`, `scripts/fixtures/Generate-FontQualification.ps1`, `scripts/fixtures/oracles/fonttools_cff_runtime_oracle.py`, `scripts/quality/Invoke-FontQualification.ps1`  
-**提交：** `9dcfea3e`, `016699b5`  
-**应用的修复：** MoonBit tracer 现在序列化实际 source/open 事实、scalar→GID、metrics、bounds、kerning，以及固定 GID 的全部 path command 和坐标；四个摘要由固定 fontTools 4.63.0 独立 oracle 校验。基准保存实际输出摘要，并以一次排除 warmup、七次保留采样重新原子记录当前 native 基线。
-
-### CR-04：四目标语义相等比较比较的是同一份期望数据，不是四个后端的观察结果
+### CR-02（原 CR-03）：baseline Record 仍复制 corpus 摘要，没有散列该次 benchmark 的实际输出
 
 **状态：** fixed: requires human verification  
-**修改文件：** `scripts/quality/Invoke-FontQualification.ps1`  
-**提交：** `74b84a48`  
-**应用的修复：** 每个 JS、Wasm、Wasm-GC 和 native 运行现在捕获并解析该后端产生的 closed-schema runtime observations；比较只移除 `target` 和 `runner` 元数据，保留并比较每个后端实际观察到的四个 runtime correctness 输出。
+**修改文件：** `benchmarks/font-cff/cff_bench.mbt`, `benchmarks/font-cff/cff_qualification_wbtest.mbt`, `benchmarks/font-cff/cff_runtime_semantics.mbt`, `benchmarks/font-cff/generated_cff_evidence.mbt`, `docs/benchmarks/mb-font-cff-native-release-baseline.md`, `fixtures/font/cff-qualification-cases.json`, `policy/foundation.json`, `scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1`, `scripts/fixtures/Generate-FontQualification.ps1`, `scripts/fixtures/oracles/fonttools_cff_runtime_oracle.py`, `scripts/quality/Assert-Policy.ps1`, `scripts/quality/Invoke-FontQualification.ps1`  
+**提交：** `7f4181ea`, `edb03d37`, `8b0b937e`  
+**应用的修复：** benchmark 在计时区间外使用共享 serializer 序列化同次 native workload 的实际 mappings、metrics、bounds 和完整 path commands/坐标，输出闭合的 `MNF_CFF_BENCH_CORRECTNESS` 记录；录制器严格解析并散列实际输出，与独立 corpus oracle 比较，且把共享 serializer 纳入 source identity。只执行一次 `-Record`，原子录制一次排除 warmup、七次保留 capture 的 observed baseline；随后只读 `-Audit` 验证 tracked inputs、workspace、raw hashes、采样集合和六项统计。
 
-### CR-05：许可资产、qualification 和 manifest 的“原子发布”无法抵抗进程终止
+### CR-03（原 CR-05）：可捕获的发布失败会删除已覆盖的 canonical qualification，造成数据丢失
 
-**状态：** fixed  
-**修改文件：** `modules/mb-font/font/cff_hostile_fixture_wbtest.mbt`, `policy/foundation.json`, `scripts/fixtures/Generate-FontQualification.ps1`, `scripts/quality/Assert-Policy.ps1`  
-**提交：** `935201a8`, `4dfa228f`  
-**应用的修复：** 许可 bundle、qualification 与 manifest 发布由同一 durable journal 覆盖；journal 使用 write-through、flush-to-disk 和原子替换，每个幂等发布步骤都会持久化进度，下一次入口先 roll-forward 并在完整 provenance CheckOnly 成功后清理。六个真实 `FailFast` 终止边界均验证了 journal 恢复、canonical 快照不变及无临时残留。
+**状态：** fixed: requires human verification  
+**修改文件：** `scripts/fixtures/Generate-FontQualification.ps1`  
+**提交：** `fd2c885a`  
+**应用的修复：** 两个 qualification 和 manifest 现在由同一个 durable journal transaction 发布。协议只允许三个精确目标，使用同卷 stage/backup，持久化旧/新 SHA-256 和步骤计数；进程终止后幂等 roll-forward，普通异常则逆序恢复并验证旧摘要。六个终止 failpoint 与三个普通异常 failpoint 均恢复成功，未留下 journal、stage、backup 或 rollback 残留。
 
 ## 验证
 
-- 生成器、oracle agreement/provenance、私有证据镜像、单 payload owner、许可 intake 和六个终止恢复边界均通过。
-- 基准 `-ContractOnly` 的 26 个负向探针通过；新 native baseline 原子记录完成，`-Audit` 验证 tracked inputs、workspace、raw hashes、一次排除 warmup、七次保留采样和六项统计通过。
-- `Assert-FontFoundationPolicy` 通过；Moon 检查为 34 个既有未使用警告、0 错误。
-- 完整四目标资格运行通过：JS、Wasm、Wasm-GC、native 各 `274/274`；每目标 53 个 hostile 行全部 passed 且 outcome/publication/B8 全绑定；四个 runtime workload 全部 observed。
-- 四目标比较为 `equal: true`，只规范化 `target,runner`，最终 semantic SHA-256 为 `b5cb31ba015d452fa3a36244408a5e512608632c2f07b8fa2d033461cc522933`。
-- 范围外的全仓 `Assert-FoundationPolicy` 当前仍报告 `tchivs/mb-core/math` imports 计数预期 1、实际 2；Phase 107 使用的字体专项策略门禁不受影响。
+- `Generate-FontQualification.ps1 -Check`、licensed intake、provenance、intake negatives、FontQualification `-ContractOnly`、CFF benchmark `-ContractOnly` 与 benchmark qualification contract probes 均通过。
+- hostile tracer 在 js、wasm、wasm-gc、native 四个目标各实际捕获 53/53 个唯一 row；缺失、重复、未知及字段篡改负向探针通过。
+- 正确性通道的四个 observed SHA-256 分别为 `175c0cf2f13f2abcb7f7de2f8e441e9356c0bc9068df2f0a1435177b8ee70e11`、`26029f450cca92ffbf4d9ce17822b6a17f9dedb0174cbc2e8b26d633b70a5ae5`、`48c7790a5567310e260779f0a2fe5cc703a5137a154738537ab264fb3d12105d`、`9dcb9a9ac2e9081e857f427c34de1e2b87be13457592dd4d4387d5cd767b02cb`，与独立 oracle 一致。
+- exactly one native baseline `-Record` 成功，baseline SHA-256 为 `7f087d42aded809d5d003cf7ae88da1cc12401226cf82f35de2b88757316dea9`；后续 `-Audit` 与 FontPolicy 均通过。
+- 完整四目标资格运行通过：js、wasm、wasm-gc、native 各 `275/275`，每目标 53/53 hostile row、4/4 runtime observation，0 errors。
+- 四目标 comparison 顺序严格为 `js, wasm, wasm-gc, native`，`equal: true`；最终 semantic SHA-256 为 `ba2bcccb84406e13ee5d0dd7ab74715a5d05877822fd3b03238965d8b0125089`。
+- 全目标 Moon 检查通过；输出仅含既有 unused/deprecated 警告，没有新增错误。
 
 ---
 
-_Fixed: 2026-07-29T13:35:55.5509321Z_  
+_Fixed: 2026-07-29T16:05:50Z_  
 _Fixer: the agent (gsd-code-fixer)_  
-_Iteration: 1_
+_Iteration: 2_
