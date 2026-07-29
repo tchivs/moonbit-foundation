@@ -95,6 +95,35 @@ $PrivateFocusedAssertions = @(
     name = 'font-cff1-v3 private mutation windows and atomic budgets'
   }
 )
+$HostileExecutionAssertions = [Collections.Generic.List[object]]::new()
+$hostileAssertionNames = [Collections.Generic.HashSet[string]]::new(
+  [StringComparer]::Ordinal
+)
+$hostileCases = Get-Content -Raw -LiteralPath (
+  Join-Path $RepositoryRoot 'fixtures/font/cff-qualification-cases.json'
+) | ConvertFrom-Json -Depth 100
+foreach ($group in @($hostileCases.hostile_groups)) {
+  foreach ($row in @($group.rows)) {
+    $match = [regex]::Match(
+      [string]$row.source,
+      '^modules/mb-font/(?<file>.+?):\d+:(?<name>.+)$'
+    )
+    if (-not $match.Success) {
+      throw "Hostile row source is not an executable mb-font assertion: $($row.id)"
+    }
+    $identity = $match.Groups['file'].Value + "`0" + $match.Groups['name'].Value
+    if ($hostileAssertionNames.Add($identity)) {
+      $HostileExecutionAssertions.Add([pscustomobject][ordered]@{
+        kind = 'private'
+        module = 'modules/mb-font'
+        file = $match.Groups['file'].Value
+        name = $match.Groups['name'].Value
+      })
+    }
+  }
+}
+$PrivateFocusedAssertions =
+  @($PrivateFocusedAssertions) + @($HostileExecutionAssertions)
 $FocusedAssertions = @($PublicEvidenceAssertions + $PrivateFocusedAssertions)
 
 $ProductionSourcePaths = @(
@@ -530,7 +559,14 @@ function Get-FontQualificationSemanticSections {
       b8_order = @($cases.b8_order)
       mutation_rows = @($mutationGroup[0].rows)
       precedence_cases = @($cases.precedence_cases)
-      assertions = @($PrivateFocusedAssertions | Select-Object -Last 2)
+      assertions = @(
+        $PrivateFocusedAssertions | Where-Object {
+          $_.name -cin @(
+            'font-cff1-v3 private hostile outcomes',
+            'font-cff1-v3 private mutation windows and atomic budgets'
+          )
+        }
+      )
     }
     glyf_compatibility_facts = [pscustomobject][ordered]@{
       lock_ids = @($cases.compatibility_lock_ids)
@@ -853,6 +889,52 @@ function Get-FontQualificationFocusedFacts {
   )
 }
 
+function Get-FontQualificationHostileExecutionCoverage {
+  param([Parameter(Mandatory)][object[]]$FocusedResults)
+
+  $cases = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'fixtures/font/cff-qualification-cases.json'
+  ) | ConvertFrom-Json -Depth 100
+  $coverage = [Collections.Generic.List[object]]::new()
+  foreach ($group in @($cases.hostile_groups)) {
+    foreach ($row in @($group.rows)) {
+      $match = [regex]::Match(
+        [string]$row.source,
+        '^modules/mb-font/(?<file>.+?):\d+:(?<name>.+)$'
+      )
+      if (-not $match.Success) {
+        throw "Hostile row source is not executable: $($row.id)"
+      }
+      $executions = @(
+        $FocusedResults | Where-Object {
+          $_.kind -ceq 'private' -and
+          $_.file -ceq $match.Groups['file'].Value -and
+          $_.name -ceq $match.Groups['name'].Value -and
+          $_.passed -eq $true -and
+          [int]$_.pass_total -eq 1
+        }
+      )
+      if ($executions.Count -ne 1) {
+        throw "Hostile row did not bind exactly one passed execution: $($row.id)"
+      }
+      $coverage.Add([pscustomobject][ordered]@{
+        id = [string]$row.id
+        source = [string]$row.source
+        assertion = [string]$executions[0].name
+        passed = $true
+        outcome_bound = $true
+        publication_bound = $true
+        b8_bound = $true
+      })
+    }
+  }
+  if ($coverage.Count -ne 53 -or
+      (@($coverage.id | Select-Object -Unique)).Count -ne 53) {
+    throw 'Hostile execution coverage is not the exact closed 53-row inventory.'
+  }
+  return @($coverage)
+}
+
 function New-FontQualificationRunnerFact {
   param(
     [Parameter(Mandatory)][string]$Target,
@@ -883,6 +965,9 @@ function New-FontQualificationRunnerFact {
     }
     check_command = "moon check benchmarks/font-cff --target $Target --frozen"
     focused_commands = $FocusedResults
+    hostile_row_coverage = @(
+      Get-FontQualificationHostileExecutionCoverage $FocusedResults
+    )
     full_package_command = $FullPackageCommand
     full_package_passed = $true
     full_package_pass_total = $FullPackagePassTotal
@@ -936,6 +1021,7 @@ function Assert-FontQualificationRunnerFact {
     'manifest_sha256',
     'check_command',
     'focused_commands',
+    'hostile_row_coverage',
     'full_package_command',
     'full_package_passed',
     'full_package_pass_total',
@@ -978,6 +1064,22 @@ function Assert-FontQualificationRunnerFact {
         [string]$results[$index].command -cnotmatch
           [regex]::Escape("--target $Target")) {
       throw "$Target focused assertion result drifted at $index."
+    }
+  }
+  $coverage = @($Runner.hostile_row_coverage)
+  if ($coverage.Count -ne 53) {
+    throw "$Target hostile execution coverage count drifted."
+  }
+  for ($index = 0; $index -lt $coverage.Count; $index++) {
+    Assert-FontQualificationClosedKeys $coverage[$index] @(
+      'id','source','assertion','passed','outcome_bound',
+      'publication_bound','b8_bound'
+    ) "$Target hostile coverage $index"
+    if ($coverage[$index].passed -ne $true -or
+        $coverage[$index].outcome_bound -ne $true -or
+        $coverage[$index].publication_bound -ne $true -or
+        $coverage[$index].b8_bound -ne $true) {
+      throw "$Target hostile coverage binding drifted at $index."
     }
   }
 }
