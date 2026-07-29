@@ -64,8 +64,8 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFF-01 | Phase 104 | Gaps Found |
-| CFF-02 | Phase 104 | Gaps Found |
+| CFF-01 | Phase 104 | Complete |
+| CFF-02 | Phase 104 | Complete |
 | T2-01 | Phase 105 | Complete |
 | T2-02 | Phase 105 | Complete |
 | CFF-03 | Phase 105 | Complete |
