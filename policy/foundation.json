@@ -2517,7 +2517,7 @@
         "qualification_tool_sources": [
           {"path":"scripts/fixtures/Generate-FontQualification.ps1","length":270788,"sha256":"a9303f03188bea2eb54efbc26cd783d9bf44d1099e2a8f32278870e5e70d4869"},
           {"path":"scripts/quality/Assert-Policy.ps1","length":248216,"sha256":"ad24c7f71fe96a0c0bb9b6f5eb761d8e3b06370da5d7e7ea37fcfa323c204594"},
-          {"path":"scripts/quality/Invoke-FontQualification.ps1","length":72960,"sha256":"39edaf444d91cf1b4ca716377eb21308ee1d94bbd3c2975a3ffdc30f67bb00a0"},
+          {"path":"scripts/quality/Invoke-FontQualification.ps1","length":73061,"sha256":"c15e6968bd42afd76c8757ad342ec537d6f1ff0c83beeef642d1d0af1db32d43"},
           {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":12116,"sha256":"816bcd7bd7e523cedfce14f7afce26bbd9858dcb907780aaeb4b972c3cdf9ad4"},
           {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":71451,"sha256":"6398d93d1061d5137f8455790c95a57c12580159b6439645690a2aed52027b00"},
           {"path":"scripts/quality/Test-BenchmarkQualification.ps1","length":8102,"sha256":"204901288f0b1691fe1ea0efd3e3ad3165c6349e094a20c3ffb26bbae14ffbec"}

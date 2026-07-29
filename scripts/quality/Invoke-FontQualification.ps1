@@ -364,10 +364,12 @@ function Get-FontQualificationSemanticSections {
     $fontPolicy[0].public_packages |
       Where-Object { $_.name -ceq 'tchivs/mb-font/font' }
   )
-  if ($fontPackage.Count -ne 1 -or
-      @($fontPackage[0].semantic_interface).Count -ne 85) {
-    throw 'Policy must retain the exact 85-line mb-font interface.'
+  if ($fontPackage.Count -ne 1) {
+    throw 'Policy must contain exactly one tchivs/mb-font/font package.'
   }
+  . (Join-Path $RepositoryRoot 'scripts/quality/Assert-Policy.ps1')
+  Assert-FontPhase108Surface `
+    -InterfaceLines @($fontPackage[0].semantic_interface)
   $fontManifest = Read-FontQualificationJson 'modules/mb-font/moon.mod.json'
   $evidenceManifest = Read-FontQualificationJson 'benchmarks/font-cff/moon.mod.json'
   $productionPackageText = Get-Content -Raw -LiteralPath (
@@ -556,7 +558,7 @@ function Get-FontQualificationSemanticSections {
     }
     boundary_facts = [pscustomobject][ordered]@{
       semantic_interface = @($fontPackage[0].semantic_interface)
-      semantic_interface_count = 85
+      semantic_interface_count = 89
       production_sources = @($ProductionSourcePaths)
       production_source_count = $ProductionSourcePaths.Count
       production_imports = @($ProductionImports)
@@ -1595,7 +1597,7 @@ function Invoke-FontQualificationContractNegatives {
     @{ Name = 'mutation'; Path = 'mutation_atomicity_facts.mutation_rows.0.context'; Value = 'drift' },
     @{ Name = 'glyf'; Path = 'glyf_compatibility_facts.lock_ids.0'; Value = 'drift' },
     @{ Name = 'workload'; Path = 'benchmark_correctness_facts.workloads.0.correctness_output_sha256'; Value = '00' },
-    @{ Name = 'API'; Path = 'boundary_facts.semantic_interface_count'; Value = 86 },
+    @{ Name = 'API'; Path = 'boundary_facts.semantic_interface_count'; Value = 90 },
     @{ Name = 'production import'; Path = 'dependency_facts.production.package_imports.0'; Value = 'other' },
     @{ Name = 'evidence import'; Path = 'dependency_facts.evidence_module.test_only_mb_core_imports.0'; Value = 'other' },
     @{ Name = 'source'; Path = 'source_identities.production.0.sha256'; Value = '00' },
