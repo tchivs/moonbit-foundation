@@ -5,15 +5,15 @@ milestone_name: CFF Outline Foundation
 current_phase: 107
 current_phase_name: hostile-licensed-and-four-target-qualification
 status: executing
-stopped_at: Completed 107-02-PLAN.md
-last_updated: "2026-07-29T03:09:31.549Z"
+stopped_at: Completed 107-03-PLAN.md
+last_updated: "2026-07-29T03:36:43.888Z"
 last_activity: 2026-07-29
 last_activity_desc: Phase 107 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 18
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 ## Current Position
 
 Phase: 107 (hostile-licensed-and-four-target-qualification) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-07-29 — Phase 107 execution started
 
-Progress: [████████░░] 78%
+Progress: [████████░░] 83%
 
 ## Milestone Metrics
 
@@ -78,6 +78,10 @@ Progress: [████████░░] 78%
 - [Phase 107]: Source Sans license bytes come from the exact official 3.052R tag because the official OTF archive omits a license member.
 - [Phase 107]: Semantic reader agreement normalizes only reader-specific contour-close rendering while validating keying and the complete CFF profile independently.
 - [Phase 107]: Upstream OTF and license records remain external/OFL-1.1; reconstructed qualification metadata is generated/Apache-2.0.
+- [Phase 107]: The evidence module is non-published, supports all four targets, and resolves tchivs/mb-font@0.1.0 only through explicit tracked workspace members under --frozen.
+- [Phase 107]: Each licensed CFF payload has exactly one package-private MoonBit literal owner, and every carrier accessor reuses that owner.
+- [Phase 107]: Wave 4 private regions remain generator-owned: absent markers are untouched in Plan 107-03, while present regions must byte-match canonical rendering.
+- [Phase 107]: Compatibility and workload facts are closed producer data, including workflow IDs, static-glyf locks, B8 ordering, targets, workloads, and precedence.
 
 ### Pending Todos
 
@@ -99,8 +103,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-29T03:09:31.528Z
-Stopped at: Completed 107-02-PLAN.md
+Last session: 2026-07-29T03:36:43.870Z
+Stopped at: Completed 107-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -129,3 +133,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 106 P03 | 31min | 2 tasks | 7 files |
 | Phase 107 P01 | 58min | 3 tasks | 9 files |
 | Phase 107 P02 | 13min | 3 tasks | 10 files |
+| Phase 107 P03 | 24min | 2 tasks | 5 files |
