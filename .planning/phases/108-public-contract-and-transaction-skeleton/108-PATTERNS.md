@@ -29,9 +29,9 @@ targeted source reads after the graph proved insufficient.
 | `modules/mb-core/README.mbt.md` | document new public checked/charge operations | config/docs | static | current module literate README | role match |
 | `modules/mb-core/CHANGELOG.md` | record candidate-compatible public additions | config/docs | static | current changelog entries | role match |
 | `modules/mb-font/font/font.mbt` | add private `GlyphId.owner`; preserve constructors/accessors/consumers | model/service | request-response | current `Font`, `GlyphId`, guarded queries | exact |
-| `modules/mb-font/font/shape_transaction.mbt` | public-abstract `FontShapeScope`; `Font::with_shape_transaction[T]`; private active/revision/charge state | provider/service | request-response callback transaction | `BudgetScope::with_depth[T]` + guarded font publication | role/data-flow composite |
-| `modules/mb-font/font/shape_transaction_test.mbt` | black-box scope, same-font alias, distinct-font, exact-fit/one-short tests | test | batch | `font_test.mbt` public contract tests | role match |
-| `modules/mb-font/font/shape_transaction_wbtest.mbt` | escaped-scope invalidation, named probes, combined-charge atomicity | test | event-driven/batch | `font_wbtest.mbt` mutation callback tests | exact probe pattern |
+| `modules/mb-font/font/shape_transaction.mbt` | public-abstract `FontShapeScope`; compile-proven `Font::with_shape_transaction[T]`; shared active cell, revision, and charge state | provider/service | request-response callback transaction | `BudgetScope::with_depth[T]` + guarded font publication | role/data-flow composite |
+| `modules/mb-font/font/shape_transaction_test.mbt` | black-box construction rejection surface, captured/returned-scope invalidation, same-font, exact-fit/one-short tests | test | batch | `font_test.mbt` public contract tests | role match |
+| `modules/mb-font/font/shape_transaction_wbtest.mbt` | shared-cell invalidation, named probes, combined-charge atomicity | test | event-driven/batch | `font_wbtest.mbt` mutation callback tests | exact probe pattern |
 | `modules/mb-font/README.mbt.md` | document owner-bound glyphs and opaque shaping scope without exposing internals | config/docs | static | existing retained-source/glyph sections | exact docs role |
 | `modules/mb-font/CHANGELOG.md` | record behavior-compatible glyph strengthening and new seam | config/docs | static | current candidate changelog | exact docs role |
 | `modules/mb-text/moon.mod.json` | module identity `tchivs/mb-text@0.1.0`, four targets, direct `mb-core` + `mb-font` deps | config | batch/build | `modules/mb-font/moon.mod.json`, `modules/mb-svg/moon.mod.json` | exact |
@@ -40,7 +40,7 @@ targeted source reads after the graph proved insufficient.
 | `modules/mb-text/text/moon.pkg` | imports font/budget/checked/error; four targets | config | batch/build | `modules/mb-font/font/moon.pkg` | exact |
 | `modules/mb-text/text/tags.mbt` | `ScriptTag`, `LanguageTag`, checked four-byte construction | model | transform | `FontLimits` private validated value | structural only |
 | `modules/mb-text/text/options.mbt` | `LanguageChoice`, `Direction`, `FeaturePolicy`, `ShapingOptions` | model | transform | `FontFaceProfile` closed enum + private values | role match |
-| `modules/mb-text/text/limits.mbt` | `ShapeLimits` private fields, nonzero constructor, named accessors | model/config | transform | `modules/mb-font/font/limits.mbt` | exact |
+| `modules/mb-text/text/limits.mbt` | exactly two private `UInt64` fields; validated nonzero `new`; input/output accessors only | model/config | transform | `modules/mb-font/font/limits.mbt` | exact |
 | `modules/mb-text/text/run.mbt` | `PositionedGlyph`, `ShapedRun`, `len`, `glyph_at`, metadata accessors | model | transform/indexed access | `FontCollection::face_profile` | exact access / role match |
 | `modules/mb-text/text/shape.mbt` | top-level `shape`; scalar snapshot; empty transaction; nonempty fail-closed; private projection/staging helpers | service/controller | request-response/transform | guarded Font/collection transactions | structural only |
 | `modules/mb-text/text/contract_test.mbt` | black-box public scalar/tag/limit/empty/run/same-font tests | test | batch | `font_test.mbt`, `budget_test.mbt` | role match |
@@ -396,10 +396,17 @@ match budget.charge(admission.charge) {
 Ok(font_from_admitted_facts(...))
 ```
 
-Implement a public-abstract type (public name, private fields) because a private
-type cannot occur in a cross-module public signature:
+Implement the following frozen public-abstract surface exactly:
 
 ```moonbit
+pub struct FontShapeScope {
+  // All fields private. No public constructor.
+}
+
+pub fn FontShapeScope::units_per_em(
+  self : FontShapeScope,
+) -> Result[UInt64, @error.CoreError]
+
 pub fn[T] Font::with_shape_transaction(
   self : Font,
   budget : @budget.Budget,
@@ -408,29 +415,51 @@ pub fn[T] Font::with_shape_transaction(
 ) -> Result[T, @error.CoreError]
 ```
 
-The first implementation task must compile-proof the exact tuple/generic
-syntax with the pinned toolchain. If the tuple spelling is rejected, replace
-only the private callback carrier; do not widen lifetime or add public
-`prepare`/`commit`.
+This exact nested tuple/`Result` callback compiled unchanged in the
+three-module scratch proof on `js`, `wasm`, `wasm-gc`, and `native`.
+`moon info --target all` emitted:
+
+```moonbit
+pub fn[T] Font::with_shape_transaction(
+  Self,
+  @budget.Budget,
+  (FontShapeScope) ->
+    Result[(T, @budget.ResourceCharge), @error.CoreError],
+) -> Result[T, @error.CoreError]
+```
+
+Do not add a separate callback outcome carrier or reopen the signature
+decision. The negative compile proof also fixes the visibility choice:
+`priv struct FontShapeScope` in the public signature fails with `E4046`, while
+external record-literal construction of the public-abstract type fails with
+`E4036`/`E4033`.
 
 Required private state and order:
 
-1. Shared private `active` state, `Font`, opening revision authority, and
-   immutable font-side charge facts.
-2. Every scope method checks active state first, then font revision.
+1. A shared private active cell, `Font`, opening revision authority, and
+   immutable font-side charge facts. All aliases/captured/returned copies must
+   observe the same cell.
+2. `units_per_em` is the only Phase 108 public scope query. It checks the
+   shared active cell first, then the retained-source revision.
 3. Entry revision guard occurs only after `mb-text` validates and snapshots all
    public input.
 4. Callback returns staged `T` plus text-side charge; it never charges.
-5. Harness uses `ResourceCharge::checked_add`, enforces semantic limits and
-   `Budget::preflight`, invokes `before_final_guard`, checks revision, calls
-   `Budget::charge` once, closes the scope, and returns `T`.
+5. Harness uses `ResourceCharge::checked_add`, enforces the two Phase 108
+   cardinality limits plus `Budget::preflight`, invokes `before_final_guard`,
+   checks revision, calls `Budget::charge` once, closes the scope, and returns
+   `T`.
 6. No fallible callback/publication work after the sole charge.
 
-An escaped scope may exist as a value but every later operation returns
-`State`, operation tied to the scope method, context
-`font-shape-scope-closed`. Expose no constructor, source bytes, table offsets,
-raw tables, layout profile, probe bundle, charge mutator, or commit method.
-`mb-font` must not import `mb-text`.
+The generic parameter does **not** statically prevent `T = FontShapeScope`;
+the pinned-toolchain proof intentionally returned the scope through `T`.
+Captured or returned scope values may therefore remain nominally present.
+`defer` must invalidate their shared active cell on every callback exit, after
+which every public scope operation returns exactly `State` / `InvalidRange`,
+operation `font-shape-scope`, context `font-shape-scope-closed`. This is a
+runtime usable-non-escape guarantee, not a compile-time lifetime guarantee.
+Expose no constructor, source bytes, table offsets, raw tables, layout
+profile, probe bundle, charge mutator, or commit method. `mb-font` must not
+import `mb-text`.
 
 **Mutation test pattern** (`modules/mb-font/font/font_wbtest.mbt:836`):
 
@@ -448,7 +477,8 @@ match result {
 Use private named callbacks at post-structure, post-capability,
 post-complete-staging, and before-final-guard seams. Each callback is followed
 immediately by a revision check. The public wrapper always supplies no-op
-callbacks.
+callbacks. Tests must cover both closure capture and returning the scope as
+generic `T`, then call `units_per_em` and assert the exact closed-scope error.
 
 ---
 
@@ -498,20 +528,34 @@ Apply as follows:
   There is no boolean for required LangSys behavior or supported `rlig`.
 - `ShapingOptions` privately composes script, language, direction, and feature
   policy, with named value accessors and no mutable setters/default inference.
-- `ShapeLimits` follows `FontLimits`: validate every required ceiling as
-  nonzero, return stable `InvalidInput`/`InvalidRange` with operation
-  `text-shape-limits-new` and per-field context, then expose named value
-  accessors.
+- `ShapeLimits` follows the private-field/validated-constructor shape of
+  `FontLimits`, but its Phase 108 surface is exactly:
 
-Freeze `ShapeLimits` groups now: input scalars; output glyphs; selected
-GSUB/GPOS/GDEF/legacy-kern bytes; script/LangSys/feature/reference counts;
-lookup/subtable/application/probe counts; coverage/class/range/cell counts;
-pair/ligature/component/substitution counts; positioning probes/adjustments;
-normalized/staging bytes; private/output allocation counts and maximum
-allocation size; total work; maximum absolute advance and x/y offset.
+```moonbit
+pub struct ShapeLimits {
+  priv max_input_scalars_value : UInt64
+  priv max_output_glyphs_value : UInt64
+}
 
-These are ceilings only. Do not add parsers, table models, or execution code
-for those groups in Phase 108.
+pub fn ShapeLimits::new(
+  max_input_scalars~ : UInt64,
+  max_output_glyphs~ : UInt64,
+) -> Result[ShapeLimits, @error.CoreError]
+
+pub fn ShapeLimits::max_input_scalars(self : ShapeLimits) -> UInt64
+pub fn ShapeLimits::max_output_glyphs(self : ShapeLimits) -> UInt64
+```
+
+Both constructor arguments are required and nonzero. Validate input first,
+then output. Zero returns `InvalidInput` / `InvalidRange`, operation
+`text-shape-limits-new`, requested `0`, limit `1`, and context
+`max-input-scalars` or `max-output-glyphs`.
+
+No `ShapeLimits::default`, setter, public field, `max_work`, layout byte/count
+limit, allocation limit, or numeric-magnitude limit belongs in Phase 108.
+Phase 109 owns any additive layout-limit design after its offset/cardinality/
+allocation research. It may extend the private representation while
+preserving this exact constructor and these two accessors.
 
 **Test style** (`modules/mb-font/font/font_test.mbt:19`):
 
@@ -521,9 +565,11 @@ inspect(limits.max_source_bytes(), content="1024")
 // assert every accessor
 ```
 
-Use one preservation test for every field and table-driven zero rejection for
-every required field. Test malformed tags, reserved language tags, and all
-closed enum choices in `contract_test.mbt`.
+Test exact preservation of both fields, zero input, zero output, and
+simultaneous zero values proving input validation wins. Also test that the
+generated public interface contains no default, `max_work`, layout,
+allocation, or numeric-magnitude limit. Test malformed tags, reserved language
+tags, and all closed enum choices in `contract_test.mbt`.
 
 ---
 
@@ -620,8 +666,8 @@ The implementation order is part of the public contract:
 7. Guard immediately after the capability probe.
 8. Stage logical records and checked charge facts.
 9. Guard after complete private staging.
-10. Enforce semantic ceilings and preflight the combined charge; failures are
-    `Resource`.
+10. Enforce `max_input_scalars`/`max_output_glyphs` and preflight the combined
+    charge; failures are `Resource`.
 11. Invoke the final probe and perform the final revision guard (`State`).
 12. Charge once and publish with no later fallible work.
 
@@ -705,6 +751,13 @@ Phase 108 generated facts must be repository-owned, deterministic, and
 table-only; they must not embed or parse GSUB/GPOS/GDEF/`kern` bytes. At
 minimum, freeze:
 
+- the exact two-field `ShapeLimits` constructor/accessors, both zero-error
+  contexts, input-before-output validation, and absence of default/layout/work
+  limit APIs;
+- closure-captured and generic-`T`-returned `FontShapeScope` values compile,
+  but `units_per_em` on either after callback return yields exactly
+  `State` / `InvalidRange`, operation `font-shape-scope`, context
+  `font-shape-scope-closed`;
 - LTR records A/B: advances `550, 500`, offsets `(+20,-10),(-30,+15)`,
   clusters `0,1`, total `1050`;
 - RTL publication B/A: advances `-500,-550`, identical offsets/clusters,
@@ -955,8 +1008,9 @@ after commit.
 
 - `*_test.mbt`: only public API, including interface-compatible glyph behavior,
   empty shaping, immutable access, and error tuples.
-- `*_wbtest.mbt`: private scope escape, mutation probes, generated logical
-  facts, precedence cross-products, arithmetic implementation invariants.
+- `*_wbtest.mbt`: nominal captured/returned scope escape followed by shared-cell
+  invalidation, mutation probes, generated logical facts, precedence
+  cross-products, arithmetic implementation invariants.
 - Generated fixture tables stay deterministic and test-only; production code
   must not read test sources or embed layout-table specimens.
 
@@ -969,6 +1023,8 @@ after commit.
    `outline` public signatures; same-font ownership is a private strengthening.
 3. Do not expose a prepared transaction, public commit, persistent layout
    profile/cache, source bytes, tables, offsets, lookups, probes, or raw arrays.
+   Do not claim that the generic callback statically prevents returning
+   `FontShapeScope`; only shared-cell invalidation removes its usable authority.
 4. Do not charge font and text stages separately. Compose immutable charges,
    preflight once, final-guard, and commit once.
 5. Do not reverse scalar input for RTL. Reverse final positioned records only;
@@ -981,8 +1037,9 @@ after commit.
 9. Do not return successful nonempty real-font shaping before layout
    admission; fail closed with `Capability`.
 10. Do not design or implement GSUB, GPOS, GDEF, or legacy `kern` selection,
-    parsing, normalization, or execution in Phase 108. Counts in `ShapeLimits`
-    are future ceilings, not permission to add format code.
+    parsing, normalization, or execution in Phase 108. Do not add their byte,
+    count, allocation, numeric-magnitude, or work limits to `ShapeLimits`;
+    Phase 109 owns that additive design.
 11. Do not add normalization, bidi analysis, grapheme/caret semantics,
     fallback, variation coordinates, arbitrary feature tags/values/ranges,
     vertical text, pixels, screen-axis conversion, UI, FFI, I/O, or registry
