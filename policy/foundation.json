@@ -2181,7 +2181,7 @@
       "name": "tchivs/mb-font",
       "path": "modules/mb-font",
       "version": "0.1.0",
-      "description": "Portable bounded standalone TrueType and TTC/OTC version 1/version 2 inspection with selected static-glyf admission, named metrics, deterministic Unicode mapping, legacy kerning, and transactional Path2 outlines for MoonBit Native Foundation.",
+      "description": "Portable bounded standalone and selected-collection static TrueType/CFF1 admission with TTC/OTC version 1/version 2 inspection, named metrics, deterministic Unicode mapping, legacy kerning, and transactional Path2 outlines for MoonBit Native Foundation.",
       "repository": "https://github.com/tchivs/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",
@@ -2421,7 +2421,7 @@
           "tchivs/mb-core/math"
         ],
         "production_sources": [
-          {"path":"modules/mb-font/moon.mod.json","length":565,"sha256":"c93c8d1390088b5eb877b00fef9de060e5370953d4b85f098a8e0f60cd4c868b"},
+          {"path":"modules/mb-font/moon.mod.json","length":576,"sha256":"9f1925d4d2c5a36403881fb31a147c25017e719d452acf537ae0d6e427d75826"},
           {"path":"modules/mb-font/font/moon.pkg","length":208,"sha256":"d32ba8b6dbd4a896bdb0730f5ec19bd908cd0825f9d69f1e5d77c9f0e8681a99"},
           {"path":"modules/mb-font/font/cmap.mbt","length":11577,"sha256":"541f6eea11991100a5d35f0f51ae6107d2effdd51868bd9a0bbc67d654009980"},
           {"path":"modules/mb-font/font/collection.mbt","length":6381,"sha256":"18bd0e7c57a6d59c8d9e8e3fe4885ac9be2565877c72f5c87d44d3a13cb4f4c9"},
@@ -2493,7 +2493,7 @@
         ],
         "qualification_tool_sources": [
           {"path":"scripts/fixtures/Generate-FontQualification.ps1","length":246872,"sha256":"b401a8e76f35041843a66d516521b937ff783b47a88a0580614b90c035930781"},
-          {"path":"scripts/quality/Assert-Policy.ps1","length":227398,"sha256":"485384e0c778d85a74b973401b497cd11fdf6526840adcbf4390ac2d624c3f02"},
+          {"path":"scripts/quality/Assert-Policy.ps1","length":228392,"sha256":"a62585bd40ad4489581a5eb1d57209e8604cedf71f226d77269a31c1a1ad6f5f"},
           {"path":"scripts/quality/Invoke-FontQualification.ps1","length":55092,"sha256":"8ab53d7915c9e780531989ed319f2373789095f9f39baa5e4fdc7a8d5d5f766d"},
           {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":10454,"sha256":"953e13afc353ad40a15282e1e6439876e4fbb0d1b51dcee7a4d5752a4f65eff4"}
         ],

@@ -3876,15 +3876,15 @@ function Assert-FontFoundationPolicy {
   $fontManifest = Read-QualityJson -Path (Join-Path $repoRoot 'modules/mb-font/moon.mod.json')
   Assert-Condition ($fontManifest.description -ceq $fontModule.description) 'Manifest description drift in modules/mb-font.'
   $expectedDescription = (
-    'Portable bounded standalone TrueType and TTC/OTC version 1/version 2 ' +
-    'inspection with selected static-glyf admission, named metrics, ' +
-    'deterministic Unicode mapping, legacy kerning, and transactional Path2 ' +
-    'outlines for MoonBit Native Foundation.'
+    'Portable bounded standalone and selected-collection static ' +
+    'TrueType/CFF1 admission with TTC/OTC version 1/version 2 inspection, ' +
+    'named metrics, deterministic Unicode mapping, legacy kerning, and ' +
+    'transactional Path2 outlines for MoonBit Native Foundation.'
   )
   Assert-Condition (
     $fontModule.description -ceq $expectedDescription -and
     $fontManifest.description -ceq $expectedDescription
-  ) 'Font policy and manifest descriptions must expose the Phase 103 collection contract.'
+  ) 'Font policy and manifest descriptions must expose the qualified static CFF1 contract.'
 
   $fontEdges = @($policy.allowed_dependency_edges | Where-Object { $_.from -ceq 'tchivs/mb-font' })
   Assert-ExactSet 'Font dependency edges' @($fontEdges.to) @('tchivs/mb-core')
@@ -3982,7 +3982,17 @@ function Assert-FontFoundationPolicy {
       'TTC/OTC versions 1 and 2',
       '757,428-byte',
       '833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b',
-      'artifacts/release-qualification/font-v2',
+      'artifacts/release-qualification/font-v3',
+      'font-complete-public-v3',
+      'Source Sans 3 3.052R',
+      'Source Han Serif JP 2.003R',
+      'fontTools-based reader',
+      'AFDKO-based reader',
+      'structural admission observation',
+      'non-published evidence module',
+      'package-private',
+      'contains no licensed CFF bytes',
+      'observation-only native baseline',
       'exactly four',
       'target',
       'runner',
@@ -3991,7 +4001,7 @@ function Assert-FontFoundationPolicy {
     )) {
     Assert-Condition (
       $readmeText.Contains($readmeFact, [StringComparison]::Ordinal)
-    ) "Font README Phase 103 fact drifted: $readmeFact"
+    ) "Font README qualified static CFF1 fact drifted: $readmeFact"
   }
   $outlineDataTaxonomy = [regex]::Match($readmeText, '(?ms)^- `Data`.*?(?=^- `Capability`)').Value
   $outlineResourceTaxonomy = [regex]::Match($readmeText, '(?ms)^- `Resource`.*?(?=^- `State`)').Value
@@ -4014,8 +4024,12 @@ function Assert-FontFoundationPolicy {
   Assert-Condition (
     $changelogText -cmatch 'TTC/OTC' -and
     $changelogText -cmatch '833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b' -and
-    $changelogText -cmatch 'font-complete-public-v2'
-  ) 'Font changelog must record the Phase 103 collection and evidence contract.'
+    $changelogText -cmatch 'font-complete-public-v3' -and
+    $changelogText -cmatch 'static CFF1' -and
+    $changelogText -cmatch 'Source Sans 3 3[.]052R' -and
+    $changelogText -cmatch 'Source Han\s+Serif JP 2[.]003R' -and
+    $changelogText -cmatch 'observation-only native baseline'
+  ) 'Font changelog must record the qualified static CFF1 and v3 evidence contract.'
 
   $licensePolicyText = Get-Content -Raw -LiteralPath (
     Join-Path $repoRoot 'docs/policies/licensing-and-fixtures.md'
@@ -4025,8 +4039,14 @@ function Assert-FontFoundationPolicy {
     $licensePolicyText -cmatch 'parent' -and
     $licensePolicyText -cmatch 'generator' -and
     $licensePolicyText -cmatch 'notice' -and
-    $licensePolicyText -cmatch 'redistribution_status'
-  ) 'Fixture policy must define the external derivative provenance rule.'
+    $licensePolicyText -cmatch 'redistribution_status' -and
+    $licensePolicyText -cmatch 'Source Sans 3 3[.]052R' -and
+    $licensePolicyText -cmatch 'Source Han Serif JP 2[.]003R' -and
+    $licensePolicyText -cmatch 'structural-only' -and
+    $licensePolicyText -cmatch 'non-published' -and
+    $licensePolicyText -cmatch 'package-private' -and
+    $licensePolicyText -cmatch 'contains no licensed CFF payload bytes'
+  ) 'Fixture policy must define external derivatives and qualified CFF1 evidence ownership.'
 
   $interfaceText = @($font.semantic_interface | ForEach-Object { [string]$_ })
   $privateLeakPattern = '(?i)(Cursor|TableWindow|TableRecord|DirectoryFacts|RequiredTableFacts|MetricIndexFacts|Collection(?:Face|Protected|Parse|Directory|Record|Range|Storage)Facts|Dsig(?:Record|Block|Payload)|CmapLookupFacts|CmapFormat4Facts|CmapFormat12Facts|KernState|KernFormat0Facts|SfntTag|RawOffset|WindowDescriptor|source_offset|retained_revision|mutation_revision|GlyphWindow|OutlinePoint|OutlineGeometry|F2Dot14|Composite(?:Placement|Descriptor|Parse|Frame|Classification)|OutlineWork|GraphColor|RealPoint|ImpliedPoint|PhantomPoint|Q15)'
