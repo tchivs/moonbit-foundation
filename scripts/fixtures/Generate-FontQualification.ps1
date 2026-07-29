@@ -67,7 +67,7 @@ $CffFontManifestPath = Join-Path $RepositoryRoot 'modules/mb-font/moon.mod.json'
 $CffCoreManifestSha256 =
   '70f253dec675d8309783bdcc7864faa65d1a5805179e68256ef67bba3d89862e'
 $CffFontManifestSha256 =
-  'c93c8d1390088b5eb877b00fef9de060e5370953d4b85f098a8e0f60cd4c868b'
+  '9f1925d4d2c5a36403881fb31a147c25017e719d452acf537ae0d6e427d75826'
 $CffFontPublicInterfaceSha256 =
   '59dd433ea85f4169d87d59bc5b4416564f32317656bca8ad987efce74c1b9153'
 
@@ -1663,7 +1663,7 @@ function Assert-CffGeneratedRecipeFacts {
   if ($name.mapping.scalar -ne 65 -or $name.mapping.gid -ne 1 -or
       $name.metric.advance -ne 600 -or $name.metric.lsb -ne 100 -or
       (@($name.bounds.x_min,$name.bounds.y_min,$name.bounds.x_max,$name.bounds.y_max) -join ',') -cne
-        '100,0,500,575' -or
+        '100,0,500,600' -or
       (@($name.path.op) -join ',') -cne 'MoveTo,LineTo,CubicTo,LineTo,Close') {
     throw 'Hand-derived generated name-keyed facts drifted.'
   }
@@ -4454,17 +4454,23 @@ function Set-CffPrivateEvidenceMirrors {
   $marker = 'font-cff1-v3 private hostile'
   $begin = "// $marker`:begin"
   $end = "// $marker`:end"
-  if ($text.Contains($begin, [StringComparison]::Ordinal) -or
-      $text.Contains($end, [StringComparison]::Ordinal)) {
-    throw 'Private hostile region already exists; materialization is one-shot.'
-  }
   $region = (@($begin) + $rows + @($end)) -join "`n"
+  $beginCount = ([regex]::Matches($text, [regex]::Escape($begin))).Count
+  $endCount = ([regex]::Matches($text, [regex]::Escape($end))).Count
+  if ($beginCount -eq 1 -and $endCount -eq 1) {
+    $pattern = [regex]::Escape($begin) + '(?s:.*?)' + [regex]::Escape($end)
+    $text = [regex]::Replace($text, $pattern, $region, 1)
+  } elseif ($beginCount -ne 0 -or $endCount -ne 0) {
+    throw 'Private hostile region markers are missing or duplicated.'
+  } else {
+    $text = $text.TrimEnd("`n") + "`n`n" + $region
+  }
   [IO.File]::WriteAllText(
     $path,
-    ($text.TrimEnd("`n") + "`n`n" + $region + "`n"),
+    ($text.TrimEnd("`n") + "`n"),
     $Utf8NoBom
   )
-  Write-Host 'CFF private hostile/mutation/B8 mirror facts materialized.'
+  Write-Host 'CFF private hostile/mutation/B8 mirror facts materialized or refreshed.'
 }
 
 function Assert-CffSinglePayloadOwner {

@@ -2448,7 +2448,7 @@
           {"path":"modules/mb-font/font/cff_admission_wbtest.mbt","length":21505,"sha256":"d05a558a1e168bf68945a34ddc863b8c520dbe08ceb50c150ab3b49bccea1b39"},
           {"path":"modules/mb-font/font/cff_cid_fixture_wbtest.mbt","length":12849,"sha256":"5ab7e149371167224bc6ee687e2cf182f3e4cb135daf010d1d9a590c0a2cc956"},
           {"path":"modules/mb-font/font/cff_dict_wbtest.mbt","length":12546,"sha256":"2aedbbe7de3ca86becfff10cf8639da94fd6aa93120647163a234bd4a9a56474"},
-          {"path":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt","length":57941,"sha256":"a54d36b21616847ebd5973696438b5d6cdfe97525b08aa44cbd16bba68059140"},
+          {"path":"modules/mb-font/font/cff_hostile_fixture_wbtest.mbt","length":57941,"sha256":"0790ea87bf8577e078b0fe9f20fdebe1e6b880716cf83765df9bddf4acc64f1c"},
           {"path":"modules/mb-font/font/cff_index_wbtest.mbt","length":2502,"sha256":"de9a109dfccf019788fb8c3fdc08fa118c50f68d892562cf84851c6dd297f004"},
           {"path":"modules/mb-font/font/cff_keying_wbtest.mbt","length":4735,"sha256":"599b30b2b30e68443b41f15d3c0db886c9d5503840f6a5bfae55ff1c37a52159"},
           {"path":"modules/mb-font/font/cff_name_keyed_fixture_wbtest.mbt","length":11274,"sha256":"ae5d5b0a4ac923fbbd1204892a2e99310f5d19eb7d0714733d683603a5841ef0"},
@@ -2469,14 +2469,14 @@
         "evidence_sources": [
           {"path":"benchmarks/font-cff/moon.mod.json","length":262,"sha256":"4103bc450bb8dec7708823d8dd60644d08fdd35a0850d826fce82342c940d018"},
           {"path":"benchmarks/font-cff/moon.pkg","length":256,"sha256":"a22026ab3a2d0a6cea938f029f56a511495234bb57fb62ba3fe2ad32d87b9218"},
-          {"path":"benchmarks/font-cff/generated_cff_evidence.mbt","length":26432203,"sha256":"48bec8cf25263521ca93ca0acda49f48f78ab43bbce48968ead9cd2856903135"},
-          {"path":"benchmarks/font-cff/cff_qualification_wbtest.mbt","length":14169,"sha256":"a7d5fd4310c8332adb0fccb72d607a362d6e312b5f1aae6334e50d21b08ace6e"},
+          {"path":"benchmarks/font-cff/generated_cff_evidence.mbt","length":26432208,"sha256":"5f0f1c3a4f6c997cd7ed36c4c4c9506e0e70bb6fb27aee6e1650b664ab282873"},
+          {"path":"benchmarks/font-cff/cff_qualification_wbtest.mbt","length":19010,"sha256":"adad9bd4f4cf958b50415b32d9c25c3c7e5f7f870e0e4769d4e342abbd090e3a"},
           {"path":"benchmarks/moon.work","length":139,"sha256":"2562fdf6d4dba04d48b32b207764edb6076c1772d0e53ef1e1712e82ebf93895"},
-          {"path":"benchmarks/font-cff/cff_bench.mbt","length":6881,"sha256":"11f57939dac0d327c65d7128fc2c0158803d3a36cad4ec40d8ebe9f8b0086ef8"}
+          {"path":"benchmarks/font-cff/cff_bench.mbt","length":6899,"sha256":"818f340695eca11bb23ce862f46f4b16a48c78d962386789368063f72e7a92f4"}
         ],
         "fixture_sources": [
           {"path":"fixtures/manifest.json","length":14222,"sha256":"1251a3c02a0ce98898fbab2445214a5a2b4af4319c117d26db34d706b8c0f890"},
-          {"path":"fixtures/font/cff-qualification-cases.json","length":49778,"sha256":"bd3aa34dfaae926737fd9a9e05bb8f029a85be037800cd22b39af2308c8da5ba"},
+          {"path":"fixtures/font/cff-qualification-cases.json","length":49782,"sha256":"50234e84df712df4842c871970dc78ce992ad504ae5169b6f5ae91f9eb65fc9a"},
           {"path":"fixtures/font/cff-oracle-tools.json","length":3644,"sha256":"d002025e3d01dca766db6c94f471711ef2997b7d4ef623e0afd3c7e459804349"},
           {"path":"fixtures/font/cff/host-toolchain.lock.json","length":2858,"sha256":"670a357041d61e8315f930e08951de878aca49d92f384824e8f759eeea221bc5"},
           {"path":"fixtures/font/source-sans-3.052r/SourceSans3-Regular.otf","length":334924,"sha256":"08df266400933d3178d081a45f94a08814c3e55b4b7dd2e0ff69cb1329f13ab6"},
@@ -2491,21 +2491,22 @@
           {"path":"scripts/fixtures/Test-CffQualificationTools.ps1","length":2588,"sha256":"164cff1d29c7efe16f67bda2fc6f767d7612a0a04e47d94d336613f9fe064b65"},
           {"path":"scripts/fixtures/Test-CffQualificationContracts.ps1","length":1620,"sha256":"92082502ea6b8b649085ade33ed74aa156b9f081290b2bbcffe01ef2ba06062f"},
           {"path":"scripts/fixtures/oracles/fonttools_cff_oracle.py","length":4023,"sha256":"56fb015bf2a424056134a3ca1c8610821972009938ed36585f8c8073a5f49179"},
+          {"path":"scripts/fixtures/oracles/fonttools_cff_runtime_oracle.py","length":4288,"sha256":"0e0cc3c12bcb6e4588ae0e6625ec18e9f6853ba6e8df5565310e10f2e87b5f2d"},
           {"path":"scripts/fixtures/oracles/Invoke-AfdkoCffOracle.ps1","length":17076,"sha256":"94fa3cda6068e8a48a2a43f781cc35fe0ff7054bd9ea8cb9751b5e1ce245b134"}
         ],
         "qualification_tool_sources": [
-          {"path":"scripts/fixtures/Generate-FontQualification.ps1","length":247947,"sha256":"91e9d2c270ac2e30b811dd59a842605c2b519ae9d8595336da70eb46c4753c37"},
-          {"path":"scripts/quality/Assert-Policy.ps1","length":230803,"sha256":"133e7b2c6851dc7dc64dd37369d2c5a87b34739a6dde8c0c5f9e09379686416e"},
-          {"path":"scripts/quality/Invoke-FontQualification.ps1","length":58765,"sha256":"f2c189cb9a8f947cb580dbf5ddf1b025edca4408f3c38e3c492fd7d00ee848e6"},
+          {"path":"scripts/fixtures/Generate-FontQualification.ps1","length":257080,"sha256":"abd693003cca56e4d769536171a51658a337f1c862a8bf6a62700503d6a05611"},
+          {"path":"scripts/quality/Assert-Policy.ps1","length":230869,"sha256":"19c4b2533bb9bcaefd746a63b81a037d27a736c91aad46467220cab71c69baf3"},
+          {"path":"scripts/quality/Invoke-FontQualification.ps1","length":62642,"sha256":"df5af5ec8c623f67685ff2801d0a41125a69c2127bd43b7b9c6be308f00be268"},
           {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":10454,"sha256":"953e13afc353ad40a15282e1e6439876e4fbb0d1b51dcee7a4d5752a4f65eff4"},
-          {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":66248,"sha256":"02ee9a2e651ad39c7a5d5fd2b3126be0d709526c4c02a7a03ec550afadb6a57b"},
+          {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":66250,"sha256":"8b95993b7b3dfa39ac77ebf5b3e9604e3a374cd67fd65b1347372e00eb562d06"},
           {"path":"scripts/quality/Test-BenchmarkQualification.ps1","length":8102,"sha256":"204901288f0b1691fe1ea0efd3e3ad3165c6349e094a20c3ffb26bbae14ffbec"}
         ],
         "native_benchmark_baseline": {
           "status": "recorded-observation-only",
           "path": "docs/benchmarks/mb-font-cff-native-release-baseline.md",
-          "length": 63370,
-          "sha256": "ca5fb247dceaeb63e15fec7d49b54803ca9134d1f4c686a30e58e44b7b811ce5",
+          "length": 63366,
+          "sha256": "723d04584f70c63732e4f23f9d8b78cb83aac64f2f17395f6ac657846a56a398",
           "schema_version": "mnf-mb-font-cff-native-baseline/1.0.0",
           "claim": "observation_only",
           "command": "moon -C benchmarks bench font-cff/cff_bench.mbt --release --target native --frozen",

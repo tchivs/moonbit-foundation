@@ -3158,6 +3158,7 @@ function Assert-FontQualificationV3PolicyContract {
       'scripts/fixtures/Test-CffQualificationTools.ps1',
       'scripts/fixtures/Test-CffQualificationContracts.ps1',
       'scripts/fixtures/oracles/fonttools_cff_oracle.py',
+      'scripts/fixtures/oracles/fonttools_cff_runtime_oracle.py',
       'scripts/fixtures/oracles/Invoke-AfdkoCffOracle.ps1'
     )
     qualification_tool_sources = @(
