@@ -25,7 +25,9 @@ foreach ($switchName in @(
     'CheckOracleAdapters',
     'CheckSchemaNegatives'
   )) {
-  & $generatorPath @{$switchName = $true}
+  $arguments = @{}
+  $arguments[$switchName] = $true
+  & $generatorPath @arguments
 }
 $after = @(
   (Get-FileHash -Algorithm SHA256 -LiteralPath $oracleToolsPath).Hash,

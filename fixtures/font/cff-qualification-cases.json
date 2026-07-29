@@ -1,0 +1,525 @@
+{
+  "schema": "cff-qualification-cases/1.0.0",
+  "license": "Apache-2.0",
+  "recipes": [
+    {
+      "id": "generated-name-keyed-cff1",
+      "origin": "project-generated",
+      "license": "Apache-2.0",
+      "format": "OTTO/CFF1/name-keyed",
+      "glyph_count": 3,
+      "deterministic_input": "name-keyed|cff1|3|U+0041=gid1|600,100|-40|100,0,500,575|M100,0;L200,500;C250,600,350,600,400,500;L500,0;Z",
+      "deterministic_sha256": "444b83e9a48548508cf54dcbe449657e57f9fb64123353e7b15114c537990257"
+    },
+    {
+      "id": "generated-cid-two-fd-cff1",
+      "origin": "project-generated",
+      "license": "Apache-2.0",
+      "format": "OTTO/CFF1/CID",
+      "glyph_count": 3,
+      "deterministic_input": "cid-two-fd|cff1|3|U+4E00=gid2|fd1|700,90|-24|90,0,610,700|M90,0;L240,700;C320,760,460,760,610,0;Z",
+      "deterministic_sha256": "fd5d317c1bf17636497acd6e697029754b0e2f4b28a570332de39a31182b5246"
+    },
+    {
+      "id": "generated-shared-cff-two-face",
+      "origin": "project-generated",
+      "license": "Apache-2.0",
+      "format": "OTC/CFF1/name-keyed/shared-table",
+      "glyph_count": 3,
+      "deterministic_input": "shared-cff|cff1|3|face0:A=gid1,600,100,-40|face1:B=gid1,720,80,25|same-cff",
+      "deterministic_sha256": "6c794b225feccd71231c08a6c72d73b3db555f94609ee4ba75f965ec15bbf767"
+    }
+  ],
+  "generated_workflows": [
+    {
+      "id": "generated-name-standalone",
+      "fixture_id": "generated-name-keyed-cff1",
+      "carrier": "standalone",
+      "face_index": null,
+      "recipe_id": "generated-name-keyed-cff1",
+      "expected_fact_id": "name-keyed-primary"
+    },
+    {
+      "id": "generated-name-selected-collection",
+      "fixture_id": "generated-name-keyed-cff1",
+      "carrier": "collection",
+      "face_index": 0,
+      "recipe_id": "generated-name-keyed-cff1",
+      "expected_fact_id": "name-keyed-primary"
+    },
+    {
+      "id": "generated-cid-standalone",
+      "fixture_id": "generated-cid-two-fd-cff1",
+      "carrier": "standalone",
+      "face_index": null,
+      "recipe_id": "generated-cid-two-fd-cff1",
+      "expected_fact_id": "cid-two-fd-primary"
+    },
+    {
+      "id": "generated-cid-selected-collection",
+      "fixture_id": "generated-cid-two-fd-cff1",
+      "carrier": "collection",
+      "face_index": 0,
+      "recipe_id": "generated-cid-two-fd-cff1",
+      "expected_fact_id": "cid-two-fd-primary"
+    },
+    {
+      "id": "generated-shared-cff-face-zero",
+      "fixture_id": "generated-shared-cff-two-face",
+      "carrier": "collection",
+      "face_index": 0,
+      "recipe_id": "generated-shared-cff-two-face",
+      "expected_fact_id": "shared-cff-face-zero"
+    },
+    {
+      "id": "generated-shared-cff-face-one",
+      "fixture_id": "generated-shared-cff-two-face",
+      "carrier": "collection",
+      "face_index": 1,
+      "recipe_id": "generated-shared-cff-two-face",
+      "expected_fact_id": "shared-cff-face-one"
+    }
+  ],
+  "expected_facts": [
+    {
+      "id": "name-keyed-primary",
+      "mapping": {
+        "scalar": 65,
+        "gid": 1,
+        "glyph_name": "A"
+      },
+      "environment": {
+        "keying": "name",
+        "key_value": 34,
+        "fd": null,
+        "local_subrs": 0,
+        "top_matrix_denominator": 1000,
+        "fd_matrix_magnitude": null
+      },
+      "metric": {
+        "advance": 600,
+        "lsb": 100
+      },
+      "kerning": -40,
+      "bounds": {
+        "x_min": 100,
+        "y_min": 0,
+        "x_max": 500,
+        "y_max": 575
+      },
+      "path": [
+        {
+          "op": "MoveTo",
+          "points": [
+            100,
+            0
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            200,
+            500
+          ]
+        },
+        {
+          "op": "CubicTo",
+          "points": [
+            250,
+            600,
+            350,
+            600,
+            400,
+            500
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            500,
+            0
+          ]
+        },
+        {
+          "op": "Close",
+          "points": []
+        }
+      ]
+    },
+    {
+      "id": "cid-two-fd-primary",
+      "mapping": {
+        "scalar": 19968,
+        "gid": 2,
+        "glyph_name": "cid00101"
+      },
+      "environment": {
+        "keying": "cid",
+        "key_value": 101,
+        "fd": 1,
+        "local_subrs": 0,
+        "top_matrix_denominator": 1000,
+        "fd_matrix_magnitude": 2
+      },
+      "metric": {
+        "advance": 700,
+        "lsb": 90
+      },
+      "kerning": -24,
+      "bounds": {
+        "x_min": 90,
+        "y_min": 0,
+        "x_max": 610,
+        "y_max": 700
+      },
+      "path": [
+        {
+          "op": "MoveTo",
+          "points": [
+            90,
+            0
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            240,
+            700
+          ]
+        },
+        {
+          "op": "CubicTo",
+          "points": [
+            320,
+            760,
+            460,
+            760,
+            610,
+            0
+          ]
+        },
+        {
+          "op": "Close",
+          "points": []
+        }
+      ]
+    },
+    {
+      "id": "shared-cff-face-zero",
+      "mapping": {
+        "scalar": 65,
+        "gid": 1,
+        "glyph_name": "A"
+      },
+      "environment": {
+        "keying": "name",
+        "key_value": 34,
+        "fd": null,
+        "local_subrs": 0,
+        "top_matrix_denominator": 1000,
+        "fd_matrix_magnitude": null
+      },
+      "metric": {
+        "advance": 600,
+        "lsb": 100
+      },
+      "kerning": -40,
+      "bounds": {
+        "x_min": 100,
+        "y_min": 0,
+        "x_max": 500,
+        "y_max": 575
+      },
+      "path": [
+        {
+          "op": "MoveTo",
+          "points": [
+            100,
+            0
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            200,
+            500
+          ]
+        },
+        {
+          "op": "CubicTo",
+          "points": [
+            250,
+            600,
+            350,
+            600,
+            400,
+            500
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            500,
+            0
+          ]
+        },
+        {
+          "op": "Close",
+          "points": []
+        }
+      ]
+    },
+    {
+      "id": "shared-cff-face-one",
+      "mapping": {
+        "scalar": 66,
+        "gid": 1,
+        "glyph_name": "A"
+      },
+      "environment": {
+        "keying": "name",
+        "key_value": 34,
+        "fd": null,
+        "local_subrs": 0,
+        "top_matrix_denominator": 1000,
+        "fd_matrix_magnitude": null
+      },
+      "metric": {
+        "advance": 720,
+        "lsb": 80
+      },
+      "kerning": 25,
+      "bounds": {
+        "x_min": 100,
+        "y_min": 0,
+        "x_max": 500,
+        "y_max": 575
+      },
+      "path": [
+        {
+          "op": "MoveTo",
+          "points": [
+            100,
+            0
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            200,
+            500
+          ]
+        },
+        {
+          "op": "CubicTo",
+          "points": [
+            250,
+            600,
+            350,
+            600,
+            400,
+            500
+          ]
+        },
+        {
+          "op": "LineTo",
+          "points": [
+            500,
+            0
+          ]
+        },
+        {
+          "op": "Close",
+          "points": []
+        }
+      ]
+    }
+  ],
+  "licensed_intake": [
+    {
+      "id": "source-sans-3.052R",
+      "family": "Source Sans 3",
+      "tag": "3.052R",
+      "archive": {
+        "url": "https://github.com/adobe-fonts/source-sans/releases/download/3.052R/OTF-source-sans-3.052R.zip",
+        "length": 2387997,
+        "sha256": "a4ebbdea20b08ccbd7bf3665a9462454eefdd01d9a6307129d3b3d4672981074"
+      },
+      "member": {
+        "path": "OTF/SourceSans3-Regular.otf",
+        "length": 334924,
+        "sha256": "08df266400933d3178d081a45f94a08814c3e55b4b7dd2e0ff69cb1329f13ab6"
+      },
+      "license_file": {
+        "path": "LICENSE.md",
+        "length": 4579,
+        "sha256": "89ad2c4f66dd29127527493e729c31e731f111cf10faf5774c3db9275ed0c22c"
+      },
+      "profile": {
+        "sfnt_flavor": "OTTO",
+        "cff_version": "1.0",
+        "keying": "name",
+        "glyph_count": 2478,
+        "fd_count": null,
+        "used_fds": [],
+        "local_subr_counts": [
+          648
+        ],
+        "global_subrs": 738,
+        "high_gid": null,
+        "high_gid_fd": null,
+        "high_gid_program_tokens": null
+      }
+    },
+    {
+      "id": "source-han-serif-jp-2.003R",
+      "family": "Source Han Serif JP",
+      "tag": "2.003R",
+      "archive": {
+        "url": "https://github.com/adobe-fonts/source-han-serif/releases/download/2.003R/12_SourceHanSerifJP.zip",
+        "length": 36831708,
+        "sha256": "c5a3bbc213980cea04932457899c9fc2da4784d3d1d7cae469c41909dd112230"
+      },
+      "member": {
+        "path": "SubsetOTF/JP/SourceHanSerifJP-Regular.otf",
+        "length": 6210796,
+        "sha256": "e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785"
+      },
+      "license_file": {
+        "path": "LICENSE.txt",
+        "length": 4463,
+        "sha256": "9ff5bb567e1b92c801fc1069e5fbf992ff8efccacb9db94e5959a5b3ba9bb903"
+      },
+      "profile": {
+        "sfnt_flavor": "OTTO",
+        "cff_version": "1.0",
+        "keying": "cid",
+        "glyph_count": 17923,
+        "fd_count": 18,
+        "used_fds": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "local_subr_counts": [
+          16,
+          46,
+          7,
+          2004,
+          39,
+          131,
+          0,
+          1,
+          7,
+          0,
+          0,
+          205,
+          21626,
+          237,
+          389,
+          17,
+          0,
+          231
+        ],
+        "global_subrs": 1599,
+        "high_gid": 17922,
+        "high_gid_fd": 17,
+        "high_gid_program_tokens": 136
+      }
+    }
+  ],
+  "public_workflow_ids": [
+    "generated-name-standalone",
+    "generated-name-selected-collection",
+    "generated-cid-standalone",
+    "generated-cid-selected-collection",
+    "generated-shared-cff-face-zero",
+    "generated-shared-cff-face-one",
+    "licensed-latin-standalone",
+    "licensed-latin-selected-collection",
+    "licensed-cjk-standalone",
+    "licensed-cjk-selected-collection",
+    "static-glyf-standalone",
+    "static-glyf-selected-collection"
+  ],
+  "compatibility_lock_ids": [
+    "static-glyf-standalone",
+    "static-glyf-selected-collection"
+  ],
+  "targets": [
+    "js",
+    "wasm",
+    "wasm-gc",
+    "native"
+  ],
+  "workloads": [
+    {
+      "id": "latin-full-admission",
+      "fixture_id": "source-sans-3.052R",
+      "operation": "full-admission",
+      "gids": [],
+      "correctness_input": "latin-full-admission|source-sans-3.052R|all-2478",
+      "correctness_input_sha256": "18ee23225ee236464bff292ecbb27b8730f0a91a61ef8580565d665e53b976f6",
+      "timing": false
+    },
+    {
+      "id": "cjk-full-admission",
+      "fixture_id": "source-han-serif-jp-2.003R",
+      "operation": "full-admission",
+      "gids": [],
+      "correctness_input": "cjk-full-admission|source-han-serif-jp-2.003R|all-17923",
+      "correctness_input_sha256": "9eb460dcf7adf96bf2c6ebd66a06b1ca50d21b17d2b6a4b1af118c222f6575f6",
+      "timing": false
+    },
+    {
+      "id": "latin-fixed-outline-batch",
+      "fixture_id": "source-sans-3.052R",
+      "operation": "outline-batch",
+      "gids": [
+        1,
+        2,
+        34,
+        97,
+        321,
+        1024,
+        2477
+      ],
+      "correctness_input": "latin-fixed-outline-batch|source-sans-3.052R|1,2,34,97,321,1024,2477",
+      "correctness_input_sha256": "1f9f7890822b2d92993527e3ce6138efc5d2a27b069b96f563bfa6c0fd15a3c5",
+      "timing": false
+    },
+    {
+      "id": "cjk-high-gid-multi-fd-outline-batch",
+      "fixture_id": "source-han-serif-jp-2.003R",
+      "operation": "outline-batch",
+      "gids": [
+        1,
+        256,
+        2048,
+        8192,
+        16384,
+        17922
+      ],
+      "correctness_input": "cjk-high-gid-multi-fd-outline-batch|source-han-serif-jp-2.003R|1,256,2048,8192,16384,17922",
+      "correctness_input_sha256": "99fbfaf050cb6182f3ea6f8217e33fabb7a22877009c61c4268a7a49263c48b0",
+      "timing": false
+    }
+  ],
+  "hostile_groups": [],
+  "precedence_cases": []
+}

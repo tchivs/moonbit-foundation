@@ -1,0 +1,107 @@
+{
+  "schema": "cff-oracle-tools/1.0.0",
+  "caller": {
+    "manifest_schema": "mnf-cff-host-toolchain-input/1.0.0",
+    "manifest_sha256": "6ff664ca0e03ae75388947a6dd4a80626d11cf61198ef2934d5808ef908ceaa9",
+    "sdk_inventory_sha256": "d4dcf1d9d1fae39bcd4f6e1daea4cea5e49d4a4da26b8d6fa1c0c6bef7f20e50",
+    "lock_sha256": "670a357041d61e8315f930e08951de878aca49d92f384824e8f759eeea221bc5"
+  },
+  "packages": [
+    {
+      "id": "fonttools",
+      "version": "4.63.0",
+      "role": "semantic",
+      "url": "https://files.pythonhosted.org/packages/87/36/cccb9bc2a6ab63d1b2980374f0dca72ce95ae267c9b4cfe77455bb70d0d4/fonttools-4.63.0-cp312-cp312-win_amd64.whl",
+      "length": 2343211,
+      "sha256": "59ac449f8cca9b4ffa08d2e7bbadad87ce710d69d1eda5c3c1ce579baa987272"
+    },
+    {
+      "id": "afdko",
+      "version": "5.0.1",
+      "role": "semantic",
+      "url": "https://files.pythonhosted.org/packages/de/08/0d5046bd4d4dfc10d0d44feb3fa44886fcf8fa55161f4a4721ea3b90c340/afdko-5.0.1-cp312-cp312-win_amd64.whl",
+      "length": 2721468,
+      "sha256": "c5aca7e9c8ed8ad3f411ba9e60cdcc5e820ca2326efc8332168fec995600c15a"
+    }
+  ],
+  "sources": [
+    {
+      "id": "ots",
+      "revision": "3b26b2e8b571a33739ee0c3553cb01c17ed62e23",
+      "role": "structural-only",
+      "url": "https://codeload.github.com/khaledhosny/ots/zip/3b26b2e8b571a33739ee0c3553cb01c17ed62e23",
+      "length": 46943415,
+      "sha256": "11e2c24e2c2d13627f389ca811041cb31022fe7747e5eb44ccff92757a6b63f1"
+    }
+  ],
+  "invoked_identities": [
+    {
+      "id": "runtime.cpython",
+      "sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a"
+    },
+    {
+      "id": "build.meson",
+      "sha256": "d2f83777719a8ac8ad24e1955f07112a1312f785a12977ba7c3bcda43cf316e8"
+    },
+    {
+      "id": "build.ninja",
+      "sha256": "cb4590bad18f01607e819908d536fba71afbe36eb0f1d5a13c60d88d635ca959"
+    },
+    {
+      "id": "compiler.c",
+      "sha256": "a8b7a614eeadd9105f814be3701a7f312cda4cea51751b75b408c16100c94e85"
+    },
+    {
+      "id": "compiler.cpp",
+      "sha256": "a8b7a614eeadd9105f814be3701a7f312cda4cea51751b75b408c16100c94e85"
+    },
+    {
+      "id": "linker",
+      "sha256": "ebc594a240cd325f1ea8b865ee88da0d004e94ea31eb1fc3f7f8f0ff8d93f58f"
+    },
+    {
+      "id": "ots-sanitize",
+      "sha256": "8c252e3b058972a299fa0d2ebe37b19c70e6aaf6be6db7c717fef2ce55067421"
+    },
+    {
+      "id": "fonttools-adapter",
+      "sha256": "3b9078807826b77437b8472a84012591d3203174b7cc644abff3234a47fd31eb"
+    },
+    {
+      "id": "afdko-adapter",
+      "sha256": "9bca4f8daa0e3eea94c814f62acd1489c17ff1e645e5d7eadad16cf49cc134d3"
+    },
+    {
+      "id": "tx-runner",
+      "sha256": "fafdca3f23da8b3bed17a6946c272b0c2f10a0ee733210d824fb07c84436c1d7"
+    }
+  ],
+  "invoked_identities_sha256": "5da3a3c6f295930a80eb14698d2a9ffc96fc35e4ed9f4326f460436cae79a4ca",
+  "adapters": [
+    {
+      "id": "fonttools",
+      "language": "python",
+      "backend": "fontTools.ttLib.TTFont",
+      "version": "4.63.0",
+      "sha256": "3b9078807826b77437b8472a84012591d3203174b7cc644abff3234a47fd31eb"
+    },
+    {
+      "id": "afdko",
+      "language": "powershell",
+      "backend": "tx",
+      "version": "5.0.1",
+      "sha256": "9bca4f8daa0e3eea94c814f62acd1489c17ff1e645e5d7eadad16cf49cc134d3"
+    }
+  ],
+  "structural_reader": {
+    "id": "ots",
+    "role": "structural-only",
+    "executable_sha256": "8c252e3b058972a299fa0d2ebe37b19c70e6aaf6be6db7c717fef2ce55067421"
+  },
+  "independence": {
+    "fonttools_forbidden_import": "afdko",
+    "afdko_forbidden_import": "fonttools",
+    "ots_semantic_oracle": false
+  },
+  "provisioning_validated": true
+}

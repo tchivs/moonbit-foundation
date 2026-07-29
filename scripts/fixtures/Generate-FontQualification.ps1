@@ -1084,6 +1084,523 @@ function Assert-FontQualificationOrderedKeys {
   }
 }
 
+function Assert-CffQualificationCanonicalJson {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    throw "$Label is missing: $Path"
+  }
+  $bytes = [IO.File]::ReadAllBytes($Path)
+  if ($bytes.Length -lt 2 -or
+      ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and
+        $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)) {
+    throw "$Label must be nonempty UTF-8 without BOM."
+  }
+  $strictUtf8 = [Text.UTF8Encoding]::new($false, $true)
+  $text = $strictUtf8.GetString($bytes)
+  if ($text.Contains("`r") -or -not $text.EndsWith("`n") -or
+      $text.EndsWith("`n`n")) {
+    throw "$Label must use canonical LF with exactly one final newline."
+  }
+  if (-not [Linq.Enumerable]::SequenceEqual(
+      [byte[]]$bytes,
+      [byte[]]$strictUtf8.GetBytes($text)
+    )) {
+    throw "$Label is not byte-canonical UTF-8."
+  }
+}
+
+function Assert-CffQualificationOrderedValues {
+  param(
+    [Parameter(Mandatory)][object[]]$Actual,
+    [Parameter(Mandatory)][object[]]$Expected,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  if (($Actual -join "`0") -cne ($Expected -join "`0")) {
+    throw "$Label membership or order drifted."
+  }
+}
+
+function Assert-CffQualificationSha256 {
+  param(
+    [AllowNull()][string]$Value,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  if ($Value -cnotmatch '^[0-9a-f]{64}$') {
+    throw "$Label is not a lowercase SHA-256."
+  }
+}
+
+function Get-CffQualificationTextSha256 {
+  param([Parameter(Mandatory)][string]$Text)
+  return Get-FontQualificationSha256 -Bytes $Utf8NoBom.GetBytes($Text)
+}
+
+function Read-CffQualificationJson {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  Assert-CffQualificationCanonicalJson $Path $Label
+  return Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json
+}
+
+function Assert-CffOracleToolsDocument {
+  param([Parameter(Mandatory)]$Document)
+
+  Assert-FontQualificationOrderedKeys $Document @(
+    'schema','caller','packages','sources','invoked_identities',
+    'invoked_identities_sha256','adapters','structural_reader','independence',
+    'provisioning_validated'
+  ) 'CFF oracle tools'
+  if ($Document.schema -cne 'cff-oracle-tools/1.0.0' -or
+      $Document.provisioning_validated -ne $true) {
+    throw 'CFF oracle tools header drifted.'
+  }
+
+  Assert-FontQualificationOrderedKeys $Document.caller @(
+    'manifest_schema','manifest_sha256','sdk_inventory_sha256','lock_sha256'
+  ) 'CFF oracle caller'
+  $lock = Get-Content -Raw -LiteralPath $CffHostLockPath | ConvertFrom-Json
+  if ($Document.caller.manifest_schema -cne $lock.approved_manifest_schema -or
+      $Document.caller.manifest_sha256 -cne $lock.approved_manifest_sha256 -or
+      $Document.caller.sdk_inventory_sha256 -cne $lock.sdk_inventory_sha256 -or
+      $Document.caller.lock_sha256 -cne
+        (Get-FontQualificationSha256 -Bytes ([IO.File]::ReadAllBytes($CffHostLockPath)))) {
+    throw 'CFF oracle caller digest set drifted.'
+  }
+  foreach ($name in @('manifest_sha256','sdk_inventory_sha256','lock_sha256')) {
+    Assert-CffQualificationSha256 ([string]$Document.caller.$name) "CFF oracle caller $name"
+  }
+
+  $packages = @($Document.packages)
+  Assert-CffQualificationOrderedValues @($packages.id) @('fonttools','afdko') 'CFF semantic packages'
+  if ($packages.Count -ne @($lock.semantic_readers).Count) {
+    throw 'CFF semantic package cardinality drifted.'
+  }
+  for ($index = 0; $index -lt $packages.Count; $index++) {
+    $package = $packages[$index]
+    $locked = $lock.semantic_readers[$index]
+    Assert-FontQualificationOrderedKeys $package @(
+      'id','version','role','url','length','sha256'
+    ) "CFF semantic package $index"
+    foreach ($name in @('id','version','role','url','length','sha256')) {
+      if ([string]$package.$name -cne [string]$locked.$name) {
+        throw "CFF semantic package $index $name drifted."
+      }
+    }
+    Assert-CffQualificationSha256 ([string]$package.sha256) "CFF semantic package $index"
+  }
+
+  $sources = @($Document.sources)
+  if ($sources.Count -ne 1) { throw 'Exactly one structural CFF reader source is required.' }
+  Assert-FontQualificationOrderedKeys $sources[0] @(
+    'id','revision','role','url','length','sha256'
+  ) 'CFF structural source'
+  $structural = $lock.structural_reader
+  foreach ($pair in @(
+      @('id','id'), @('revision','commit'), @('role','role'), @('url','url'),
+      @('length','length'), @('sha256','sha256')
+    )) {
+    if ([string]$sources[0].($pair[0]) -cne [string]$structural.($pair[1])) {
+      throw "CFF structural source $($pair[0]) drifted."
+    }
+  }
+
+  $invoked = @($Document.invoked_identities)
+  Assert-CffQualificationOrderedValues @($invoked.id) @(
+    'runtime.cpython','build.meson','build.ninja','compiler.c','compiler.cpp',
+    'linker','ots-sanitize','fonttools-adapter','afdko-adapter','tx-runner'
+  ) 'CFF invoked identities'
+  foreach ($identity in $invoked) {
+    Assert-FontQualificationOrderedKeys $identity @('id','sha256') "CFF invoked $($identity.id)"
+    Assert-CffQualificationSha256 ([string]$identity.sha256) "CFF invoked $($identity.id)"
+  }
+  Assert-CffQualificationSha256 ([string]$Document.invoked_identities_sha256) `
+    'CFF invoked identity-set digest'
+
+  $adapters = @($Document.adapters)
+  Assert-CffQualificationOrderedValues @($adapters.id) @('fonttools','afdko') 'CFF adapters'
+  $adapterPaths = @($CffFontToolsAdapterPath, $CffAfdkoAdapterPath)
+  for ($index = 0; $index -lt $adapters.Count; $index++) {
+    Assert-FontQualificationOrderedKeys $adapters[$index] @(
+      'id','language','backend','version','sha256'
+    ) "CFF adapter $index"
+    $actual = Get-FontQualificationSha256 -Bytes ([IO.File]::ReadAllBytes($adapterPaths[$index]))
+    if ($adapters[$index].sha256 -cne $actual -or
+        $adapters[$index].version -cne $packages[$index].version) {
+      throw "CFF adapter $index identity drifted."
+    }
+  }
+  if ($invoked[7].sha256 -cne $adapters[0].sha256 -or
+      $invoked[8].sha256 -cne $adapters[1].sha256) {
+    throw 'CFF adapter alias identity drifted.'
+  }
+
+  Assert-FontQualificationOrderedKeys $Document.structural_reader @(
+    'id','role','executable_sha256'
+  ) 'CFF structural reader'
+  if ($Document.structural_reader.id -cne 'ots' -or
+      $Document.structural_reader.role -cne 'structural-only' -or
+      $Document.structural_reader.executable_sha256 -cne $invoked[6].sha256) {
+    throw 'CFF structural reader authority drifted.'
+  }
+  Assert-FontQualificationOrderedKeys $Document.independence @(
+    'fonttools_forbidden_import','afdko_forbidden_import','ots_semantic_oracle'
+  ) 'CFF oracle independence'
+  if ($Document.independence.fonttools_forbidden_import -cne 'afdko' -or
+      $Document.independence.afdko_forbidden_import -cne 'fonttools' -or
+      $Document.independence.ots_semantic_oracle -ne $false) {
+    throw 'CFF oracle independence contract drifted.'
+  }
+}
+
+function Assert-CffQualificationCasesDocument {
+  param([Parameter(Mandatory)]$Document)
+
+  Assert-FontQualificationOrderedKeys $Document @(
+    'schema','license','recipes','generated_workflows','expected_facts',
+    'licensed_intake','public_workflow_ids','compatibility_lock_ids','targets',
+    'workloads','hostile_groups','precedence_cases'
+  ) 'CFF qualification cases'
+  if ($Document.schema -cne 'cff-qualification-cases/1.0.0' -or
+      $Document.license -cne 'Apache-2.0') {
+    throw 'CFF qualification cases header drifted.'
+  }
+
+  $recipes = @($Document.recipes)
+  Assert-CffQualificationOrderedValues @($recipes.id) @(
+    'generated-name-keyed-cff1','generated-cid-two-fd-cff1',
+    'generated-shared-cff-two-face'
+  ) 'CFF generated recipes'
+  foreach ($recipe in $recipes) {
+    Assert-FontQualificationOrderedKeys $recipe @(
+      'id','origin','license','format','glyph_count','deterministic_input',
+      'deterministic_sha256'
+    ) "CFF recipe $($recipe.id)"
+    if ($recipe.origin -cne 'project-generated' -or
+        $recipe.license -cne 'Apache-2.0' -or [int]$recipe.glyph_count -ne 3 -or
+        $recipe.deterministic_sha256 -cne
+          (Get-CffQualificationTextSha256 ([string]$recipe.deterministic_input))) {
+      throw "CFF recipe $($recipe.id) is not reproducible."
+    }
+  }
+
+  $workflowIds = @(
+    'generated-name-standalone','generated-name-selected-collection',
+    'generated-cid-standalone','generated-cid-selected-collection',
+    'generated-shared-cff-face-zero','generated-shared-cff-face-one'
+  )
+  $workflows = @($Document.generated_workflows)
+  Assert-CffQualificationOrderedValues @($workflows.id) $workflowIds 'CFF generated workflows'
+  foreach ($workflow in $workflows) {
+    Assert-FontQualificationOrderedKeys $workflow @(
+      'id','fixture_id','carrier','face_index','recipe_id','expected_fact_id'
+    ) "CFF workflow $($workflow.id)"
+    if ($workflow.carrier -cnotin @('standalone','collection') -or
+        $workflow.fixture_id -cne $workflow.recipe_id -or
+        $workflow.recipe_id -cnotin @($recipes.id)) {
+      throw "CFF workflow $($workflow.id) contract drifted."
+    }
+  }
+
+  $facts = @($Document.expected_facts)
+  Assert-CffQualificationOrderedValues @($facts.id) @(
+    'name-keyed-primary','cid-two-fd-primary','shared-cff-face-zero',
+    'shared-cff-face-one'
+  ) 'CFF expected facts'
+  foreach ($fact in $facts) {
+    Assert-FontQualificationOrderedKeys $fact @(
+      'id','mapping','environment','metric','kerning','bounds','path'
+    ) "CFF fact $($fact.id)"
+    Assert-FontQualificationOrderedKeys $fact.mapping @(
+      'scalar','gid','glyph_name'
+    ) "CFF fact $($fact.id) mapping"
+    Assert-FontQualificationOrderedKeys $fact.environment @(
+      'keying','key_value','fd','local_subrs','top_matrix_denominator',
+      'fd_matrix_magnitude'
+    ) "CFF fact $($fact.id) environment"
+    Assert-FontQualificationOrderedKeys $fact.metric @(
+      'advance','lsb'
+    ) "CFF fact $($fact.id) metric"
+    Assert-FontQualificationOrderedKeys $fact.bounds @(
+      'x_min','y_min','x_max','y_max'
+    ) "CFF fact $($fact.id) bounds"
+    if (@($fact.path).Count -eq 0 -or $fact.path[-1].op -cne 'Close') {
+      throw "CFF fact $($fact.id) path is incomplete."
+    }
+    foreach ($command in @($fact.path)) {
+      Assert-FontQualificationOrderedKeys $command @('op','points') `
+        "CFF fact $($fact.id) path command"
+      $expectedPointCount = switch ([string]$command.op) {
+        'MoveTo' { 2 }
+        'LineTo' { 2 }
+        'CubicTo' { 6 }
+        'Close' { 0 }
+        default { throw "CFF fact $($fact.id) has unknown path command." }
+      }
+      if (@($command.points).Count -ne $expectedPointCount) {
+        throw "CFF fact $($fact.id) path arity drifted."
+      }
+    }
+  }
+  foreach ($workflow in $workflows) {
+    if ($workflow.expected_fact_id -cnotin @($facts.id)) {
+      throw "CFF workflow $($workflow.id) references an unknown fact."
+    }
+  }
+
+  $licensed = @($Document.licensed_intake)
+  Assert-CffQualificationOrderedValues @($licensed.id) @(
+    'source-sans-3.052R','source-han-serif-jp-2.003R'
+  ) 'CFF licensed intake'
+  foreach ($record in $licensed) {
+    Assert-FontQualificationOrderedKeys $record @(
+      'id','family','tag','archive','member','license_file','profile'
+    ) "CFF licensed $($record.id)"
+    Assert-FontQualificationOrderedKeys $record.archive @(
+      'url','length','sha256'
+    ) "CFF licensed $($record.id) archive"
+    foreach ($partName in @('member','license_file')) {
+      Assert-FontQualificationOrderedKeys $record.$partName @(
+        'path','length','sha256'
+      ) "CFF licensed $($record.id) $partName"
+    }
+    Assert-FontQualificationOrderedKeys $record.profile @(
+      'sfnt_flavor','cff_version','keying','glyph_count','fd_count','used_fds',
+      'local_subr_counts','global_subrs','high_gid','high_gid_fd',
+      'high_gid_program_tokens'
+    ) "CFF licensed $($record.id) profile"
+    foreach ($part in @($record.archive, $record.member, $record.license_file)) {
+      if ([int64]$part.length -le 0) { throw "CFF licensed $($record.id) has empty input." }
+      Assert-CffQualificationSha256 ([string]$part.sha256) "CFF licensed $($record.id)"
+    }
+  }
+
+  Assert-CffQualificationOrderedValues @($Document.public_workflow_ids) @(
+    $workflowIds +
+    @('licensed-latin-standalone','licensed-latin-selected-collection',
+      'licensed-cjk-standalone','licensed-cjk-selected-collection',
+      'static-glyf-standalone','static-glyf-selected-collection')
+  ) 'CFF public workflow IDs'
+  Assert-CffQualificationOrderedValues @($Document.compatibility_lock_ids) @(
+    'static-glyf-standalone','static-glyf-selected-collection'
+  ) 'CFF compatibility lock IDs'
+  Assert-CffQualificationOrderedValues @($Document.targets) @(
+    'js','wasm','wasm-gc','native'
+  ) 'CFF targets'
+
+  $workloads = @($Document.workloads)
+  Assert-CffQualificationOrderedValues @($workloads.id) @(
+    'latin-full-admission','cjk-full-admission','latin-fixed-outline-batch',
+    'cjk-high-gid-multi-fd-outline-batch'
+  ) 'CFF workloads'
+  foreach ($workload in $workloads) {
+    Assert-FontQualificationOrderedKeys $workload @(
+      'id','fixture_id','operation','gids','correctness_input',
+      'correctness_input_sha256','timing'
+    ) "CFF workload $($workload.id)"
+    if ($workload.timing -ne $false -or
+        $workload.correctness_input_sha256 -cne
+          (Get-CffQualificationTextSha256 ([string]$workload.correctness_input))) {
+      throw "CFF workload $($workload.id) correctness identity drifted."
+    }
+  }
+  if (@($Document.hostile_groups).Count -ne 0 -or
+      @($Document.precedence_cases).Count -ne 0) {
+    throw 'Task 2 corpus must leave hostile groups exclusively to Task 3.'
+  }
+}
+
+function Assert-CffGeneratedRecipeFacts {
+  param([Parameter(Mandatory)]$Document)
+
+  $name = @($Document.expected_facts)[0]
+  if ($name.mapping.scalar -ne 65 -or $name.mapping.gid -ne 1 -or
+      $name.metric.advance -ne 600 -or $name.metric.lsb -ne 100 -or
+      (@($name.bounds.x_min,$name.bounds.y_min,$name.bounds.x_max,$name.bounds.y_max) -join ',') -cne
+        '100,0,500,575' -or
+      (@($name.path.op) -join ',') -cne 'MoveTo,LineTo,CubicTo,LineTo,Close') {
+    throw 'Hand-derived generated name-keyed facts drifted.'
+  }
+  $cid = @($Document.expected_facts)[1]
+  if ($cid.mapping.gid -ne 2 -or $cid.environment.key_value -ne 101 -or
+      $cid.environment.fd -ne 1 -or $cid.environment.local_subrs -ne 0 -or
+      $cid.environment.top_matrix_denominator -ne 1000 -or
+      $cid.environment.fd_matrix_magnitude -ne 2) {
+    throw 'Hand-derived generated CID facts drifted.'
+  }
+  $faceZero = @($Document.expected_facts)[2]
+  $faceOne = @($Document.expected_facts)[3]
+  if ($faceZero.mapping.scalar -eq $faceOne.mapping.scalar -or
+      $faceZero.metric.advance -eq $faceOne.metric.advance -or
+      $faceZero.metric.lsb -eq $faceOne.metric.lsb -or
+      $faceZero.kerning -eq $faceOne.kerning -or
+      (($faceZero.path | ConvertTo-Json -Depth 10 -Compress) -cne
+        ($faceOne.path | ConvertTo-Json -Depth 10 -Compress))) {
+    throw 'Shared-CFF faces do not preserve shared outlines and distinct face-local facts.'
+  }
+}
+
+function Assert-CffLicensedProducerInputs {
+  param([Parameter(Mandatory)]$Document)
+
+  $latin = @($Document.licensed_intake)[0]
+  if ($latin.archive.length -ne 2387997 -or
+      $latin.member.length -ne 334924 -or $latin.license_file.length -ne 4579 -or
+      $latin.profile.keying -cne 'name' -or $latin.profile.glyph_count -ne 2478 -or
+      $latin.profile.local_subr_counts[0] -ne 648 -or
+      $latin.profile.global_subrs -ne 738) {
+    throw 'Source Sans producer inputs drifted.'
+  }
+  $cjk = @($Document.licensed_intake)[1]
+  if ($cjk.archive.length -ne 36831708 -or
+      $cjk.member.length -ne 6210796 -or $cjk.license_file.length -ne 4463 -or
+      $cjk.profile.keying -cne 'cid' -or $cjk.profile.glyph_count -ne 17923 -or
+      $cjk.profile.fd_count -ne 18 -or
+      (@($cjk.profile.used_fds) -join ',') -cne ((0..17) -join ',') -or
+      (@($cjk.profile.local_subr_counts) -join ',') -cne
+        '16,46,7,2004,39,131,0,1,7,0,0,205,21626,237,389,17,0,231' -or
+      $cjk.profile.global_subrs -ne 1599 -or $cjk.profile.high_gid -ne 17922 -or
+      $cjk.profile.high_gid_fd -ne 17 -or $cjk.profile.high_gid_program_tokens -ne 136) {
+    throw 'Source Han producer inputs drifted.'
+  }
+}
+
+function Assert-CffOracleAdapterIndependence {
+  $fontToolsSource = Get-Content -Raw -LiteralPath $CffFontToolsAdapterPath
+  $afdkoSource = Get-Content -Raw -LiteralPath $CffAfdkoAdapterPath
+  if ($fontToolsSource -match '(?im)^\s*(from|import)\s+afdko\b') {
+    throw 'fontTools adapter aliases the AFDKO semantic backend.'
+  }
+  if ($afdkoSource -match '(?im)\bfonttools\b') {
+    throw 'AFDKO adapter aliases the fontTools semantic backend.'
+  }
+}
+
+function Copy-CffQualificationDocument {
+  param([Parameter(Mandatory)]$Document)
+  return ($Document | ConvertTo-Json -Depth 100) | ConvertFrom-Json
+}
+
+function Assert-CffQualificationExpectedFailure {
+  param(
+    [Parameter(Mandatory)][scriptblock]$Action,
+    [Parameter(Mandatory)][string]$Label
+  )
+  $failed = $false
+  try { & $Action } catch { $failed = $true }
+  if (-not $failed) { throw "CFF schema negative unexpectedly passed: $Label" }
+}
+
+function Invoke-CffQualificationSchemaNegatives {
+  param(
+    [Parameter(Mandatory)]$Tools,
+    [Parameter(Mandatory)]$Cases
+  )
+
+  $originalCulture = [Globalization.CultureInfo]::CurrentCulture
+  $originalUiCulture = [Globalization.CultureInfo]::CurrentUICulture
+  try {
+    [Globalization.CultureInfo]::CurrentCulture =
+      [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    [Globalization.CultureInfo]::CurrentUICulture =
+      [Globalization.CultureInfo]::GetCultureInfo('tr-TR')
+    Assert-CffOracleToolsDocument $Tools
+    Assert-CffQualificationCasesDocument $Cases
+  } finally {
+    [Globalization.CultureInfo]::CurrentCulture = $originalCulture
+    [Globalization.CultureInfo]::CurrentUICulture = $originalUiCulture
+  }
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy.PSObject.Properties.Remove('license')
+  Assert-CffQualificationExpectedFailure { Assert-CffQualificationCasesDocument $copy } `
+    'missing top-level key'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy | Add-Member -NotePropertyName unexpected -NotePropertyValue $true
+  Assert-CffQualificationExpectedFailure { Assert-CffQualificationCasesDocument $copy } `
+    'extra top-level key'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy.recipes[1].id = $copy.recipes[0].id
+  Assert-CffQualificationExpectedFailure { Assert-CffQualificationCasesDocument $copy } `
+    'duplicate recipe ID'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy.targets = @('wasm','js','wasm-gc','native')
+  Assert-CffQualificationExpectedFailure { Assert-CffQualificationCasesDocument $copy } `
+    'reordered target ID'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $copy.workloads = @($copy.workloads | Select-Object -SkipLast 1)
+  Assert-CffQualificationExpectedFailure { Assert-CffQualificationCasesDocument $copy } `
+    'missing workload ID'
+
+  $copy = Copy-CffQualificationDocument $Cases
+  $reordered = [ordered]@{}
+  foreach ($name in @(
+      'license','schema','recipes','generated_workflows','expected_facts',
+      'licensed_intake','public_workflow_ids','compatibility_lock_ids','targets',
+      'workloads','hostile_groups','precedence_cases'
+    )) {
+    $reordered[$name] = $copy.$name
+  }
+  Assert-CffQualificationExpectedFailure { Assert-CffQualificationCasesDocument $reordered } `
+    'reordered schema keys'
+
+  $copy = Copy-CffQualificationDocument $Tools
+  $copy.adapters[1].sha256 = $copy.adapters[0].sha256
+  Assert-CffQualificationExpectedFailure { Assert-CffOracleToolsDocument $copy } `
+    'adapter alias'
+
+  $copy = Copy-CffQualificationDocument $Tools
+  $copy.packages[0].version = '4.62.0'
+  Assert-CffQualificationExpectedFailure { Assert-CffOracleToolsDocument $copy } `
+    'tool substitution'
+
+  $copy = Copy-CffQualificationDocument $Tools
+  $copy.schema = 'cff-oracle-tools/0.0.0'
+  Assert-CffQualificationExpectedFailure { Assert-CffOracleToolsDocument $copy } `
+    'oracle schema drift'
+}
+
+function Invoke-CffQualificationContractCheck {
+  param(
+    [switch]$Contracts,
+    [switch]$GeneratedRecipes,
+    [switch]$OracleAdapters,
+    [switch]$SchemaNegatives
+  )
+
+  $tools = Read-CffQualificationJson $CffOracleToolsPath 'CFF oracle tools'
+  $cases = Read-CffQualificationJson $CffQualificationCasesPath 'CFF qualification cases'
+  if ($Contracts) {
+    Assert-CffOracleToolsDocument $tools
+    Assert-CffQualificationCasesDocument $cases
+    Assert-CffLicensedProducerInputs $cases
+  }
+  if ($GeneratedRecipes) {
+    Assert-CffQualificationCasesDocument $cases
+    Assert-CffGeneratedRecipeFacts $cases
+  }
+  if ($OracleAdapters) {
+    Assert-CffOracleToolsDocument $tools
+    Assert-CffOracleAdapterIndependence
+  }
+  if ($SchemaNegatives) {
+    Invoke-CffQualificationSchemaNegatives $tools $cases
+  }
+  Write-Host 'CFF canonical qualification contract verification passed.'
+}
+
 function Get-FontCollectionQualificationExpectedIds {
   $fixtureIds = @(
     'generated-ttc-v1-static-selected',
@@ -2651,6 +3168,16 @@ function Test-FontQualificationInputs {
 
 if ($CheckGeneratedTracer) {
   Invoke-CffGeneratedTracerCheck
+  return
+}
+
+if ($CheckContracts -or $CheckGeneratedRecipes -or $CheckOracleAdapters -or
+    $CheckSchemaNegatives) {
+  Invoke-CffQualificationContractCheck `
+    -Contracts:$CheckContracts `
+    -GeneratedRecipes:$CheckGeneratedRecipes `
+    -OracleAdapters:$CheckOracleAdapters `
+    -SchemaNegatives:$CheckSchemaNegatives
   return
 }
 
