@@ -1533,6 +1533,7 @@ function Invoke-CffBenchmarkSyntheticPostProcessing {
   }
   try {
     Write-CffBenchmarkDocumentAtomically $evidence $destination
+    Write-CffBenchmarkDocumentAtomically $evidence $destination
     $document = $utf8.GetString([IO.File]::ReadAllBytes($destination))
     Test-CffBenchmarkDocument $document
     $bytes = [IO.File]::ReadAllBytes($destination)
@@ -1747,18 +1748,22 @@ function Write-CffBenchmarkDocumentAtomically(
     '.' + [IO.Path]::GetFileNameWithoutExtension($Destination) + '.' +
     [guid]::NewGuid().ToString('N') + '.tmp'
   )
+  $backupPath = $tempPath + '.bak'
   try {
     [IO.File]::WriteAllText($tempPath, $document, $utf8)
     $roundTrip = $utf8.GetString([IO.File]::ReadAllBytes($tempPath))
     Test-CffBenchmarkDocument $roundTrip
     if (Test-Path -LiteralPath $Destination) {
-      [IO.File]::Replace($tempPath, $Destination, $null)
+      [IO.File]::Replace($tempPath, $Destination, $backupPath, $true)
     } else {
       [IO.File]::Move($tempPath, $Destination)
     }
   } finally {
     if (Test-Path -LiteralPath $tempPath) {
       Remove-Item -LiteralPath $tempPath -Force
+    }
+    if (Test-Path -LiteralPath $backupPath) {
+      Remove-Item -LiteralPath $backupPath -Force
     }
   }
 }
