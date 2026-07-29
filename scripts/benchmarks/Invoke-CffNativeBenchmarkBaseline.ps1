@@ -947,21 +947,22 @@ function New-CffBenchmarkDocument([object]$Evidence) {
   Add-CffBenchmarkLine $builder ''
   $audit = [ordered]@{}
   foreach ($key in $Evidence.Keys) {
-    if ($key -cne 'runs') {
+    if ($key -ceq 'runs') {
+      $audit[$key] = @($Evidence.runs | ForEach-Object {
+        [ordered]@{
+          id = $_.id
+          label = $_.label
+          started_utc = $_.started_utc
+          ended_utc = $_.ended_utc
+          exit_code = $_.exit_code
+          output_sha256 = $_.output_sha256
+          summaries = $_.summaries
+        }
+      })
+    } else {
       $audit[$key] = $Evidence[$key]
     }
   }
-  $audit.runs = @($Evidence.runs | ForEach-Object {
-    [ordered]@{
-      id = $_.id
-      label = $_.label
-      started_utc = $_.started_utc
-      ended_utc = $_.ended_utc
-      exit_code = $_.exit_code
-      output_sha256 = $_.output_sha256
-      summaries = $_.summaries
-    }
-  })
   Add-CffBenchmarkLine $builder '<!-- CFF-BASELINE-DATA'
   Add-CffBenchmarkLine $builder (Convert-CffBenchmarkAsciiJson $audit)
   Add-CffBenchmarkLine $builder '-->'
@@ -1035,12 +1036,6 @@ function New-CffBenchmarkRenderedEvidence(
   [object]$Data,
   [object[]]$Sections
 ) {
-  $evidence = [ordered]@{}
-  foreach ($property in $Data.PSObject.Properties) {
-    if ($property.Name -cne 'runs') {
-      $evidence[$property.Name] = $property.Value
-    }
-  }
   $runs = @()
   for ($index = 0; $index -lt $Data.runs.Count; $index++) {
     $run = [ordered]@{}
@@ -1058,7 +1053,14 @@ function New-CffBenchmarkRenderedEvidence(
       $Sections[$index].body "$($run.id)"
     $runs += $run
   }
-  $evidence.runs = $runs
+  $evidence = [ordered]@{}
+  foreach ($property in $Data.PSObject.Properties) {
+    $evidence[$property.Name] = if ($property.Name -ceq 'runs') {
+      $runs
+    } else {
+      $property.Value
+    }
+  }
   $evidence
 }
 
@@ -1538,6 +1540,13 @@ function Invoke-CffBenchmarkContractOnly {
   $parsed = Convert-CffBenchmarkOutput $evidence.runs[0].output
   Assert-CffBenchmarkExactSequence 'Synthetic parser workloads' `
     @($parsed.name) $workloadNames
+  $document = New-CffBenchmarkDocument $evidence
+  $roundTripData = Get-CffBenchmarkAuditData $document
+  $roundTripSections = @(Get-CffBenchmarkVisibleSections $document)
+  $roundTripEvidence = New-CffBenchmarkRenderedEvidence `
+    $roundTripData $roundTripSections
+  Assert-CffBenchmarkEvidence $roundTripEvidence
+  Assert-CffBenchmarkVisibleDocument $document $roundTripEvidence
   $negatives = @(
     @('workspace-order', { param($e) [Array]::Reverse($e.workspace.member_order) }, 'workspace evidence members'),
     @('external-fallback', { param($e) $e.workspace.resolution.local = $false }, 'tracked-local workspace'),
