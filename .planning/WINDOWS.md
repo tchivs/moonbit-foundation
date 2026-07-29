@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 45
+open_count: 50
 waived_count: 0
 fixed_count: 3
-total_count: 48
-last_updated: 2026-07-29T05:32:44.798Z
+total_count: 53
+last_updated: 2026-07-29T06:48:23.110Z
 ---
 
 # Broken Windows Ledger
@@ -63,6 +63,11 @@ last_updated: 2026-07-29T05:32:44.798Z
 | 46 | 107 | deviation | scripts/fixtures/Generate-FontQualification.ps1 |  | Added exact one-shot materializers for planned private evidence regions | open |  | 2026-07-29T05:31:40.166Z |  |
 | 47 | 107 | deviation | modules/mb-font/font/cff_type2_fixture_wbtest.mbt |  | Replaced backend-specific Array capacity lock with portable live-frame semantics | open |  | 2026-07-29T05:31:40.662Z |  |
 | 48 | 107 | deviation | .planning/STATE.md |  | Normalized stale SDK-generated Phase 107 Plan 04 execution metadata | open |  | 2026-07-29T05:32:44.798Z |  |
+| 49 | 107 | deviation | .planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md |  | Corrected PowerShell array composition in focused assertions | open |  | 2026-07-29T06:47:16.409Z |  |
+| 50 | 107 | deviation | .planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md |  | Refreshed the live Phase 103 collection corpus semantic lock | open |  | 2026-07-29T06:47:16.998Z |  |
+| 51 | 107 | deviation | .planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md |  | Removed a false-positive CFF2 flow heuristic | open |  | 2026-07-29T06:47:17.594Z |  |
+| 52 | 107 | deviation | .planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md |  | Synchronized documentation changes with exact policy file identities | open |  | 2026-07-29T06:47:18.126Z |  |
+| 53 | 107 | deviation | .planning/STATE.md |  | Normalized stale SDK-generated Phase 107 Plan 05 execution metadata | open |  | 2026-07-29T06:48:23.110Z |  |
 
 ````json
 [
@@ -640,6 +645,66 @@ last_updated: 2026-07-29T05:32:44.798Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-29T05:32:44.798Z",
+    "resolved_at": null
+  },
+  {
+    "id": 49,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md",
+    "line": null,
+    "description": "Corrected PowerShell array composition in focused assertions",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T06:47:16.409Z",
+    "resolved_at": null
+  },
+  {
+    "id": 50,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md",
+    "line": null,
+    "description": "Refreshed the live Phase 103 collection corpus semantic lock",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T06:47:16.998Z",
+    "resolved_at": null
+  },
+  {
+    "id": 51,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md",
+    "line": null,
+    "description": "Removed a false-positive CFF2 flow heuristic",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T06:47:17.594Z",
+    "resolved_at": null
+  },
+  {
+    "id": 52,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".planning/phases/107-hostile-licensed-and-four-target-qualification/107-05-SUMMARY.md",
+    "line": null,
+    "description": "Synchronized documentation changes with exact policy file identities",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T06:47:18.126Z",
+    "resolved_at": null
+  },
+  {
+    "id": 53,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized stale SDK-generated Phase 107 Plan 05 execution metadata",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T06:48:23.110Z",
     "resolved_at": null
   }
 ]

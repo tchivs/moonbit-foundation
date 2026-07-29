@@ -5,15 +5,15 @@ milestone_name: CFF Outline Foundation
 current_phase: 107
 current_phase_name: hostile-licensed-and-four-target-qualification
 status: executing
-stopped_at: Completed 107-04-PLAN.md
-last_updated: "2026-07-29T05:32:04.363Z"
+stopped_at: Completed 107-05-PLAN.md
+last_updated: "2026-07-29T06:47:44.953Z"
 last_activity: 2026-07-29
-last_activity_desc: Completed Phase 107 Plan 04 public/private CFF qualification
+last_activity_desc: Completed Phase 107 Plan 05 four-target v3 qualification and policy integration
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 ## Current Position
 
 Phase: 107 (hostile-licensed-and-four-target-qualification) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
-Last activity: 2026-07-29 — Completed Phase 107 Plan 04 public/private CFF qualification
+Last activity: 2026-07-29 — Completed Phase 107 Plan 05 four-target v3 qualification and policy integration
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 94%
 
 ## Milestone Metrics
 
@@ -85,6 +85,9 @@ Progress: [█████████░] 89%
 - [Phase 107]: Public CFF evidence remains package-private and is qualified exclusively through public Font and FontCollection observations.
 - [Phase 107]: Portable Type 2 depth evidence locks live frame state plus exact call/return depth, never backend-specific Array capacity.
 - [Phase 107]: The closed 53-row private hostile corpus is materialized once and thereafter enforced by exact generator mirror checks.
+- [Phase 107]: Qualification v3 owns exactly js.json, wasm.json, wasm-gc.json, native.json, and comparison.json beneath a link-free managed root.
+- [Phase 107]: Cross-target equality removes only top-level target and runner; every other closed field remains equality-bearing.
+- [Phase 107]: Wave 6 owns the observation-only native baseline and final benchmark/workspace identity refresh; Wave 5 makes no threshold, comparison, verdict, release, or stability claim.
 
 ### Pending Todos
 
@@ -106,17 +109,17 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-29T05:32:04.345Z
-Stopped at: Completed 107-04-PLAN.md
+Last session: 2026-07-29T06:47:44.934Z
+Stopped at: Completed 107-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute Phase 107 Plan 05 exact evidence serialization and policy integration.
+- Execute Phase 107 Plan 06 observation-only native baseline and final v3 seal.
 
 ## Performance Metrics
 
-Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed sixteen plans.
+Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed seventeen plans.
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -138,3 +141,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 | Phase 107 P02 | 13min | 3 tasks | 10 files |
 | Phase 107 P03 | 24min | 2 tasks | 5 files |
 | Phase 107 P04 | 111min | 3 tasks | 15 files |
+| Phase 107 P05 | 67min | 3 tasks | 9 files |
