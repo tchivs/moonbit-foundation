@@ -55,6 +55,8 @@ $CffExecutionHandoffSha256 =
 $CffExecutionHandoffSchema = 'mnf-phase107-host-toolchain-handoff/1.0.0'
 $CffLicensedRetrievalDate = '2026-07-29'
 $CffLicensedFixtureRoot = Join-Path $RepositoryRoot 'fixtures/font'
+$CffLicensedTransactionPath = Join-Path $CffLicensedFixtureRoot `
+  '.cff-licensed-intake-transaction.json'
 $CffEvidenceRoot = Join-Path $RepositoryRoot 'benchmarks/font-cff'
 $CffEvidenceManifestPath = Join-Path $CffEvidenceRoot 'moon.mod.json'
 $CffEvidencePackagePath = Join-Path $CffEvidenceRoot 'moon.pkg'
@@ -5127,6 +5129,143 @@ function Get-CffCanonicalDestinationSnapshot {
   return ($snapshot | ConvertTo-Json -Compress)
 }
 
+function Write-CffLicensedTransaction {
+  param([Parameter(Mandatory)]$Transaction)
+  $text = ConvertTo-StableJson $Transaction
+  $temporary = "$CffLicensedTransactionPath.next"
+  $backup = "$CffLicensedTransactionPath.backup"
+  $bytes = $Utf8NoBom.GetBytes($text)
+  $stream = [IO.FileStream]::new(
+    $temporary,
+    [IO.FileMode]::Create,
+    [IO.FileAccess]::Write,
+    [IO.FileShare]::None,
+    4096,
+    [IO.FileOptions]::WriteThrough
+  )
+  try {
+    $stream.Write($bytes, 0, $bytes.Length)
+    $stream.Flush($true)
+  } finally {
+    $stream.Dispose()
+  }
+  if (Test-Path -LiteralPath $CffLicensedTransactionPath -PathType Leaf) {
+    [IO.File]::Replace(
+      $temporary,
+      $CffLicensedTransactionPath,
+      $backup,
+      $true
+    )
+    if (Test-Path -LiteralPath $backup) {
+      Remove-Item -LiteralPath $backup -Force
+    }
+  } else {
+    [IO.File]::Move($temporary, $CffLicensedTransactionPath)
+  }
+}
+
+function Read-CffLicensedTransaction {
+  if (-not (Test-Path -LiteralPath $CffLicensedTransactionPath -PathType Leaf)) {
+    return $null
+  }
+  $transaction = Get-Content -Raw -LiteralPath $CffLicensedTransactionPath |
+    ConvertFrom-Json -Depth 20
+  if ($transaction.schema -cne 'cff-licensed-intake-transaction/1.0.0' -or
+      [string]::IsNullOrWhiteSpace([string]$transaction.transaction_id) -or
+      $transaction.phase -cnotin @('prepared','bundles-published')) {
+    throw 'Licensed CFF intake transaction journal is malformed.'
+  }
+  return $transaction
+}
+
+function Assert-CffLicensedTransactionPath {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Label
+  )
+  $full = [IO.Path]::GetFullPath($Path)
+  $root = [IO.Path]::GetFullPath($CffLicensedFixtureRoot).TrimEnd('\') + '\'
+  if (-not $full.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Licensed CFF transaction $Label escaped the fixture root."
+  }
+  return $full
+}
+
+function Invoke-CffLicensedPublicationFailPoint {
+  param([Parameter(Mandatory)][string]$Step)
+  if ($env:MNF_CFF_INTAKE_TERMINATE_AFTER_STEP -ceq $Step) {
+    [Environment]::FailFast(
+      "Injected licensed CFF process termination after '$Step'."
+    )
+  }
+  if ($env:MNF_CFF_INTAKE_FAIL_AFTER_STEP -ceq $Step) {
+    throw "Injected licensed CFF publication interruption after '$Step'."
+  }
+}
+
+function Resume-CffLicensedBundlePublication {
+  param([Parameter(Mandatory)]$Transaction)
+  $entries = @($Transaction.bundle_directories)
+  for ($index = 0; $index -lt $entries.Count; $index++) {
+    $entry = $entries[$index]
+    $destination = Assert-CffLicensedTransactionPath `
+      ([string]$entry.destination) "destination $index"
+    $stage = if ([string]::IsNullOrEmpty([string]$entry.stage)) {
+      ''
+    } else {
+      Assert-CffLicensedTransactionPath ([string]$entry.stage) "stage $index"
+    }
+    if (Test-Path -LiteralPath $destination -PathType Container) {
+      if ($stage -and (Test-Path -LiteralPath $stage)) {
+        Remove-Item -LiteralPath $stage -Recurse -Force
+      }
+    } elseif ($stage -and (Test-Path -LiteralPath $stage -PathType Container)) {
+      Move-Item -LiteralPath $stage -Destination $destination
+    } else {
+      throw "Licensed CFF transaction cannot recover bundle directory $index."
+    }
+    $Transaction.steps_completed = $index + 1
+    Write-CffLicensedTransaction $Transaction
+    Invoke-CffLicensedPublicationFailPoint "bundle-$($index + 1)"
+  }
+  $Transaction.phase = 'bundles-published'
+  Write-CffLicensedTransaction $Transaction
+  Invoke-CffLicensedPublicationFailPoint 'bundles-published'
+}
+
+function Complete-CffLicensedTransaction {
+  param([Parameter(Mandatory)]$Transaction)
+  Update-OrCheckCffLicensedProvenance -CheckOnly
+  $stageRoot = Assert-CffLicensedTransactionPath `
+    ([string]$Transaction.stage_root) 'stage root'
+  Remove-Item -LiteralPath $CffLicensedTransactionPath -Force
+  if (Test-Path -LiteralPath $stageRoot -PathType Container) {
+    Remove-Item -LiteralPath $stageRoot -Recurse -Force
+  }
+  foreach ($directory in @(
+      (Join-Path $CffLicensedFixtureRoot 'source-sans-3.052r'),
+      (Join-Path $CffLicensedFixtureRoot 'source-han-serif-2.003r')
+    )) {
+    Get-ChildItem -LiteralPath $directory -File -Filter 'qualification.json.tmp-*' |
+      Remove-Item -Force
+  }
+  Get-ChildItem -LiteralPath (Split-Path -Parent $ManifestPath) `
+    -File -Filter 'manifest.json.tmp-*' | Remove-Item -Force
+}
+
+function Resume-CffLicensedIntakeTransaction {
+  $transaction = Read-CffLicensedTransaction
+  if ($null -eq $transaction) {
+    return $false
+  }
+  Resume-CffLicensedBundlePublication $transaction
+  Update-OrCheckCffLicensedProvenance
+  Write-Host (
+    "Recovered licensed CFF intake transaction $($transaction.transaction_id)."
+  )
+  return $true
+}
+
 function Get-CffValidatedLicensedBundles {
   param(
     [Parameter(Mandatory)]$Context,
@@ -5198,18 +5337,19 @@ function Publish-CffLicensedBundles {
       exists = $fontExists
     }
   }
-  if (@($states | Where-Object exists).Count -eq $states.Count) {
-    return
-  }
-  if (@($states | Where-Object exists).Count -ne 0) {
+  $existingCount = @($states | Where-Object exists).Count
+  if ($existingCount -ne 0 -and $existingCount -ne $states.Count) {
     throw 'Refusing a cross-bundle partial licensed publication.'
   }
 
   $transaction = [guid]::NewGuid().ToString('N')
-  $published = [Collections.Generic.List[string]]::new()
-  $stageDirectories = [Collections.Generic.List[string]]::new()
-  try {
-    foreach ($state in $states) {
+  $stageRoot = Join-Path $CffLicensedFixtureRoot `
+    ".cff-licensed-intake-stage-$transaction"
+  [void](New-Item -ItemType Directory -Path $stageRoot)
+  $entries = @()
+  foreach ($state in $states) {
+    $stage = ''
+    if (-not $state.exists) {
       $parent = Split-Path -Parent $state.destination.directory
       $stage = Join-Path $parent ".$([IO.Path]::GetFileName($state.destination.directory)).stage-$transaction"
       [void](New-Item -ItemType Directory -Path $stage)
@@ -5221,30 +5361,29 @@ function Publish-CffLicensedBundles {
         (Join-Path $stage $state.destination.license),
         [byte[]]$state.bundle.license
       )
-      $stageDirectories.Add($stage)
     }
-    for ($index = 0; $index -lt $states.Count; $index++) {
-      Move-Item -LiteralPath $stageDirectories[$index] `
-        -Destination $states[$index].destination.directory
-      $published.Add($states[$index].destination.directory)
-    }
-  } catch {
-    foreach ($directory in $published) {
-      if (Test-Path -LiteralPath $directory -PathType Container) {
-        Remove-Item -LiteralPath $directory -Recurse -Force
-      }
-    }
-    throw
-  } finally {
-    foreach ($stage in $stageDirectories) {
-      if (Test-Path -LiteralPath $stage) {
-        Remove-Item -LiteralPath $stage -Recurse -Force
-      }
+    $entries += [pscustomobject][ordered]@{
+      stage = $stage
+      destination = [string]$state.destination.directory
     }
   }
+  $journal = [pscustomobject][ordered]@{
+    schema = 'cff-licensed-intake-transaction/1.0.0'
+    transaction_id = $transaction
+    phase = 'prepared'
+    stage_root = $stageRoot
+    bundle_directories = $entries
+    steps_completed = 0
+    started_at = [DateTime]::UtcNow.ToString('o')
+  }
+  Write-CffLicensedTransaction $journal
+  Resume-CffLicensedBundlePublication $journal
 }
 
 function Invoke-CffLicensedIntake {
+  if (Resume-CffLicensedIntakeTransaction) {
+    return
+  }
   $context = Assert-CffExecutionHandoff
   $records = @(Get-CffLicensedSpecimens)
   $before = Get-CffCanonicalDestinationSnapshot $records
@@ -5267,6 +5406,52 @@ function Invoke-CffIntakeContractCheck {
     throw 'Offline licensed intake contract mutated a canonical destination.'
   }
   Write-Host 'Licensed CFF staged intake contract passed without publication.'
+}
+
+function Invoke-CffPublicationRecoveryChecks {
+  param([Parameter(Mandatory)][object[]]$Records)
+  $before = Get-CffCanonicalDestinationSnapshot $Records
+  $handoff = $CffExecutionHandoffRelativePath
+  $pwsh = (Get-Command pwsh -ErrorAction Stop).Source
+  $scriptPath = Join-Path $RepositoryRoot `
+    'scripts/fixtures/Generate-FontQualification.ps1'
+  foreach ($step in @(
+      'bundle-1',
+      'bundle-2',
+      'bundles-published',
+      'qualification-1',
+      'qualification-2',
+      'manifest'
+    )) {
+    $old = $env:MNF_CFF_INTAKE_TERMINATE_AFTER_STEP
+    try {
+      $env:MNF_CFF_INTAKE_TERMINATE_AFTER_STEP = $step
+      & $pwsh -NoProfile -File $scriptPath -Intake `
+        -ExecutionHandoffPath $handoff *> $null
+      $exitCode = $LASTEXITCODE
+    } finally {
+      $env:MNF_CFF_INTAKE_TERMINATE_AFTER_STEP = $old
+    }
+    if ($exitCode -eq 0 -or
+        -not (Test-Path -LiteralPath $CffLicensedTransactionPath -PathType Leaf)) {
+      throw "Licensed CFF process-termination probe did not persist '$step'."
+    }
+    if (-not (Resume-CffLicensedIntakeTransaction)) {
+      throw "Licensed CFF process-termination probe did not recover '$step'."
+    }
+    $temporaryFiles = @(
+      Get-ChildItem -LiteralPath $CffLicensedFixtureRoot -Recurse -File |
+        Where-Object Name -like '*.tmp-*'
+    )
+    if ((Test-Path -LiteralPath $CffLicensedTransactionPath) -or
+        $temporaryFiles.Count -ne 0 -or
+        (Get-CffCanonicalDestinationSnapshot $Records) -cne $before) {
+      throw "Licensed CFF process-termination recovery drifted at '$step'."
+    }
+  }
+  Write-Host (
+    'Licensed CFF process-termination recovery passed after every publication step.'
+  )
 }
 
 function Invoke-CffIntakeNegatives {
@@ -5343,6 +5528,7 @@ function Invoke-CffIntakeNegatives {
   if ((Get-CffCanonicalDestinationSnapshot $records) -cne $before) {
     throw 'Licensed intake negatives mutated a canonical destination.'
   }
+  Invoke-CffPublicationRecoveryChecks $records
   Write-Host 'Licensed CFF intake negatives passed with canonical destinations preserved.'
 }
 
@@ -5742,9 +5928,11 @@ function Update-OrCheckCffLicensedProvenance {
       Join-Path $destination.directory 'qualification.json'
     ) -PathType Leaf
   }
+  $activeTransaction = Read-CffLicensedTransaction
   if ($present.Count -ne 0 -or $qualificationPresent -contains $true) {
     if ($present.Count -ne $expectedManifest.Count -or
-        $qualificationPresent -contains $false) {
+        ($qualificationPresent -contains $false -and
+          $null -eq $activeTransaction)) {
       throw 'Refusing partial licensed CFF provenance publication.'
     }
     $expectedById = @{}
@@ -5788,8 +5976,12 @@ function Update-OrCheckCffLicensedProvenance {
       $destination = $temporary.Substring(0, $temporary.Length - (5 + $transaction.Length))
       Move-Item -LiteralPath $temporary -Destination $destination -Force
       $published.Add($destination)
+      Invoke-CffLicensedPublicationFailPoint (
+        "qualification-$($published.Count)"
+      )
     }
     Move-Item -LiteralPath $manifestTemporary -Destination $ManifestPath -Force
+    Invoke-CffLicensedPublicationFailPoint 'manifest'
   } catch {
     foreach ($path in $published) {
       if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
@@ -5801,6 +5993,9 @@ function Update-OrCheckCffLicensedProvenance {
     }
   }
   Update-OrCheckCffLicensedProvenance -CheckOnly
+  if ($null -ne $activeTransaction) {
+    Complete-CffLicensedTransaction $activeTransaction
+  }
 }
 
 function Assert-CffProvenanceArtifacts {
