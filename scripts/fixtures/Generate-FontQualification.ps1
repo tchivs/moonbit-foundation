@@ -4249,6 +4249,19 @@ function Assert-CffCanonicalLicensedIntake {
   Write-Host 'Canonical licensed CFF intake is exact and closed.'
 }
 
+function Assert-CffProvenanceArtifacts {
+  [void](Assert-CffExecutionHandoff)
+  $records = @(Get-CffLicensedSpecimens)
+  foreach ($record in $records) {
+    $destination = Get-CffLicensedDestination $record
+    $qualificationPath = Join-Path $destination.directory 'qualification.json'
+    if (-not (Test-Path -LiteralPath $qualificationPath -PathType Leaf)) {
+      throw "Licensed CFF qualification document is missing: $($record.id)"
+    }
+  }
+  throw 'Licensed CFF provenance reconstruction is not implemented.'
+}
+
 if ($CheckGeneratedTracer) {
   Invoke-CffGeneratedTracerCheck
   return
@@ -4271,7 +4284,8 @@ if ($CheckOracleAgreement) {
   return
 }
 if ($CheckProvenance) {
-  throw 'Phase 107 licensed intake contract is not implemented.'
+  Assert-CffProvenanceArtifacts
+  return
 }
 
 if ($CheckContracts -or $CheckGeneratedRecipes -or $CheckOracleAdapters -or
