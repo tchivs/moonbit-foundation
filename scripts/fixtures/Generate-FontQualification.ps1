@@ -39,6 +39,13 @@ $CffOracleToolsPath = Join-Path $RepositoryRoot 'fixtures/font/cff-oracle-tools.
 $CffHostLockPath = Join-Path $RepositoryRoot 'fixtures/font/cff/host-toolchain.lock.json'
 $CffFontToolsAdapterPath = Join-Path $RepositoryRoot 'scripts/fixtures/oracles/fonttools_cff_oracle.py'
 $CffAfdkoAdapterPath = Join-Path $RepositoryRoot 'scripts/fixtures/oracles/Invoke-AfdkoCffOracle.ps1'
+$CffExecutionHandoffRelativePath =
+  'artifacts/release-qualification/phase-107/107-01-host-toolchain-handoff.json'
+$CffExecutionHandoffSha256 =
+  '340e878b488ae3bec90a6b55c380d85cd33673611ce5258c4291d46ffc45dc3e'
+$CffExecutionHandoffSchema = 'mnf-phase107-host-toolchain-handoff/1.0.0'
+$CffLicensedRetrievalDate = '2026-07-29'
+$CffLicensedFixtureRoot = Join-Path $RepositoryRoot 'fixtures/font'
 
 $ArchiveUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip'
 $ArchiveLength = 417746L
@@ -3415,13 +3422,855 @@ function Test-FontQualificationInputs {
   Update-OrCheckManifest -CheckOnly
 }
 
+function Get-CffFileSha256 {
+  param([Parameter(Mandatory)][string]$Path)
+  return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+}
+
+function Get-CffTextSha256 {
+  param([Parameter(Mandatory)][string]$Text)
+  return [Convert]::ToHexString(
+    [Security.Cryptography.SHA256]::HashData($Utf8NoBom.GetBytes($Text))
+  ).ToLowerInvariant()
+}
+
+function Test-CffPathWithinRoot {
+  param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Root)
+  $pathFull = [IO.Path]::GetFullPath($Path).TrimEnd('\')
+  $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\')
+  return $pathFull.Equals($rootFull, [StringComparison]::OrdinalIgnoreCase) -or
+    $pathFull.StartsWith($rootFull + '\', [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Assert-CffNoReparsePath {
+  param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Label)
+  $current = [IO.Path]::GetFullPath($Path)
+  while ($null -ne $current) {
+    $item = Get-Item -LiteralPath $current -Force
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "$Label contains a reparse-point component."
+    }
+    $parent = [IO.Directory]::GetParent($current)
+    $current = if ($null -eq $parent) { $null } else { $parent.FullName }
+  }
+}
+
+function Assert-CffExecutionHandoff {
+  if (-not $ExecutionHandoffPath) {
+    throw '-ExecutionHandoffPath is required for licensed CFF intake.'
+  }
+  if ($ExecutionHandoffPath.Replace('\', '/') -cne $CffExecutionHandoffRelativePath) {
+    throw 'Licensed CFF intake accepts only the summary-recorded execution handoff path.'
+  }
+  $handoffPath = [IO.Path]::GetFullPath((Join-Path $RepositoryRoot $ExecutionHandoffPath))
+  $handoffRoot = Join-Path $RepositoryRoot 'artifacts/release-qualification/phase-107'
+  if (-not (Test-CffPathWithinRoot $handoffPath $handoffRoot) -or
+      -not (Test-Path -LiteralPath $handoffPath -PathType Leaf)) {
+    throw 'Licensed CFF execution handoff is missing or moved.'
+  }
+  Assert-CffNoReparsePath $handoffPath 'execution handoff'
+  if ((Get-CffFileSha256 $handoffPath) -cne $CffExecutionHandoffSha256) {
+    throw 'Licensed CFF execution handoff SHA-256 differs from the 107-01 summary.'
+  }
+  $summaryPath = Join-Path $RepositoryRoot (
+    '.planning/phases/107-hostile-licensed-and-four-target-qualification/107-01-SUMMARY.md'
+  )
+  $summary = Get-Content -Raw -LiteralPath $summaryPath
+  if ($summary -notmatch [regex]::Escape($CffExecutionHandoffRelativePath) -or
+      $summary -notmatch $CffExecutionHandoffSha256) {
+    throw '107-01 summary no longer binds the licensed CFF execution handoff.'
+  }
+
+  $handoff = Get-Content -Raw -LiteralPath $handoffPath | ConvertFrom-Json
+  Assert-FontQualificationOrderedKeys $handoff @(
+    'schema','manifest_path','manifest_sha256','preflight_timestamp',
+    'ordered_role_ids','preflight_sdk_inventory_sha256','preflight_validated',
+    'lock_sha256','provisioned_tools_root','sdk_inventory_sha256',
+    'invoked_identities','invoked_identities_sha256','adapter_sha256',
+    'ots_executable_sha256','provisioning_validated'
+  ) 'execution handoff'
+  if ($handoff.schema -cne $CffExecutionHandoffSchema -or
+      $handoff.preflight_validated -ne $true -or
+      $handoff.provisioning_validated -ne $true) {
+    throw 'Licensed CFF execution handoff is not fully validated.'
+  }
+  if (-not [IO.Path]::IsPathFullyQualified([string]$handoff.manifest_path) -or
+      -not (Test-Path -LiteralPath $handoff.manifest_path -PathType Leaf) -or
+      (Get-CffFileSha256 $handoff.manifest_path) -cne [string]$handoff.manifest_sha256) {
+    throw 'Licensed CFF caller manifest identity drifted.'
+  }
+  Assert-CffNoReparsePath $handoff.manifest_path 'caller manifest'
+
+  if ((Get-CffFileSha256 $CffHostLockPath) -cne [string]$handoff.lock_sha256) {
+    throw 'Licensed CFF host lock identity drifted.'
+  }
+  $lock = Get-Content -Raw -LiteralPath $CffHostLockPath | ConvertFrom-Json
+  $manifest = Get-Content -Raw -LiteralPath $handoff.manifest_path | ConvertFrom-Json
+  if ($lock.approved_manifest_sha256 -cne [string]$handoff.manifest_sha256 -or
+      $lock.sdk_inventory_sha256 -cne [string]$handoff.sdk_inventory_sha256 -or
+      $manifest.sdk_inventory_sha256 -cne [string]$handoff.sdk_inventory_sha256 -or
+      $manifest.sdk_inventories[0].inventory_sha256 -cne
+        [string]$handoff.sdk_inventory_sha256 -or
+      $handoff.preflight_sdk_inventory_sha256 -cne
+        [string]$handoff.sdk_inventory_sha256) {
+    throw 'Licensed CFF manifest, lock, or SDK inventory digest drifted.'
+  }
+
+  $toolsRoot = [IO.Path]::GetFullPath([string]$handoff.provisioned_tools_root)
+  if (-not (Test-Path -LiteralPath $toolsRoot -PathType Container)) {
+    throw 'Licensed CFF provisioned-tools root is missing.'
+  }
+  Assert-CffNoReparsePath $toolsRoot 'provisioned-tools root'
+  $provisionedPath = Join-Path $toolsRoot 'provisioned-tools.json'
+  $provisioned = Get-Content -Raw -LiteralPath $provisionedPath | ConvertFrom-Json
+  if ($provisioned.schema -cne 'cff-provisioned-tools/1.0.0' -or
+      $provisioned.provisioning_validated -ne $true -or
+      $provisioned.manifest_sha256 -cne [string]$handoff.manifest_sha256 -or
+      $provisioned.lock_sha256 -cne [string]$handoff.lock_sha256 -or
+      $provisioned.sdk_inventory_sha256 -cne [string]$handoff.sdk_inventory_sha256) {
+    throw 'Licensed CFF provisioned-tools contract drifted.'
+  }
+  $handoffIds = @($handoff.invoked_identities)
+  $provisionedIds = @($provisioned.invoked_identities)
+  if ($handoffIds.Count -ne 10 -or $provisionedIds.Count -ne $handoffIds.Count) {
+    throw 'Licensed CFF invoked-identity cardinality drifted.'
+  }
+  for ($index = 0; $index -lt $handoffIds.Count; $index++) {
+    $expected = $handoffIds[$index]
+    $actual = $provisionedIds[$index]
+    if ($expected.id -cne $actual.id -or $expected.path -cne $actual.path -or
+        $expected.sha256 -cne $actual.sha256 -or
+        -not (Test-Path -LiteralPath $expected.path -PathType Leaf) -or
+        (Get-CffFileSha256 $expected.path) -cne [string]$expected.sha256) {
+      throw "Licensed CFF invoked identity drifted: $($expected.id)"
+    }
+  }
+  $invokedCanonical = $handoffIds | ConvertTo-Json -Depth 5 -Compress
+  if ((Get-CffTextSha256 $invokedCanonical) -cne
+        [string]$handoff.invoked_identities_sha256 -or
+      $provisioned.invoked_identities_sha256 -cne
+        [string]$handoff.invoked_identities_sha256) {
+    throw 'Licensed CFF invoked-identity set digest drifted.'
+  }
+  if ((Get-CffFileSha256 $CffFontToolsAdapterPath) -cne
+        [string]$handoff.adapter_sha256.fonttools -or
+      (Get-CffFileSha256 $CffAfdkoAdapterPath) -cne
+        [string]$handoff.adapter_sha256.afdko -or
+      (Get-CffFileSha256 $provisioned.ots_sanitize_path) -cne
+        [string]$handoff.ots_executable_sha256) {
+    throw 'Licensed CFF adapter or OTS executable identity drifted.'
+  }
+  return [ordered]@{
+    handoff = $handoff
+    manifest = $manifest
+    provisioned = $provisioned
+    tools_root = $toolsRoot
+  }
+}
+
+function Get-CffLicensedSpecimens {
+  $cases = Read-CffQualificationJson $CffQualificationCasesPath 'CFF qualification cases'
+  Assert-CffQualificationCasesDocument $cases
+  Assert-CffLicensedProducerInputs $cases
+  $records = @($cases.licensed_intake)
+  if (($records.id -join "`n") -cne
+      ("source-sans-3.052R","source-han-serif-jp-2.003R" -join "`n")) {
+    throw 'Licensed CFF specimen order drifted.'
+  }
+  return $records
+}
+
+function Assert-CffLicensedRecord {
+  param([Parameter(Mandatory)]$Record)
+  Assert-FontQualificationOrderedKeys $Record @(
+    'id','family','tag','archive','member','license_file','profile'
+  ) "licensed specimen $($Record.id)"
+  Assert-FontQualificationOrderedKeys $Record.archive @('url','length','sha256') (
+    "licensed specimen $($Record.id) archive"
+  )
+  Assert-FontQualificationOrderedKeys $Record.member @('path','length','sha256') (
+    "licensed specimen $($Record.id) member"
+  )
+  Assert-FontQualificationOrderedKeys $Record.license_file @('path','length','sha256') (
+    "licensed specimen $($Record.id) license"
+  )
+  Assert-FontQualificationOrderedKeys $Record.profile @(
+    'sfnt_flavor','cff_version','keying','glyph_count','fd_count','used_fds',
+    'local_subr_counts','global_subrs','high_gid','high_gid_fd',
+    'high_gid_program_tokens'
+  ) "licensed specimen $($Record.id) profile"
+  if ($Record.archive.url -notmatch
+        '^https://github\.com/adobe-fonts/[^/]+/releases/download/' -or
+      $Record.archive.url -notmatch ('/' + [regex]::Escape([string]$Record.tag) + '/') -or
+      $Record.profile.sfnt_flavor -cne 'OTTO' -or
+      $Record.profile.cff_version -cne '1.0') {
+    throw "Licensed specimen source/profile contract drifted: $($Record.id)"
+  }
+  if ($Record.id -ceq 'source-sans-3.052R') {
+    if ($Record.tag -cne '3.052R' -or
+        $Record.archive.url -cne
+          'https://github.com/adobe-fonts/source-sans/releases/download/3.052R/OTF-source-sans-3.052R.zip' -or
+        $Record.archive.length -ne 2387997 -or
+        $Record.archive.sha256 -cne
+          'a4ebbdea20b08ccbd7bf3665a9462454eefdd01d9a6307129d3b3d4672981074' -or
+        $Record.member.path -cne 'OTF/SourceSans3-Regular.otf' -or
+        $Record.member.length -ne 334924 -or
+        $Record.member.sha256 -cne
+          '08df266400933d3178d081a45f94a08814c3e55b4b7dd2e0ff69cb1329f13ab6' -or
+        $Record.license_file.path -cne 'LICENSE.md' -or
+        $Record.license_file.length -ne 4579 -or
+        $Record.license_file.sha256 -cne
+          '89ad2c4f66dd29127527493e729c31e731f111cf10faf5774c3db9275ed0c22c' -or
+        $Record.profile.keying -cne 'name' -or $Record.profile.glyph_count -ne 2478 -or
+        (@($Record.profile.local_subr_counts) -join ',') -cne '648' -or
+        $Record.profile.global_subrs -ne 738) {
+      throw 'Source Sans licensed contract drifted.'
+    }
+  } elseif ($Record.id -ceq 'source-han-serif-jp-2.003R') {
+    if ($Record.tag -cne '2.003R' -or
+        $Record.archive.url -cne
+          'https://github.com/adobe-fonts/source-han-serif/releases/download/2.003R/12_SourceHanSerifJP.zip' -or
+        $Record.archive.length -ne 36831708 -or
+        $Record.archive.sha256 -cne
+          'c5a3bbc213980cea04932457899c9fc2da4784d3d1d7cae469c41909dd112230' -or
+        $Record.member.path -cne 'SubsetOTF/JP/SourceHanSerifJP-Regular.otf' -or
+        $Record.member.length -ne 6210796 -or
+        $Record.member.sha256 -cne
+          'e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785' -or
+        $Record.license_file.path -cne 'LICENSE.txt' -or
+        $Record.license_file.length -ne 4463 -or
+        $Record.license_file.sha256 -cne
+          '9ff5bb567e1b92c801fc1069e5fbf992ff8efccacb9db94e5959a5b3ba9bb903' -or
+        $Record.profile.keying -cne 'cid' -or $Record.profile.glyph_count -ne 17923 -or
+        $Record.profile.fd_count -ne 18 -or
+        (@($Record.profile.used_fds) -join ',') -cne ((0..17) -join ',') -or
+        (@($Record.profile.local_subr_counts) -join ',') -cne
+          '16,46,7,2004,39,131,0,1,7,0,0,205,21626,237,389,17,0,231' -or
+        $Record.profile.global_subrs -ne 1599 -or
+        $Record.profile.high_gid -ne 17922 -or $Record.profile.high_gid_fd -ne 17 -or
+        $Record.profile.high_gid_program_tokens -ne 136) {
+      throw 'Source Han licensed contract drifted.'
+    }
+  } else {
+    throw "Unknown licensed specimen: $($Record.id)"
+  }
+}
+
+function Get-CffArchiveCachePath {
+  param(
+    [Parameter(Mandatory)]$Context,
+    [Parameter(Mandatory)]$Record,
+    [switch]$AllowNetwork
+  )
+  Assert-CffLicensedRecord $Record
+  $cacheRoot = Join-Path $Context.tools_root 'licensed-intake-cache'
+  [void](New-Item -ItemType Directory -Force -Path $cacheRoot)
+  $fileName = [IO.Path]::GetFileName(([uri]$Record.archive.url).AbsolutePath)
+  $destination = Join-Path $cacheRoot $fileName
+  if (-not (Test-Path -LiteralPath $destination -PathType Leaf)) {
+    if (-not $AllowNetwork) {
+      throw "Offline licensed intake cache is missing: $fileName"
+    }
+    $temporary = "$destination.download-$([guid]::NewGuid().ToString('N'))"
+    try {
+      Invoke-WebRequest -UseBasicParsing -Uri $Record.archive.url -OutFile $temporary
+      $bytes = [IO.File]::ReadAllBytes($temporary)
+      Assert-ExactBytesIdentity "$($Record.id) archive" $bytes `
+        ([long]$Record.archive.length) ([string]$Record.archive.sha256)
+      Move-Item -LiteralPath $temporary -Destination $destination
+    } finally {
+      if (Test-Path -LiteralPath $temporary) {
+        Remove-Item -LiteralPath $temporary -Force
+      }
+    }
+  }
+  $archiveBytes = [IO.File]::ReadAllBytes($destination)
+  Assert-ExactBytesIdentity "$($Record.id) archive" $archiveBytes `
+    ([long]$Record.archive.length) ([string]$Record.archive.sha256)
+  return $destination
+}
+
+function Get-CffDetachedLicenseCachePath {
+  param(
+    [Parameter(Mandatory)]$Context,
+    [Parameter(Mandatory)]$Record,
+    [switch]$AllowNetwork
+  )
+  if ($Record.id -cne 'source-sans-3.052R') { return $null }
+  $url = 'https://raw.githubusercontent.com/adobe-fonts/source-sans/3.052R/LICENSE.md'
+  $cacheRoot = Join-Path $Context.tools_root 'licensed-intake-cache'
+  [void](New-Item -ItemType Directory -Force -Path $cacheRoot)
+  $destination = Join-Path $cacheRoot 'SourceSans-3.052R-LICENSE.md'
+  if (-not (Test-Path -LiteralPath $destination -PathType Leaf)) {
+    if (-not $AllowNetwork) {
+      throw 'Offline Source Sans retained license cache is missing.'
+    }
+    $temporary = "$destination.download-$([guid]::NewGuid().ToString('N'))"
+    try {
+      Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $temporary
+      $bytes = [IO.File]::ReadAllBytes($temporary)
+      Assert-ExactBytesIdentity 'Source Sans retained tag license' $bytes `
+        ([long]$Record.license_file.length) ([string]$Record.license_file.sha256)
+      Move-Item -LiteralPath $temporary -Destination $destination
+    } finally {
+      if (Test-Path -LiteralPath $temporary) {
+        Remove-Item -LiteralPath $temporary -Force
+      }
+    }
+  }
+  Assert-ExactBytesIdentity 'Source Sans retained tag license' `
+    ([IO.File]::ReadAllBytes($destination)) ([long]$Record.license_file.length) `
+    ([string]$Record.license_file.sha256)
+  return $destination
+}
+
+function Assert-CffZipMemberName {
+  param([Parameter(Mandatory)][string]$Name)
+  $normalized = $Name.Replace('\', '/')
+  if (-not $normalized -or $normalized.StartsWith('/') -or
+      $normalized -match '^[A-Za-z]:' -or $normalized -match '(^|/)\.\.(/|$)' -or
+      $normalized -match '(^|/)\.(/|$)' -or $normalized.IndexOf([char]0) -ge 0) {
+    throw "Licensed archive member path is unsafe: $Name"
+  }
+}
+
+function Assert-CffZipInventory {
+  param([Parameter(Mandatory)][object[]]$Entries)
+  $names = @{}
+  foreach ($entry in $Entries) {
+    Assert-CffZipMemberName $entry.FullName
+    $folded = $entry.FullName.Replace('\', '/').ToLowerInvariant()
+    if ($names.ContainsKey($folded)) {
+      throw "Licensed archive has a duplicate or case-colliding member: $($entry.FullName)"
+    }
+    $names[$folded] = $true
+    $unixType = ($entry.ExternalAttributes -shr 16) -band 0xF000
+    if ($unixType -eq 0xA000 -or
+        ($entry.ExternalAttributes -band [int][IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "Licensed archive contains a link/reparse member: $($entry.FullName)"
+    }
+  }
+}
+
+function Read-CffLicensedArchiveBundle {
+  param(
+    [Parameter(Mandatory)][string]$ArchivePath,
+    [Parameter(Mandatory)]$Record,
+    [string]$DetachedLicensePath
+  )
+  $archiveBytes = [IO.File]::ReadAllBytes($ArchivePath)
+  Assert-ExactBytesIdentity "$($Record.id) archive" $archiveBytes `
+    ([long]$Record.archive.length) ([string]$Record.archive.sha256)
+  Add-Type -AssemblyName System.IO.Compression
+  $stream = [IO.MemoryStream]::new($archiveBytes, $false)
+  $archive = [IO.Compression.ZipArchive]::new(
+    $stream,
+    [IO.Compression.ZipArchiveMode]::Read,
+    $false
+  )
+  try {
+    Assert-CffZipInventory @($archive.Entries)
+    $fontEntries = @($archive.Entries | Where-Object FullName -CEQ $Record.member.path)
+    $licenseEntries = @($archive.Entries |
+      Where-Object FullName -CEQ $Record.license_file.path)
+    $expectedLicenseEntries = if ($DetachedLicensePath) { 0 } else { 1 }
+    if ($fontEntries.Count -ne 1 -or
+        $licenseEntries.Count -ne $expectedLicenseEntries) {
+      throw "Licensed archive declared member set drifted: $($Record.id)"
+    }
+    if ($fontEntries[0].Length -ne [long]$Record.member.length -or
+        (-not $DetachedLicensePath -and
+          $licenseEntries[0].Length -ne [long]$Record.license_file.length)) {
+      throw "Licensed archive declared member size drifted: $($Record.id)"
+    }
+    $result = [ordered]@{}
+    $readEntry = {
+      param($Entry, $Identity, [string]$Label)
+      $input = $Entry.Open()
+      $memory = [IO.MemoryStream]::new()
+      try {
+        $input.CopyTo($memory)
+        $bytes = $memory.ToArray()
+      } finally {
+        $memory.Dispose()
+        $input.Dispose()
+      }
+      Assert-ExactBytesIdentity "$($Record.id) $Label member" $bytes `
+        ([long]$Identity.length) ([string]$Identity.sha256)
+      return $bytes
+    }
+    $result.font = [byte[]](& $readEntry $fontEntries[0] $Record.member 'font')
+    if ($DetachedLicensePath) {
+      $licenseBytes = [IO.File]::ReadAllBytes($DetachedLicensePath)
+      Assert-ExactBytesIdentity "$($Record.id) detached license" $licenseBytes `
+        ([long]$Record.license_file.length) ([string]$Record.license_file.sha256)
+      $result.license = $licenseBytes
+    } else {
+      $result.license = [byte[]](
+        & $readEntry $licenseEntries[0] $Record.license_file 'license'
+      )
+    }
+    return $result
+  } finally {
+    $archive.Dispose()
+    $stream.Dispose()
+  }
+}
+
+function Invoke-CffPinnedProfileReader {
+  param(
+    [Parameter(Mandatory)]$Context,
+    [Parameter(Mandatory)][string]$FontPath,
+    [Parameter(Mandatory)]$Record
+  )
+  $python = @($Context.provisioned.invoked_identities |
+    Where-Object { $_.id -ceq 'runtime.cpython' })[0].path
+  $program = @'
+import json, pathlib, sys
+site, path, high_gid = sys.argv[1], pathlib.Path(sys.argv[2]), int(sys.argv[3])
+sys.path.insert(0, site)
+from fontTools.ttLib import TTFont
+font = TTFont(path, checkChecksums=2, lazy=False, recalcBBoxes=False)
+if font.sfntVersion != "OTTO" or "CFF " not in font or "CFF2" in font or "glyf" in font:
+    raise RuntimeError("not exact static CFF1")
+cff = font["CFF "].cff
+top = cff.topDictIndex[0]
+ros = list(top.ROS) if getattr(top, "ROS", None) else None
+if ros:
+    fds = list(top.FDSelect.gidArray)
+    local = [len(fd.Private.Subrs) if getattr(fd.Private, "Subrs", None) else 0 for fd in top.FDArray]
+else:
+    fds = []
+    local = [len(top.Private.Subrs) if getattr(top.Private, "Subrs", None) else 0]
+tokens = None
+high_fd = None
+if high_gid >= 0:
+    glyph_name = font.getGlyphOrder()[high_gid]
+    charstring = top.CharStrings[glyph_name]
+    charstring.decompile()
+    tokens = len(charstring.program)
+    high_fd = fds[high_gid] if fds else None
+print(json.dumps({
+  "sfnt_flavor":"OTTO","cff_version":"1.0","keying":"cid" if ros else "name",
+  "glyph_count":len(font.getGlyphOrder()),"ros":ros,
+  "fd_count":len(top.FDArray) if ros else None,
+  "used_fds":sorted(set(fds)) if ros else [],
+  "local_subr_counts":local,"global_subrs":len(cff.GlobalSubrs),
+  "high_gid":high_gid if high_gid >= 0 else None,"high_gid_fd":high_fd,
+  "high_gid_program_tokens":tokens
+}, separators=(",",":")))
+'@
+  $highGid = if ($null -eq $Record.profile.high_gid) {
+    -1
+  } else {
+    [int]$Record.profile.high_gid
+  }
+  $json = & $python -c $program $Context.provisioned.fonttools_site_root `
+    $FontPath ([string]$highGid)
+  if ($LASTEXITCODE -ne 0) { throw "Pinned CFF profile reader failed: $($Record.id)" }
+  return $json | ConvertFrom-Json
+}
+
+function Assert-CffLicensedProfile {
+  param([Parameter(Mandatory)]$Actual, [Parameter(Mandatory)]$Record)
+  $expectedRos = if ($Record.profile.keying -ceq 'cid') {
+    @('Adobe','Identity',0)
+  } else {
+    $null
+  }
+  if ($Actual.sfnt_flavor -cne $Record.profile.sfnt_flavor -or
+      $Actual.cff_version -cne $Record.profile.cff_version -or
+      $Actual.keying -cne $Record.profile.keying -or
+      $Actual.glyph_count -ne $Record.profile.glyph_count -or
+      [string]($Actual.ros | ConvertTo-Json -Compress) -cne
+        [string]($expectedRos | ConvertTo-Json -Compress) -or
+      [string]$Actual.fd_count -cne [string]$Record.profile.fd_count -or
+      (@($Actual.used_fds) -join ',') -cne (@($Record.profile.used_fds) -join ',') -or
+      (@($Actual.local_subr_counts) -join ',') -cne
+        (@($Record.profile.local_subr_counts) -join ',') -or
+      $Actual.global_subrs -ne $Record.profile.global_subrs -or
+      [string]$Actual.high_gid -cne [string]$Record.profile.high_gid -or
+      [string]$Actual.high_gid_fd -cne [string]$Record.profile.high_gid_fd -or
+      [string]$Actual.high_gid_program_tokens -cne
+        [string]$Record.profile.high_gid_program_tokens) {
+    throw "Licensed CFF profile facts drifted: $($Record.id)"
+  }
+}
+
+function Get-CffReaderAgreementProjection {
+  param([Parameter(Mandatory)]$Value)
+  return [ordered]@{
+    schema = $Value.schema
+    source_sha256 = $Value.source_sha256
+    face_index = $Value.face_index
+    scalar = $Value.scalar
+    gid = $Value.gid
+    advance = $Value.advance
+    lsb = $Value.lsb
+    bounds = @($Value.bounds)
+    commands = @($Value.commands | Where-Object { $_.op -cne 'Close' })
+    cff_profile = $Value.cff_profile
+  }
+}
+
+function Invoke-CffLicensedOracleAgreement {
+  param(
+    [Parameter(Mandatory)]$Context,
+    [Parameter(Mandatory)][string]$FontPath,
+    [Parameter(Mandatory)]$Record
+  )
+  $python = @($Context.provisioned.invoked_identities |
+    Where-Object { $_.id -ceq 'runtime.cpython' })[0].path
+  $fontToolsJson = & $python $CffFontToolsAdapterPath `
+    --site-root $Context.provisioned.fonttools_site_root `
+    --font $FontPath `
+    --scalar U+0041
+  if ($LASTEXITCODE -ne 0) { throw "Pinned fontTools reader failed: $($Record.id)" }
+  $fontTools = $fontToolsJson | ConvertFrom-Json
+  $afdkoJson = & $CffAfdkoAdapterPath `
+    -PythonPath $python `
+    -AfdkoSiteRoot $Context.provisioned.afdko_site_root `
+    -TxRunnerPath $Context.provisioned.tx_runner_path `
+    -FontPath $FontPath `
+    -Scalar U+0041
+  $afdko = $afdkoJson | ConvertFrom-Json
+  $left = Get-CffReaderAgreementProjection $fontTools
+  $right = Get-CffReaderAgreementProjection $afdko
+  if (($left | ConvertTo-Json -Depth 20 -Compress) -cne
+      ($right | ConvertTo-Json -Depth 20 -Compress)) {
+    throw "Independent licensed CFF semantic readers disagree: $($Record.id)"
+  }
+  if ($fontTools.keying -cne $Record.profile.keying -or
+      $fontTools.source_sha256 -cne $Record.member.sha256) {
+    throw "Licensed CFF reader profile/source drifted: $($Record.id)"
+  }
+
+  $outputPath = Join-Path $Context.tools_root (
+    "licensed-ots-$($Record.id)-$([guid]::NewGuid().ToString('N')).otf"
+  )
+  $oldPath = $env:PATH
+  try {
+    $env:PATH = @($Context.manifest.sanitized_environment.PATH) -join ';'
+    $otsLog = & $Context.provisioned.ots_sanitize_path $FontPath $outputPath 2>&1
+    if ($LASTEXITCODE -ne 0 -or
+        -not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
+      throw "OTS structural acceptance failed for $($Record.id): $($otsLog -join "`n")"
+    }
+  } finally {
+    $env:PATH = $oldPath
+    if (Test-Path -LiteralPath $outputPath) {
+      Remove-Item -LiteralPath $outputPath -Force
+    }
+  }
+  return [ordered]@{
+    fonttools = $fontTools
+    afdko = $afdko
+    agreement = $left
+    ots_accepted = $true
+  }
+}
+
+function Get-CffLicensedDestination {
+  param([Parameter(Mandatory)]$Record)
+  if ($Record.id -ceq 'source-sans-3.052R') {
+    return [ordered]@{
+      directory = Join-Path $CffLicensedFixtureRoot 'source-sans-3.052r'
+      font = 'SourceSans3-Regular.otf'
+      license = 'LICENSE.md'
+    }
+  }
+  return [ordered]@{
+    directory = Join-Path $CffLicensedFixtureRoot 'source-han-serif-2.003r'
+    font = 'SourceHanSerifJP-Regular.otf'
+    license = 'LICENSE.txt'
+  }
+}
+
+function Get-CffCanonicalDestinationSnapshot {
+  param([Parameter(Mandatory)][object[]]$Records)
+  $snapshot = [ordered]@{}
+  foreach ($record in $Records) {
+    $destination = Get-CffLicensedDestination $record
+    foreach ($name in @($destination.font,$destination.license,'qualification.json')) {
+      $path = Join-Path $destination.directory $name
+      $key = $path.Substring($RepositoryRoot.Length + 1).Replace('\','/')
+      $snapshot[$key] = if (Test-Path -LiteralPath $path -PathType Leaf) {
+        Get-CffFileSha256 $path
+      } else {
+        '<missing>'
+      }
+    }
+  }
+  return ($snapshot | ConvertTo-Json -Compress)
+}
+
+function Get-CffValidatedLicensedBundles {
+  param(
+    [Parameter(Mandatory)]$Context,
+    [Parameter(Mandatory)][object[]]$Records,
+    [switch]$AllowNetwork,
+    [switch]$RunOracles
+  )
+  $stageRoot = Join-Path $Context.tools_root (
+    "licensed-intake-stage-$([guid]::NewGuid().ToString('N'))"
+  )
+  [void](New-Item -ItemType Directory -Path $stageRoot)
+  $bundles = [Collections.Generic.List[object]]::new()
+  try {
+    foreach ($record in $Records) {
+      $archivePath = Get-CffArchiveCachePath $Context $record -AllowNetwork:$AllowNetwork
+      $detachedLicensePath = Get-CffDetachedLicenseCachePath $Context $record `
+        -AllowNetwork:$AllowNetwork
+      $bundle = Read-CffLicensedArchiveBundle $archivePath $record `
+        -DetachedLicensePath $detachedLicensePath
+      $fontPath = Join-Path $stageRoot "$($record.id).otf"
+      [IO.File]::WriteAllBytes($fontPath, [byte[]]$bundle.font)
+      $profile = Invoke-CffPinnedProfileReader $Context $fontPath $record
+      Assert-CffLicensedProfile $profile $record
+      $oracles = if ($RunOracles) {
+        Invoke-CffLicensedOracleAgreement $Context $fontPath $record
+      } else {
+        $null
+      }
+      $bundles.Add([ordered]@{
+        record = $record
+        font = [byte[]]$bundle.font
+        license = [byte[]]$bundle.license
+        profile = $profile
+        oracles = $oracles
+      })
+    }
+    return @($bundles)
+  } finally {
+    if (Test-Path -LiteralPath $stageRoot) {
+      Remove-Item -LiteralPath $stageRoot -Recurse -Force
+    }
+  }
+}
+
+function Publish-CffLicensedBundles {
+  param([Parameter(Mandatory)][object[]]$Bundles)
+  $states = @()
+  foreach ($bundle in $Bundles) {
+    $destination = Get-CffLicensedDestination $bundle.record
+    $fontPath = Join-Path $destination.directory $destination.font
+    $licensePath = Join-Path $destination.directory $destination.license
+    $fontExists = Test-Path -LiteralPath $fontPath -PathType Leaf
+    $licenseExists = Test-Path -LiteralPath $licensePath -PathType Leaf
+    if ($fontExists -xor $licenseExists) {
+      throw "Refusing partial licensed destination: $($bundle.record.id)"
+    }
+    if ($fontExists) {
+      Assert-ExactBytesIdentity "$($bundle.record.id) canonical font" `
+        ([IO.File]::ReadAllBytes($fontPath)) ([long]$bundle.record.member.length) `
+        ([string]$bundle.record.member.sha256)
+      Assert-ExactBytesIdentity "$($bundle.record.id) canonical license" `
+        ([IO.File]::ReadAllBytes($licensePath)) `
+        ([long]$bundle.record.license_file.length) `
+        ([string]$bundle.record.license_file.sha256)
+    }
+    $states += [ordered]@{
+      bundle = $bundle
+      destination = $destination
+      exists = $fontExists
+    }
+  }
+  if (@($states | Where-Object exists).Count -eq $states.Count) {
+    return
+  }
+  if (@($states | Where-Object exists).Count -ne 0) {
+    throw 'Refusing a cross-bundle partial licensed publication.'
+  }
+
+  $transaction = [guid]::NewGuid().ToString('N')
+  $published = [Collections.Generic.List[string]]::new()
+  $stageDirectories = [Collections.Generic.List[string]]::new()
+  try {
+    foreach ($state in $states) {
+      $parent = Split-Path -Parent $state.destination.directory
+      $stage = Join-Path $parent ".$([IO.Path]::GetFileName($state.destination.directory)).stage-$transaction"
+      [void](New-Item -ItemType Directory -Path $stage)
+      [IO.File]::WriteAllBytes(
+        (Join-Path $stage $state.destination.font),
+        [byte[]]$state.bundle.font
+      )
+      [IO.File]::WriteAllBytes(
+        (Join-Path $stage $state.destination.license),
+        [byte[]]$state.bundle.license
+      )
+      $stageDirectories.Add($stage)
+    }
+    for ($index = 0; $index -lt $states.Count; $index++) {
+      Move-Item -LiteralPath $stageDirectories[$index] `
+        -Destination $states[$index].destination.directory
+      $published.Add($states[$index].destination.directory)
+    }
+  } catch {
+    foreach ($directory in $published) {
+      if (Test-Path -LiteralPath $directory -PathType Container) {
+        Remove-Item -LiteralPath $directory -Recurse -Force
+      }
+    }
+    throw
+  } finally {
+    foreach ($stage in $stageDirectories) {
+      if (Test-Path -LiteralPath $stage) {
+        Remove-Item -LiteralPath $stage -Recurse -Force
+      }
+    }
+  }
+}
+
+function Invoke-CffLicensedIntake {
+  $context = Assert-CffExecutionHandoff
+  $records = @(Get-CffLicensedSpecimens)
+  $before = Get-CffCanonicalDestinationSnapshot $records
+  $bundles = @(Get-CffValidatedLicensedBundles $context $records `
+    -AllowNetwork -RunOracles)
+  if ((Get-CffCanonicalDestinationSnapshot $records) -cne $before) {
+    throw 'Licensed destinations changed during validation.'
+  }
+  Publish-CffLicensedBundles $bundles
+  Write-Host 'Exact Source Sans and Source Han licensed bundles published atomically.'
+}
+
+function Invoke-CffIntakeContractCheck {
+  $context = Assert-CffExecutionHandoff
+  $records = @(Get-CffLicensedSpecimens)
+  $before = Get-CffCanonicalDestinationSnapshot $records
+  [void](Get-CffValidatedLicensedBundles $context $records -RunOracles)
+  if ((Get-CffCanonicalDestinationSnapshot $records) -cne $before) {
+    throw 'Offline licensed intake contract mutated a canonical destination.'
+  }
+  Write-Host 'Licensed CFF staged intake contract passed without publication.'
+}
+
+function Invoke-CffIntakeNegatives {
+  $context = Assert-CffExecutionHandoff
+  $records = @(Get-CffLicensedSpecimens)
+  $before = Get-CffCanonicalDestinationSnapshot $records
+  $mutations = @(
+    @{ id='nearby-tag'; apply={ param($x); $x.tag='3.053R' } },
+    @{ id='alternate-url'; apply={ param($x); $x.archive.url='https://example.invalid/font.zip' } },
+    @{ id='alternate-member'; apply={ param($x); $x.member.path='OTF/SourceSans3-It.otf' } },
+    @{ id='font-digest'; apply={ param($x); $x.member.sha256=('0' * 64) } },
+    @{ id='license-digest'; apply={ param($x); $x.license_file.sha256=('0' * 64) } },
+    @{ id='keying'; apply={ param($x); $x.profile.keying='cid' } },
+    @{ id='reader-incomplete'; apply={ param($x); $x.profile.global_subrs=-1 } }
+  )
+  foreach ($negative in $mutations) {
+    $copy = Copy-CffQualificationDocument $records[0]
+    & $negative.apply $copy
+    Assert-CffQualificationExpectedFailure {
+      Assert-CffLicensedRecord $copy
+    } "licensed intake $($negative.id)"
+  }
+  $cjk = Copy-CffQualificationDocument $records[1]
+  $cjk.profile.used_fds = @(0..16)
+  Assert-CffQualificationExpectedFailure {
+    Assert-CffLicensedRecord $cjk
+  } 'licensed intake incomplete FD coverage'
+  $cjk = Copy-CffQualificationDocument $records[1]
+  $cjk.profile.high_gid = 17921
+  Assert-CffQualificationExpectedFailure {
+    Assert-CffLicensedRecord $cjk
+  } 'licensed intake high GID drift'
+  foreach ($unsafe in @('/absolute.otf','C:/device.otf','../escape.otf','a/../b.otf')) {
+    Assert-CffQualificationExpectedFailure {
+      Assert-CffZipMemberName $unsafe
+    } "licensed archive unsafe path $unsafe"
+  }
+  Assert-CffQualificationExpectedFailure {
+    Assert-CffZipInventory @(
+      [pscustomobject]@{ FullName='OTF/A.otf'; ExternalAttributes=0 },
+      [pscustomobject]@{ FullName='otf/a.OTF'; ExternalAttributes=0 }
+    )
+  } 'licensed archive case collision'
+  Assert-CffQualificationExpectedFailure {
+    Assert-CffZipInventory @(
+      [pscustomobject]@{
+        FullName='OTF/link.otf'
+        ExternalAttributes=([int](0xA000 -shl 16))
+      }
+    )
+  } 'licensed archive symbolic link'
+  Assert-CffQualificationExpectedFailure {
+    Assert-CffZipInventory @(
+      [pscustomobject]@{
+        FullName='OTF/reparse.otf'
+        ExternalAttributes=[int][IO.FileAttributes]::ReparsePoint
+      }
+    )
+  } 'licensed archive reparse point'
+
+  $oldAmbient = $env:MNF_CFF_HOST_TOOLCHAIN_INPUT
+  try {
+    $env:MNF_CFF_HOST_TOOLCHAIN_INPUT = 'C:\ambient-selection-is-forbidden.json'
+    [void](Assert-CffExecutionHandoff)
+  } finally {
+    $env:MNF_CFF_HOST_TOOLCHAIN_INPUT = $oldAmbient
+  }
+  Assert-CffQualificationExpectedFailure {
+    $script:ExecutionHandoffPath = 'artifacts/release-qualification/phase-107/moved.json'
+    [void](Assert-CffExecutionHandoff)
+  } 'moved execution handoff'
+  $script:ExecutionHandoffPath = $CffExecutionHandoffRelativePath
+
+  if ((Get-CffCanonicalDestinationSnapshot $records) -cne $before) {
+    throw 'Licensed intake negatives mutated a canonical destination.'
+  }
+  Write-Host 'Licensed CFF intake negatives passed with canonical destinations preserved.'
+}
+
+function Assert-CffCanonicalLicensedIntake {
+  param([switch]$RunOracles)
+  $context = Assert-CffExecutionHandoff
+  $records = @(Get-CffLicensedSpecimens)
+  foreach ($record in $records) {
+    $destination = Get-CffLicensedDestination $record
+    $fontPath = Join-Path $destination.directory $destination.font
+    $licensePath = Join-Path $destination.directory $destination.license
+    if (-not (Test-Path -LiteralPath $fontPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $licensePath -PathType Leaf)) {
+      throw "Canonical licensed CFF bundle is missing: $($record.id)"
+    }
+    Assert-ExactBytesIdentity "$($record.id) canonical font" `
+      ([IO.File]::ReadAllBytes($fontPath)) ([long]$record.member.length) `
+      ([string]$record.member.sha256)
+    Assert-ExactBytesIdentity "$($record.id) canonical license" `
+      ([IO.File]::ReadAllBytes($licensePath)) ([long]$record.license_file.length) `
+      ([string]$record.license_file.sha256)
+    $profile = Invoke-CffPinnedProfileReader $context $fontPath $record
+    Assert-CffLicensedProfile $profile $record
+    if ($RunOracles) {
+      [void](Invoke-CffLicensedOracleAgreement $context $fontPath $record)
+    }
+  }
+  Write-Host 'Canonical licensed CFF intake is exact and closed.'
+}
+
 if ($CheckGeneratedTracer) {
   Invoke-CffGeneratedTracerCheck
   return
 }
 
-if ($CheckIntakeContract -or $CheckIntakeNegatives -or $CheckLicensedIntake -or
-    $CheckOracleAgreement -or $CheckProvenance) {
+if ($CheckIntakeContract) {
+  Invoke-CffIntakeContractCheck
+  return
+}
+if ($CheckIntakeNegatives) {
+  Invoke-CffIntakeNegatives
+  return
+}
+if ($CheckLicensedIntake) {
+  Assert-CffCanonicalLicensedIntake
+  return
+}
+if ($CheckOracleAgreement) {
+  Assert-CffCanonicalLicensedIntake -RunOracles
+  return
+}
+if ($CheckProvenance) {
   throw 'Phase 107 licensed intake contract is not implemented.'
 }
 
@@ -3441,6 +4290,10 @@ if ($CheckContracts -or $CheckGeneratedRecipes -or $CheckOracleAdapters -or
 
 if ($Intake -and $Check) {
   throw '-Intake and -Check are mutually exclusive.'
+}
+if ($Intake -and $ExecutionHandoffPath) {
+  Invoke-CffLicensedIntake
+  return
 }
 if ($Intake) {
   Invoke-FontQualificationIntake
