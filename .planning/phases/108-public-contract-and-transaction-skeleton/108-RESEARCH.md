@@ -2,7 +2,7 @@
 
 **Researched:** 2026-07-30
 **Domain:** MoonBit format-neutral text shaping contract, opaque cross-module transaction authority, checked resource accounting
-**Confidence:** MEDIUM
+**Confidence:** HIGH
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
@@ -278,10 +278,17 @@ These filenames follow current package organization, black-box `*_test.mbt`, whi
 
 **When to use:** Use only for one request-scoped cross-module shaping transaction. Do not expose a constructor, persistent layout profile, raw source/table accessor, or commit method.
 
-**Recommended signature:**
+**Frozen public signatures:**
 
 ```moonbit
-// Source pattern: existing BudgetScope::with_depth[T] plus MoonBit package docs.
+pub struct FontShapeScope {
+  // All fields private. No public constructor.
+}
+
+pub fn FontShapeScope::units_per_em(
+  self : FontShapeScope,
+) -> Result[UInt64, @error.CoreError]
+
 pub fn[T] Font::with_shape_transaction(
   self : Font,
   budget : @budget.Budget,
@@ -290,13 +297,46 @@ pub fn[T] Font::with_shape_transaction(
 ) -> Result[T, @error.CoreError]
 ```
 
-The concrete tuple spelling should receive an immediate compile proof in the first implementation task; generic functions, closures, and higher-order function types are documented language features, and the repository already compiles the analogous `BudgetScope::with_depth[T]`. [CITED: https://docs.moonbitlang.com/en/latest/language/fundamentals.html; VERIFIED: `modules/mb-core/budget/budget.mbt`]
+The exact generic callback and nested tuple/`Result` spelling compiled unchanged in a three-module scratch workspace where `proof/font` depended only on `proof/core`, while `proof/text` depended on both and invoked the method from a top-level `shape`. `moon info --target all` emitted:
+
+```moonbit
+pub fn[T] Font::with_shape_transaction(
+  Self,
+  @budget.Budget,
+  (FontShapeScope) ->
+    Result[(T, @budget.ResourceCharge), @error.CoreError],
+) -> Result[T, @error.CoreError]
+```
+
+The scratch packages intentionally used the exact public type names and package aliases `@budget.Budget`, `@budget.ResourceCharge`, and `@error.CoreError`; only the scratch module-owner prefixes differed from the repository. [VERIFIED: pinned-toolchain scratch compile proof; VERIFIED: existing concrete types in `modules/mb-core`]
+
+**Pinned-toolchain compile evidence:**
+
+| Check | Exact command | Result |
+|-------|---------------|--------|
+| Cross-module type checking | `moon check --target all` | Passed for `js`, `wasm`, `wasm-gc`, and `native`. |
+| Callback execution and scope invalidation | `moon test --target all` | Three tests passed on each of the four targets: top-level shape/generic return, captured-scope invalidation, and exact `ShapeLimits` validation/accessors. |
+| Exported interface | `moon info --target all` | Emitted public-abstract `FontShapeScope`, the exact generic tuple callback, top-level `shape`, and the exact two-field `ShapeLimits` surface. |
+| Toolchain | `moon version --all` | `moon 0.1.20260713 (75c7e1f 2026-07-13)`, `moonc v0.10.4+2cc641edf (2026-07-15)`, `moonrun 0.1.20260713 (75c7e1f 2026-07-13)`. |
+
+[VERIFIED: local pinned MoonBit toolchain and isolated scratch workspace]
+
+**Visibility and lifetime decision:** `FontShapeScope` MUST remain `pub struct` with every field private and no public constructor. A private scope type is not viable: the negative compile proof produced `E4046 A public definition cannot depend on private type`. External record-literal construction of the public-abstract type produced `E4036 Cannot create values of the read-only type` and `E4033 There is no record definition with the fields`. [VERIFIED: pinned-toolchain negative compile proofs]
+
+MoonBit's generic `T` does not provide a static negative constraint preventing `T = FontShapeScope`; the proof intentionally returned a scope through `T` and confirmed that this form compiles. Therefore the smallest correct opaque seam is **semantic non-escape**: the scope holds a shared private active cell, `defer` closes it on every callback exit, and every public scope operation checks the cell before font state. A captured or returned scope value may remain nominally present, but it has no usable authority and returns `State` / `InvalidRange`, operation `font-shape-scope`, context `font-shape-scope-closed`. Do not claim a compile-time lifetime guarantee that MoonBit does not enforce. [VERIFIED: pinned-toolchain scratch compile/runtime proof; VERIFIED: existing `BudgetScope` invalidation pattern]
+
+**Rejected forms:**
+
+- `priv struct FontShapeScope` in the public callback signature — rejected by `E4046`.
+- A separately public generic `PreparedShape[T]` or callback-result carrier — unnecessary because the tuple form compiles, and it would add a constructible/persistable public transaction value forbidden by D-14.
+- A claim that the generic callback statically prevents returning the scope — false on the pinned toolchain; dynamic invalidation is mandatory.
+- A public scope constructor, commit method, raw font-byte accessor, or returned prepared handle — forbidden by D-03, D-13, and D-14.
 
 Implementation rules:
 
 1. The scope owns a shared private `active` flag, the `Font`, and a private font-side charge ledger. [VERIFIED: analogous `BudgetScope` pattern]
-2. Every scope operation first checks `active`, then checks the retained-source revision. [VERIFIED: D-15]
-3. `defer` closes the scope on success or error; an escaped scope value can exist but all later operations return `State` with context `font-shape-scope-closed`. [VERIFIED: analogous `BudgetScope` invalidation behavior; recommended stable context]
+2. Every scope operation first checks `active`, then checks the retained-source revision. `units_per_em` is the only Phase 108 public scope query; later phases may add bounded normalized operations additively. [VERIFIED: D-11, D-15]
+3. `defer` closes the scope on success or error; an escaped scope value can exist but all later operations return `State` / `InvalidRange`, operation `font-shape-scope`, context `font-shape-scope-closed`. [VERIFIED: pinned-toolchain scratch proof; VERIFIED: analogous `BudgetScope` invalidation behavior]
 4. The callback returns a private staged `T` and text charge. The harness combines it with the hidden font charge, preflights caller and ancestors, invokes the final mutation probe, guards the revision, calls `Budget::charge` once, then returns `T`. [VERIFIED: D-14, D-15]
 5. No callback or fallible publication work occurs after `Budget::charge`. [VERIFIED: atomicity requirement D-14]
 
@@ -352,7 +392,7 @@ pub fn shape(
 ) -> Result[ShapedRun, @error.CoreError]
 ```
 
-`shape` must be top-level because `mb-text` does not own `Font`. [CITED: https://docs.moonbitlang.com/en/latest/language/packages.html]
+Freeze the call spelling as `@text.shape(font, scalars, options, limits, budget)`. It is a package-level function, not `Font::shape`, `ShapedRun::shape`, or a builder method, because `mb-text` does not own `Font` and D-01 permits exactly one closed operation. The top-level cross-module call form compiled in the scratch proof. [CITED: https://docs.moonbitlang.com/en/latest/language/packages.html; VERIFIED: pinned-toolchain scratch compile/runtime proof]
 
 Recommended value contracts:
 
@@ -369,21 +409,28 @@ MoonBit arrays are mutable shared references, so private construction must copy 
 
 **What:** Follow `FontLimits`: private fields, a checked constructor that rejects zero required ceilings, named accessors, and no mutable setters. `ShapeLimits` constrains structural/semantic work; caller `Budget` independently constrains resource consumption. [VERIFIED: `modules/mb-font/font/limits.mbt`; VERIFIED: D-12, D-15]
 
-Freeze these Phase 108 public limit groups so later phases do not need to widen the constructor:
+**Frozen Phase 108 public surface:**
 
-| Limit group | Required ceilings |
-|-------------|-------------------|
-| Input/output | input scalars, final glyphs |
-| Selected layout bytes | GSUB bytes, GPOS bytes, GDEF bytes, legacy kern bytes |
-| Selection graph | scripts, language systems, features, feature-to-lookup references |
-| Lookup graph | lookups, subtables, lookup applications, subtable probes |
-| Coverage/class data | coverage entries/ranges, class ranges/counts, class-pair cells |
-| Substitution | pair sets/records, ligature sets/ligatures/components, substitutions, consumed components |
-| Positioning | pair probes, applied adjustments |
-| Retained staging | normalized bytes, private allocations, output allocations, maximum allocation size, total work |
-| Numeric bounds | maximum absolute advance, maximum absolute x/y offset |
+```moonbit
+pub struct ShapeLimits {
+  priv max_input_scalars_value : UInt64
+  priv max_output_glyphs_value : UInt64
+}
 
-The exact field names may stay concise, but every group above should have a nonzero ceiling and accessor now; Phases 109–112 will consume them rather than alter the public contract. This is a prescriptive design choice within the agent’s discretion, derived from the already enumerated future layout structures and charge loops. [VERIFIED: `.planning/research/ARCHITECTURE.md`; VERIFIED: `.planning/research/PITFALLS.md`]
+pub fn ShapeLimits::new(
+  max_input_scalars~ : UInt64,
+  max_output_glyphs~ : UInt64,
+) -> Result[ShapeLimits, @error.CoreError]
+
+pub fn ShapeLimits::max_input_scalars(self : ShapeLimits) -> UInt64
+pub fn ShapeLimits::max_output_glyphs(self : ShapeLimits) -> UInt64
+```
+
+Both arguments are required and nonzero. A zero value returns `InvalidInput` / `InvalidRange`, operation `text-shape-limits-new`, requested `0`, limit `1`, with context `max-input-scalars` or `max-output-glyphs` respectively. Validate in constructor order: input first, output second. No `ShapeLimits::default`, setters, public fields, layout-byte/count limits, allocation limits, numeric-magnitude limits, or `max_work` accessor belongs in Phase 108. [VERIFIED: D-02, D-03, D-12; VERIFIED: pinned-toolchain scratch compile/runtime proof]
+
+These are the only semantic dimensions Phase 108 can enforce without pre-implementing Phase 109 admission policy: the complete request-owned scalar snapshot and the maximum published record count. Exact allocation and work authority remains in the caller's `Budget`/combined `ResourceCharge`; checked `Int64` arithmetic rejects numeric overflow independently. [VERIFIED: D-02, D-03, D-06, D-14]
+
+This surface is additive-extension safe because `ShapeLimits` is public-abstract: Phase 109 may add private representation fields plus new constructors/accessors for admitted layout ceilings without changing or removing `new(max_input_scalars~, max_output_glyphs~)` or either Phase 108 accessor. The retained constructor must remain source-compatible and initialize any future private layout policy to conservative implementation-owned defaults; callers that need explicit Phase 109 ceilings will use the additive Phase 109 API. Phase 109 owns those names and semantics after its required offset/cardinality/allocation research; Phase 108 MUST NOT guess or freeze them. [VERIFIED: MoonBit public-abstract interface emitted by `moon info`; VERIFIED: Phase 109 boundary in `.planning/ROADMAP.md`]
 
 ### Pattern 6: Logical Staging, Final-Only RTL Projection
 
@@ -636,19 +683,19 @@ Use two distinct admitted fonts whose glyph count includes ID 3; copied aliases 
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| — | No claims are tagged `[ASSUMED]`; unresolved design points are stated as recommendations or open questions and should be compile-proven during implementation. | All | — |
+| — | No claims are tagged `[ASSUMED]`; the two previously open public-contract decisions are resolved below with pinned-toolchain compile evidence. | All | — |
 
 ## Open Questions
 
-1. **Will the exact proposed nested callback tuple signature compile unchanged on the pinned toolchain?**
-   - What we know: Generic functions, closures, and higher-order function types are documented, and `BudgetScope::with_depth[T]` already compiles in this repository. [CITED: https://docs.moonbitlang.com/en/latest/language/fundamentals.html; VERIFIED: `modules/mb-core/budget/budget.mbt`]
-   - What is unclear: The exact formatting/spelling of `Result[(T, ResourceCharge), CoreError]` was not compiled during this documentation-only research task.
-   - Recommendation: Make a minimal compile proof the first task in the font-transaction plan; if tuple syntax is awkward, replace only the private callback return carrier with a public-abstract generic result type while preserving the same opacity and lifetime rules.
+1. **RESOLVED — Cross-module callback carrier and generic return signature.**
+   - Decision: Use public-abstract `FontShapeScope`, `Font::with_shape_transaction[T](self, budget, body)` with `body : (FontShapeScope) -> Result[(T, ResourceCharge), CoreError]`, and top-level `@text.shape(...)`. The exact tuple/`Result` generic form compiles across all four targets; do not introduce a separate public outcome carrier. [VERIFIED: pinned-toolchain scratch compile proof]
+   - Lifetime rule: Private fields/no constructor prevent external construction. Because generic `T` can nominally carry the scope, `defer`-driven shared-cell invalidation is mandatory and every post-callback operation returns `State` / `InvalidRange`, operation `font-shape-scope`, context `font-shape-scope-closed`. This is the frozen usable-non-escape guarantee. [VERIFIED: pinned-toolchain positive and negative compile/runtime proofs]
+   - Rejected: private scope in the public signature (`E4046`), external record construction (`E4036`/`E4033`), a public prepared/outcome carrier, and any claim of static lifetime enforcement.
 
-2. **How many individual fields should the frozen `ShapeLimits` constructor expose?**
-   - What we know: D-12 requires valid nonzero limits, and future phases require ceilings across selection, lookup, coverage/class, substitution, positioning, staging, and numeric dimensions. [VERIFIED: D-12; VERIFIED: research architecture/pitfalls]
-   - What is unclear: Context locks semantics but delegates concise type naming and representation.
-   - Recommendation: Freeze every limit group listed in Pattern 5 now, use private fields and named accessors, and allow internal constructors/helpers to group arguments without dropping a public ceiling.
+2. **RESOLVED — Exact Phase 108 `ShapeLimits` surface.**
+   - Decision: `ShapeLimits::new(max_input_scalars~ : UInt64, max_output_glyphs~ : UInt64) -> Result[ShapeLimits, CoreError]`, with only `max_input_scalars()` and `max_output_glyphs()` accessors and private backing fields of the same two types. Both must be nonzero; input validation precedes output validation. [VERIFIED: pinned-toolchain scratch compile/runtime proof; VERIFIED: D-02, D-03, D-12]
+   - Defaults: Do not expose `ShapeLimits::default`; the explicit bounded call requires caller-selected nonzero ceilings. [VERIFIED: D-01, TXT-01]
+   - Phase boundary: Do not add layout bytes/counts, allocation, numeric magnitude, or `max_work` limits in Phase 108. Phase 109 may extend the private representation and add new constructor/accessor APIs while preserving the exact Phase 108 constructor and accessors. [VERIFIED: Phase 108/109 roadmap boundaries; VERIFIED: public-abstract `moon info` surface]
 
 ## Environment Availability
 
@@ -729,7 +776,7 @@ moon test --target all --frozen
 ### Planning Decomposition
 
 1. **Core safety primitives:** implement/test checked `ResourceCharge` composition and checked signed `Int64` helpers.
-2. **Font authority:** strengthen `GlyphId` ownership, compile-proof and implement the opaque transaction scope, and add escape/mutation/atomicity tests.
+2. **Font authority:** strengthen `GlyphId` ownership, implement the compile-proven opaque transaction scope exactly, and add escape/mutation/atomicity tests.
 3. **Text contract:** add the module and public values, limits, immutable run, empty path, fail-closed nonempty path, private generated fixture seam, RTL/cluster/precedence tests.
 4. **Repository integration:** add workspace membership, module/dependency/interface policy, required-lane enumeration, docs/changelog, and four-target evidence.
 
@@ -801,7 +848,7 @@ ASVS 5.0.0 is an application-security verification standard; this library phase 
 **Confidence breakdown:**
 
 - Standard stack: HIGH — versions and module dependencies were verified locally and in manifests.
-- Architecture: MEDIUM — visibility and existing callback patterns are verified, but the exact proposed cross-module generic signature still needs a pinned-toolchain compile proof.
+- Architecture: HIGH — the exact public-abstract cross-module generic callback, nested tuple/`Result`, top-level call, external-construction rejection, and post-callback invalidation were compile/runtime-proven on the pinned four-target toolchain.
 - Pitfalls: HIGH — derived from locked decisions, exact source gaps, and official language semantics.
 - Numeric/direction contract: HIGH — locked by context and backed by checked-API inspection.
 - Governance/test commands: HIGH — derived from current manifests, official commands, and repository quality scripts.
