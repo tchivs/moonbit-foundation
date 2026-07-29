@@ -1550,7 +1550,8 @@ function Invoke-CffBenchmarkSyntheticPostProcessing {
       'statistics',
       'audit_owner'
     ) 'Synthetic CFF policy digest staging'
-    if ($staged.path -cne $baselineRelativePath -or
+    if ($staged.path -cne
+          'docs/benchmarks/mb-font-cff-native-release-baseline.md' -or
         $staged.status -cne 'recorded-observation-only' -or
         $staged.length -ne $bytes.Length -or
         $staged.sha256 -cne (Get-CffBenchmarkSha256File $destination) -or
