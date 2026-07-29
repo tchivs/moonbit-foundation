@@ -404,3 +404,8 @@ test "CFF CID tracer names a one-short local Subrs boundary" {
     "font-cff-local-subrs-index",
   )
 }
+
+///|
+test "font-cff1-v3 private fd oracle" {
+  cff_qualification_assert_private_fd_oracle()
+}

@@ -533,3 +533,8 @@ test "font-complete-public qualifies licensed DejaVu collection faces" {
     font_qualification_assert_dejavu_public_facts(font)
   }
 }
+
+///|
+test "font-cff1-v3 freezes static glyf semantic compatibility" {
+  font_qualification_assert_static_glyf_semantic_compatibility()
+}
