@@ -92,7 +92,7 @@ The licensed specimens are resolved. The Latin specimen is `SourceSans3-Regular.
 
 The CJK specimen is `SubsetOTF/JP/SourceHanSerifJP-Regular.otf` from Adobe's official `12_SourceHanSerifJP.zip` at tag `2.003R`: 6,210,796 bytes, SHA-256 `e5f502bb193c28829895b098498f0f9dd8f658c760b0f83656ad41c1137a8785`, `OTTO` with `CFF ` 1.0, CID-keyed `ROS=["Adobe","Identity",0]`, 17,923 glyphs, 18 FDArray entries, all FDs 0-17 used by FDSelect, distinct local-Subr counts `[16,46,7,2004,39,131,0,1,7,0,0,205,21626,237,389,17,0,231]`, and 1,599 global Subrs. Fixed high GID 17,922 (`cid65390`) uses FD 17 and has a non-empty 136-token decompiled Type 2 program. The official archive is 36,831,708 bytes with SHA-256 `c5a3bbc213980cea04932457899c9fc2da4784d3d1d7cae469c41909dd112230`; `LICENSE.txt` is 4,463 bytes with SHA-256 `9ff5bb567e1b92c801fc1069e5fbf992ff8efccacb9db94e5959a5b3ba9bb903`. The committed specimen is the exact upstream OTF, not a new subset derivative. [CITED: https://github.com/adobe-fonts/source-han-serif/releases/tag/2.003R] [CITED: https://github.com/adobe-fonts/source-han-serif/blob/2.003R/LICENSE.txt] [VERIFIED: independent local fontTools 4.63.0 inspection and SHA-256, 2026-07-29]
 
-**Primary recommendation:** preserve the three strict D-23 slices but implement them as five smaller dependent plans: reader/generated-vector contracts; atomic licensed intake/generated mirror; public/hostile/glyf evidence; v3 correctness/policy/CI/docs; and the separate native baseline. This preserves producer-before-consumer ordering while keeping executor context and task-commit boundaries sound. [VERIFIED: 107-CONTEXT D-23; plan-checker stall resolution, 2026-07-29]
+**Primary recommendation:** preserve the three strict D-23 slices but implement them as six smaller dependent plans: reader/generated-vector contracts; atomic licensed intake; evidence-module/carrier generation; public/hostile/glyf evidence; v3 correctness/policy/CI/docs; and the separate native baseline. This preserves producer-before-consumer ordering while keeping executor context and task-commit boundaries sound. [VERIFIED: 107-CONTEXT D-23; plan-checker stall resolution, 2026-07-29]
 
 The single licensed-payload owner is resolved as a non-published evidence module at `benchmarks/font-cff`. Its package-private generated source contains the Latin/CJK bytes once; black-box four-target qualification tests and native benchmark closures live in the same package and consume that source. `benchmarks/moon.work` includes both `../modules/mb-font` and `./font-cff`, so the evidence module always resolves the tracked local runtime rather than a registry copy. Production `mb-font` keeps no licensed CFF byte literal or fixture API; private hostile evidence remains in the existing `mb-font/font` white-box suite. [VERIFIED: 107-CONTEXT D-01/D-10/D-19; plan-checker stall resolution, 2026-07-29]
 
@@ -121,6 +121,8 @@ The single licensed-payload owner is resolved as a non-published evidence module
 | OTS | Signed tag `v9.2.0`, commit `3b26b2e8b571a33739ee0c3553cb01c17ed62e23`; codeload ZIP `https://codeload.github.com/khaledhosny/ots/zip/3b26b2e8b571a33739ee0c3553cb01c17ed62e23`, 46,943,415 bytes, SHA-256 `11e2c24e2c2d13627f389ca811041cb31022fe7747e5eb44ccff92757a6b63f1`. Provision into an isolated staging root, build `meson build` then `ninja -C build`, run `ninja -C build test`, and freeze the invoked `ots-sanitize` executable digest; dependency wraps may not float or download outside the provision step. | Structural acceptance only; never semantic truth and never a substitute for either semantic reader. [CITED: https://github.com/khaledhosny/ots/blob/v9.2.0/README.md] [VERIFIED: signed tag API and source archive SHA-256, 2026-07-29] |
 
 The semantic readers are fixed to fontTools 4.63.0 and AFDKO 5.0.1. Their adapters must use a shared closed output schema but remain implementation-independent; package/source/executable identity, forbidden-import scans, anti-alias checks, and exact result agreement are part of the intake gate. OTS v9.2.0 remains structural-only. FreeType is not a required oracle dependency for this milestone. [CITED: https://fonttools.readthedocs.io/en/latest/ttLib/ttFont.html] [CITED: https://fonttools.readthedocs.io/en/latest/pens/recordingPen.html] [CITED: https://github.com/adobe-type-tools/afdko] [CITED: https://github.com/khaledhosny/ots/blob/v9.2.0/README.md]
+
+The build/runtime chain is supplied through a committed closed `host-toolchain.lock.json`, not discovered from `PATH`. Before any adapter or OTS build runs, provisioning requires caller-supplied absolute regular-file paths for CPython, Meson, Ninja, C/C++ compiler, linker, SDK roots, and all invoked build dependencies together with expected version and SHA-256; it verifies every identity, records the resolved absolute-path digest set, and rejects missing, extra, symlink/reparse, PATH/global, or version/hash-mismatched inputs. This caller-supplied manifest is the reproducibility boundary for environment-specific compiler/SDK components, while the wheel and OTS source archives retain the exact acquisition identities above. [VERIFIED: plan-checker resolution accepted alternative of exact caller-supplied identities, 2026-07-29]
 
 ## Package Legitimacy Audit
 
@@ -364,31 +366,38 @@ Threats to test explicitly are asset/tool substitution, oracle self-reference, h
 
 **Exit gate:** generated corpus and hostile outcomes are complete and both reader families can emit the closed projection without sharing `mb-font` or a semantic backend. [VERIFIED: 107-CONTEXT D-03-D-06/D-09/D-23]
 
-### 107-02 — Atomic licensed intake and single portable mirror
+### 107-02 — Atomic licensed intake
 
 1. Verify and promote the exact resolved Source Sans/Source Han specimens, licenses, hashes, profiles, FD facts, and two-reader agreement.
-2. Generate provenance/oracles/manifest facts and the single package-private payload mirror in `benchmarks/font-cff`; make `-Check` reconstruct all committed outputs without network mutation.
-3. Render the canonical generated/hostile schema into the evidence package and freeze fixture, oracle, workload, tool, notice, and source identities.
+2. Generate provenance/oracles/manifest facts and freeze fixture, oracle, workload, tool, notice, and source identities.
 
-**Dependency:** consumes only frozen 107-01 schemas/adapters. **Exit gate:** every exact specimen/profile/license/tool fact reproduces, both readers agree, and exactly one non-production payload source exists. [VERIFIED: 107-CONTEXT D-07-D-10/D-23]
+**Dependency:** consumes only frozen 107-01 schemas/adapters. **Exit gate:** every exact specimen/profile/license/tool fact reproduces and both readers agree. [VERIFIED: 107-CONTEXT D-07-D-10/D-23]
 
-### 107-03 — Public workflows, hostile/atomicity matrix, and glyf lock
+### 107-03 — Evidence module and single portable mirror
+
+1. Create the non-published `benchmarks/font-cff` module/package with deterministic local `mb-font` workspace resolution.
+2. Make `Generate-FontQualification.ps1` own private-region rendering plus `-CheckPrivateOracleFacts` and `-CheckPrivateEvidenceMirrors`.
+3. Generate the single package-private payload mirror and private wbtest scaffold; `-Check` reconstructs every committed output without network mutation.
+
+**Dependency:** consumes frozen 107-02 fixtures/oracles. **Exit gate:** exactly one non-production payload source exists and every generator mode is implemented before consumers invoke it. [VERIFIED: 107-CONTEXT D-03-D-10/D-23]
+
+### 107-04 — Public workflows, hostile/atomicity matrix, and glyf lock
 
 1. Add generated/licensed standalone and selected-collection black-box facts in the evidence package, limited to observable mappings, metrics, bounds, and paths.
 2. Compare FD/local-environment oracle facts only in an existing private white-box assertion; do not widen public API.
 3. Consume every canonical hostile row unchanged and freeze complete errors, smallest GIDs, publication state, all eight caller/ancestor dimensions, and static-glyf fingerprints.
 
-**Dependency:** consumes frozen 107-02 identities/mirror. **Exit gate:** all focused public/white-box identities pass without public/runtime expansion. [VERIFIED: 107-CONTEXT D-05/D-11-D-14/D-23]
+**Dependency:** consumes frozen 107-03 identities/mirror. **Exit gate:** all focused public/white-box identities pass without public/runtime expansion. [VERIFIED: 107-CONTEXT D-05/D-11-D-14/D-23]
 
-### 107-04 — v3 evidence, policy, CI, and documentation
+### 107-05 — v3 evidence, policy, CI, and documentation
 
 1. Advance the existing runner/boundary to fresh v3 identities and exact nested schemas.
 2. Run the `benchmarks/font-cff` public qualification tests independently on all targets alongside the existing `mb-font` private/full suites.
 3. Refresh final source/test inventories and retain API/dependency/import/capability locks, the existing 20-minute timeout, and documentation.
 
-**Dependency:** consumes frozen 107-01 through 107-03 identities. **Exit gate:** exactly four equal ordered semantic records and green policy/boundary negatives. [VERIFIED: 107-CONTEXT D-15-D-18/D-23]
+**Dependency:** consumes frozen 107-01 through 107-04 identities. **Exit gate:** exactly four equal ordered semantic records and green policy/boundary negatives. [VERIFIED: 107-CONTEXT D-15-D-18/D-23]
 
-### 107-05 — Native observation-only baseline
+### 107-06 — Native observation-only baseline
 
 1. Add `@bench.T` workloads to the same evidence package that owns the single payload; assert correctness outside measured closures.
 2. Record one excluded warmup plus seven retained native release captures from tracked inputs, then commit the baseline.
