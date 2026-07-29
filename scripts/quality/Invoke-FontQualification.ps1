@@ -120,7 +120,8 @@ $ProductionSourcePaths = @(
   'modules/mb-font/font/cff_type2.mbt',
   'modules/mb-font/font/cff_type2_bounds.mbt',
   'modules/mb-font/font/cff_type2_path.mbt',
-  'modules/mb-font/font/cff_admission.mbt'
+  'modules/mb-font/font/cff_admission.mbt',
+  'modules/mb-font/font/shape_transaction.mbt'
 )
 $FontTestSourcePaths = @(
   'modules/mb-font/font/cff_admission_wbtest.mbt',
@@ -142,7 +143,9 @@ $FontTestSourcePaths = @(
   'modules/mb-font/font/font_test.mbt',
   'modules/mb-font/font/font_wbtest.mbt',
   'modules/mb-font/font/generated_font_qualification_test.mbt',
-  'modules/mb-font/font/generated_fonts_wbtest.mbt'
+  'modules/mb-font/font/generated_fonts_wbtest.mbt',
+  'modules/mb-font/font/shape_transaction_test.mbt',
+  'modules/mb-font/font/shape_transaction_wbtest.mbt'
 )
 $EvidenceSourcePaths = @(
   'benchmarks/font-cff/moon.mod.json',
@@ -1601,6 +1604,9 @@ function Invoke-FontQualificationContractNegatives {
     @{ Name = 'production import'; Path = 'dependency_facts.production.package_imports.0'; Value = 'other' },
     @{ Name = 'evidence import'; Path = 'dependency_facts.evidence_module.test_only_mb_core_imports.0'; Value = 'other' },
     @{ Name = 'source'; Path = 'source_identities.production.0.sha256'; Value = '00' },
+    @{ Name = 'shape transaction source'; Path = 'source_identities.production.22.sha256'; Value = '00' },
+    @{ Name = 'shape transaction public tests'; Path = 'source_identities.mb_font_tests.20.sha256'; Value = '00' },
+    @{ Name = 'shape transaction private tests'; Path = 'source_identities.mb_font_tests.21.sha256'; Value = '00' },
     @{ Name = 'assertion'; Path = 'focused_assertions.0.name'; Value = 'drift' },
     @{ Name = 'runtime output'; Path = 'runtime_observations.0.correctness_output_sha256'; Value = '00' },
     @{ Name = 'observed hostile outcome'; Path = 'runner.hostile_row_coverage.0.operation'; Value = 'drift' },

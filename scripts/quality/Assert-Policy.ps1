@@ -3120,7 +3120,7 @@ function Assert-FontQualificationV3PolicyContract {
       'artifacts/release-qualification/ci-font-v3' -and
     $Qualification.marker_schema -ceq
       'mnf-font-qualification-evidence/v3' -and
-    [int]$Qualification.public_interface_lines -eq 85 -and
+    [int]$Qualification.public_interface_lines -eq 89 -and
     $Qualification.production_dependency -ceq 'tchivs/mb-core@0.1.0'
   ) 'Font v3 qualification policy identities drifted.'
   Assert-ExactSequence 'Font v3 target order' `
@@ -3160,7 +3160,8 @@ function Assert-FontQualificationV3PolicyContract {
       'modules/mb-font/font/cff_type2.mbt',
       'modules/mb-font/font/cff_type2_bounds.mbt',
       'modules/mb-font/font/cff_type2_path.mbt',
-      'modules/mb-font/font/cff_admission.mbt'
+      'modules/mb-font/font/cff_admission.mbt',
+      'modules/mb-font/font/shape_transaction.mbt'
     )
     font_test_sources = @(
       'modules/mb-font/font/cff_admission_wbtest.mbt',
@@ -3182,7 +3183,9 @@ function Assert-FontQualificationV3PolicyContract {
       'modules/mb-font/font/font_test.mbt',
       'modules/mb-font/font/font_wbtest.mbt',
       'modules/mb-font/font/generated_font_qualification_test.mbt',
-      'modules/mb-font/font/generated_fonts_wbtest.mbt'
+      'modules/mb-font/font/generated_fonts_wbtest.mbt',
+      'modules/mb-font/font/shape_transaction_test.mbt',
+      'modules/mb-font/font/shape_transaction_wbtest.mbt'
     )
     evidence_sources = @(
       'benchmarks/font-cff/moon.mod.json',
@@ -3386,6 +3389,21 @@ function Assert-FontQualificationArtifacts {
       Name = 'v3 production identity substitution'
       Pattern = 'production_sources identity drifted'
       Mutate = { param($copy) $copy.production_sources[0].sha256 = ('0' * 64) }
+    },
+    [pscustomobject]@{
+      Name = 'v3 shape transaction source identity substitution'
+      Pattern = 'production_sources identity drifted'
+      Mutate = { param($copy) $copy.production_sources[22].sha256 = ('0' * 64) }
+    },
+    [pscustomobject]@{
+      Name = 'v3 shape transaction public test identity substitution'
+      Pattern = 'font_test_sources identity drifted'
+      Mutate = { param($copy) $copy.font_test_sources[20].sha256 = ('0' * 64) }
+    },
+    [pscustomobject]@{
+      Name = 'v3 shape transaction private test identity substitution'
+      Pattern = 'font_test_sources identity drifted'
+      Mutate = { param($copy) $copy.font_test_sources[21].sha256 = ('0' * 64) }
     },
     [pscustomobject]@{
       Name = 'v3 fixture ownership substitution'

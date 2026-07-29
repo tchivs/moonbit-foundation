@@ -2430,7 +2430,7 @@
           "target",
           "runner"
         ],
-        "public_interface_lines": 85,
+        "public_interface_lines": 89,
         "production_dependency": "tchivs/mb-core@0.1.0",
         "production_imports": [
           "tchivs/mb-core/budget",
@@ -2461,7 +2461,8 @@
           {"path":"modules/mb-font/font/cff_type2.mbt","length":64590,"sha256":"d7c3ade12fdba8c7d23aaa60cf9a3279342f44e0a0d839249713e9e2f2c7a919"},
           {"path":"modules/mb-font/font/cff_type2_bounds.mbt","length":14203,"sha256":"aac38996d708d8424a9cb3fb70c7e0b2d6c12fce6ad15bfe37472b3752e633a9"},
           {"path":"modules/mb-font/font/cff_type2_path.mbt","length":7786,"sha256":"c40af154e4b2054a0359fef18506a7220aadc526adb178f6826d605f0b543491"},
-          {"path":"modules/mb-font/font/cff_admission.mbt","length":50258,"sha256":"407658bef7fa8ccfd2f70df087b15af8049ba023e975ea80a72b50f0618aa4be"}
+          {"path":"modules/mb-font/font/cff_admission.mbt","length":50258,"sha256":"407658bef7fa8ccfd2f70df087b15af8049ba023e975ea80a72b50f0618aa4be"},
+          {"path":"modules/mb-font/font/shape_transaction.mbt","length":3763,"sha256":"e0ac429d32dd9c5afbe32f2694fbcbf3a0dd3a442b8fee8c1dde8b41c716952b"}
         ],
         "font_test_sources": [
           {"path":"modules/mb-font/font/cff_admission_wbtest.mbt","length":21505,"sha256":"d05a558a1e168bf68945a34ddc863b8c520dbe08ceb50c150ab3b49bccea1b39"},
@@ -2483,7 +2484,9 @@
           {"path":"modules/mb-font/font/font_test.mbt","length":190955,"sha256":"d6f9bd548df15d6a2355275d158993a3eb1a6d88a4b1c4d65d7264ba507999ad"},
           {"path":"modules/mb-font/font/font_wbtest.mbt","length":59159,"sha256":"4f0fff443cd40c8bc16a8bf15b61aa44b47ae9de66e1889233cf690b354f87a8"},
           {"path":"modules/mb-font/font/generated_font_qualification_test.mbt","length":3165717,"sha256":"20843e4a671ee1209a7d172d6c743b002c2dc9a39c25df401365c42d279213a9"},
-          {"path":"modules/mb-font/font/generated_fonts_wbtest.mbt","length":21159,"sha256":"dae64ade3d428d8cf7879de9f23dae8cabe568283d79006c6bdcbe1d73ac25db"}
+          {"path":"modules/mb-font/font/generated_fonts_wbtest.mbt","length":21159,"sha256":"dae64ade3d428d8cf7879de9f23dae8cabe568283d79006c6bdcbe1d73ac25db"},
+          {"path":"modules/mb-font/font/shape_transaction_test.mbt","length":5486,"sha256":"219fc86d995247369f94d7432e69475a876f892d5839cef0a9be7a681af6b834"},
+          {"path":"modules/mb-font/font/shape_transaction_wbtest.mbt","length":11126,"sha256":"0719c58deaf3f09a924c119ef5988dfd26d8b90410a3da98badb860c8e7878df"}
         ],
         "evidence_sources": [
           {"path":"benchmarks/font-cff/moon.mod.json","length":262,"sha256":"4103bc450bb8dec7708823d8dd60644d08fdd35a0850d826fce82342c940d018"},
@@ -2516,8 +2519,8 @@
         ],
         "qualification_tool_sources": [
           {"path":"scripts/fixtures/Generate-FontQualification.ps1","length":270788,"sha256":"a9303f03188bea2eb54efbc26cd783d9bf44d1099e2a8f32278870e5e70d4869"},
-          {"path":"scripts/quality/Assert-Policy.ps1","length":248216,"sha256":"ad24c7f71fe96a0c0bb9b6f5eb761d8e3b06370da5d7e7ea37fcfa323c204594"},
-          {"path":"scripts/quality/Invoke-FontQualification.ps1","length":73061,"sha256":"c15e6968bd42afd76c8757ad342ec537d6f1ff0c83beeef642d1d0af1db32d43"},
+          {"path":"scripts/quality/Assert-Policy.ps1","length":249081,"sha256":"fbed6f440e42c7c565b408195ebce5b1cb4df6d514cd92b37eff04822aa68d7a"},
+          {"path":"scripts/quality/Invoke-FontQualification.ps1","length":73557,"sha256":"c089b0596768ff14e3c019295ad90b9f8d284b7e43d6ac23457711dc757cfec3"},
           {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":12116,"sha256":"816bcd7bd7e523cedfce14f7afce26bbd9858dcb907780aaeb4b972c3cdf9ad4"},
           {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":71451,"sha256":"6398d93d1061d5137f8455790c95a57c12580159b6439645690a2aed52027b00"},
           {"path":"scripts/quality/Test-BenchmarkQualification.ps1","length":8102,"sha256":"204901288f0b1691fe1ea0efd3e3ad3165c6349e094a20c3ffb26bbae14ffbec"}
