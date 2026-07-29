@@ -535,7 +535,7 @@ function Get-FontQualificationSemanticSections {
       assertions = @(
         $PrivateFocusedAssertions | Where-Object {
           $_.name -cin @(
-            'font-cff1-v3 private hostile outcomes',
+            'font-cff1-v3 hostile row observation tracer',
             'font-cff1-v3 private mutation windows and atomic budgets'
           )
         }

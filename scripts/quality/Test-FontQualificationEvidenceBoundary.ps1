@@ -3,6 +3,33 @@ Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot 'Invoke-FontQualification.ps1') -ImportOnly
 
+function Assert-Rejected {
+  param(
+    [Parameter(Mandatory)][scriptblock]$Action,
+    [Parameter(Mandatory)][string]$Pattern
+  )
+
+  $failure = $null
+  try {
+    & $Action
+  } catch {
+    $failure = $_.Exception.Message
+  }
+  if ($null -eq $failure -or $failure -cnotmatch $Pattern) {
+    throw "Expected rejection matching '$Pattern'; received '$failure'."
+  }
+}
+
+function New-ClosedRecordShapeProbe {
+  param([Parameter(Mandatory)][string[]]$Keys)
+
+  $shape = [ordered]@{}
+  foreach ($key in $Keys) {
+    $shape[$key] = $null
+  }
+  return [pscustomobject]$shape
+}
+
 if ($EvidenceMarkerSchema -cne 'mnf-font-qualification-evidence/v3') {
   throw "Evidence marker schema must be v3; received '$EvidenceMarkerSchema'."
 }
@@ -27,12 +54,31 @@ $expectedRecordKeys = @(
   'dependency_facts',
   'source_identities',
   'focused_assertions',
+  'runtime_observations',
   'runner',
   'pass'
 )
 if (($expectedRecordKeys -join "`0") -cne ($RecordKeys -join "`0")) {
   throw 'Target evidence record keys must match the closed ordered v3 schema.'
 }
+Assert-FontQualificationClosedKeys `
+  (New-ClosedRecordShapeProbe $RecordKeys) `
+  $expectedRecordKeys `
+  'Target evidence record boundary probe'
+Assert-Rejected {
+  Assert-FontQualificationClosedKeys `
+    (New-ClosedRecordShapeProbe @(
+      $RecordKeys | Where-Object { $_ -cne 'runtime_observations' }
+    )) `
+    $expectedRecordKeys `
+    'Target evidence record missing-key probe'
+} 'keys or order drifted'
+Assert-Rejected {
+  Assert-FontQualificationClosedKeys `
+    (New-ClosedRecordShapeProbe @($RecordKeys + 'unexpected')) `
+    $expectedRecordKeys `
+    'Target evidence record extra-key probe'
+} 'keys or order drifted'
 $expectedProducts = @(
   'js.json',
   'wasm.json',
@@ -59,12 +105,32 @@ if (($expectedPublicAssertions -join "`0") -cne
 }
 $expectedPrivateAssertions = @(
   'font-cff1-v3 private fd oracle',
-  'font-cff1-v3 private hostile outcomes',
+  'font-cff1-v3 hostile row observation tracer',
   'font-cff1-v3 private mutation windows and atomic budgets'
 )
+$actualPrivateAssertions = @($PrivateFocusedAssertions.name)
 if (($expectedPrivateAssertions -join "`0") -cne
-    (@($PrivateFocusedAssertions.name) -join "`0")) {
+    ($actualPrivateAssertions -join "`0")) {
   throw 'Private CFF assertion identities or order drifted.'
+}
+Assert-Rejected {
+  Assert-FontQualificationExactValue `
+    $actualPrivateAssertions `
+    @(
+      'font-cff1-v3 private fd oracle',
+      'font-cff1-v3 private hostile outcomes',
+      'font-cff1-v3 private mutation windows and atomic budgets'
+    ) `
+    'Retired private hostile assertion identity'
+} 'exact ordered value drifted'
+$expectedMutationAssertions = @(
+  'font-cff1-v3 hostile row observation tracer',
+  'font-cff1-v3 private mutation windows and atomic budgets'
+)
+$semanticSections = Get-FontQualificationSemanticSections
+if (($expectedMutationAssertions -join "`0") -cne
+    (@($semanticSections.mutation_atomicity_facts.assertions.name) -join "`0")) {
+  throw 'Mutation atomicity assertion identities or order drifted.'
 }
 $runnerCommand = Get-Command Invoke-FontQualification
 $defaultEvidenceDirectory = $runnerCommand.Parameters['EvidenceDirectory'].Attributes |
@@ -90,23 +156,6 @@ $managedRoot = Join-Path $testRoot 'managed'
 $outsideRoot = Join-Path $testRoot 'caller-owned'
 $linkPath = $null
 $swapLinks = [Collections.Generic.List[string]]::new()
-
-function Assert-Rejected {
-  param(
-    [Parameter(Mandatory)][scriptblock]$Action,
-    [Parameter(Mandatory)][string]$Pattern
-  )
-
-  $failure = $null
-  try {
-    & $Action
-  } catch {
-    $failure = $_.Exception.Message
-  }
-  if ($null -eq $failure -or $failure -cnotmatch $Pattern) {
-    throw "Expected rejection matching '$Pattern'; received '$failure'."
-  }
-}
 
 try {
   [void](New-Item -ItemType Directory -Path $managedRoot -Force)
