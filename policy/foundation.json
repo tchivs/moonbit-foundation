@@ -2519,7 +2519,7 @@
         ],
         "qualification_tool_sources": [
           {"path":"scripts/fixtures/Generate-FontQualification.ps1","length":270788,"sha256":"a9303f03188bea2eb54efbc26cd783d9bf44d1099e2a8f32278870e5e70d4869"},
-          {"path":"scripts/quality/Assert-Policy.ps1","length":249081,"sha256":"fbed6f440e42c7c565b408195ebce5b1cb4df6d514cd92b37eff04822aa68d7a"},
+          {"path":"scripts/quality/Assert-Policy.ps1","length":249012,"sha256":"f126a10ecc3ebe4cec4fe7570168bf951bacd0870599b2cbf4c2de98ce723a05"},
           {"path":"scripts/quality/Invoke-FontQualification.ps1","length":73557,"sha256":"c089b0596768ff14e3c019295ad90b9f8d284b7e43d6ac23457711dc757cfec3"},
           {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":12116,"sha256":"816bcd7bd7e523cedfce14f7afce26bbd9858dcb907780aaeb4b972c3cdf9ad4"},
           {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":71451,"sha256":"6398d93d1061d5137f8455790c95a57c12580159b6439645690a2aed52027b00"},

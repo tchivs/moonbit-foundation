@@ -806,11 +806,8 @@ function Assert-FoundationPolicy {
     Assert-Condition ($manifest.description -ceq $module.description) "Manifest description drift in $($module.path)."
     Assert-Condition ($manifest.license -ceq $policy.license) "Manifest license drift in $($module.path)."
     $manifestReadme = $manifest.PSObject.Properties['readme']
-    if ($null -eq $manifestReadme) {
-      Assert-Condition ($module.name -ceq 'tchivs/mb-text') "Manifest readme is missing in $($module.path)."
-    } else {
-      Assert-Condition ($manifestReadme.Value -ceq 'README.mbt.md') "Manifest readme drift in $($module.path)."
-    }
+    Assert-Condition ($null -ne $manifestReadme) "Manifest readme is missing in $($module.path)."
+    Assert-Condition ($manifestReadme.Value -ceq 'README.mbt.md') "Manifest readme drift in $($module.path)."
     Assert-Condition ($manifest.'preferred-target' -ceq $module.preferred_target) "Preferred target drift in $($module.path)."
     Assert-ExactSet "Manifest targets for $($module.name)" (Get-CompactTargetSet $manifest.'supported-targets' "manifest targets for $($module.name)") @($policy.required_targets)
     $depsProperty = $manifest.PSObject.Properties['deps']
