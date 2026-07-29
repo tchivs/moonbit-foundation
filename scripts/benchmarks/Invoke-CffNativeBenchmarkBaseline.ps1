@@ -39,6 +39,7 @@ $sourcePaths = @(
   'benchmarks/font-cff/generated_cff_evidence.mbt',
   'benchmarks/font-cff/moon.mod.json',
   'benchmarks/font-cff/moon.pkg',
+  'benchmarks/font-cff/cff_runtime_semantics.mbt',
   'benchmarks/font-cff/cff_bench.mbt',
   'benchmarks/moon.work',
   'scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1',
@@ -389,6 +390,24 @@ function Assert-CffBenchmarkSourceContract {
   if ([regex]::Matches($source, '@bench[.]T').Count -ne 4) {
     throw 'CFF benchmark must contain exactly four @bench.T tests.'
   }
+  if ([regex]::Matches(
+      $source,
+      'cff_benchmark_observe_correctness[(]\d,\s*workload[)]'
+    ).Count -ne 4) {
+    throw 'Every CFF benchmark workload must emit same-run correctness evidence.'
+  }
+  if ([regex]::Matches(
+      $source,
+      'cff_evidence_runtime_semantics[(]index[)]'
+    ).Count -ne 1) {
+    throw 'CFF benchmark must use the shared runtime-semantics serializer.'
+  }
+  if ([regex]::Matches(
+      $source,
+      '"MNF_CFF_BENCH_CORRECTNESS[|]"'
+    ).Count -ne 1) {
+    throw 'CFF benchmark correctness evidence framing drifted.'
+  }
   if ([regex]::Matches($source, 'fn cff_benchmark_budget[(][)]').Count -ne 1) {
     throw 'CFF benchmark must define one exact Budget factory.'
   }
@@ -438,6 +457,8 @@ function Assert-CffBenchmarkSourceContract {
 }
 
 function Get-CffBenchmarkWorkloads {
+  param([object[]]$ObservedCorrectness)
+
   $corpusPath = Join-Path $repoRoot 'fixtures\font\cff-qualification-cases.json'
   $corpus = Get-Content -Raw -LiteralPath $corpusPath | ConvertFrom-Json
   $rows = @($corpus.workloads)
@@ -456,6 +477,10 @@ function Get-CffBenchmarkWorkloads {
     'source-han-serif-jp-2.003R'
   )
   $result = @()
+  if ($null -ne $ObservedCorrectness) {
+    Assert-CffBenchmarkExactSequence 'Observed CFF correctness IDs' `
+      @($ObservedCorrectness.id) $workloadNames
+  }
   for ($index = 0; $index -lt $rows.Count; $index++) {
     Assert-CffBenchmarkExactSequence "CFF workload GIDs $index" `
       @($rows[$index].gids) @($expectedGids[$index])
@@ -466,6 +491,24 @@ function Get-CffBenchmarkWorkloads {
         [bool]$rows[$index].timing) {
       throw "CFF workload fixture/timing identity drifted at $index."
     }
+    $correctnessSha256 = if ($null -eq $ObservedCorrectness) {
+      [string]$rows[$index].correctness_output_sha256
+    } else {
+      $observed = $ObservedCorrectness[$index]
+      Assert-CffBenchmarkClosedKeys $observed @(
+        'id',
+        'schema',
+        'correctness_sha256',
+        'observed'
+      ) "Observed CFF correctness $index"
+      if ($observed.schema -cne 'cff-runtime-semantics/1' -or
+          $observed.observed -ne $true -or
+          $observed.correctness_sha256 -cne
+            [string]$rows[$index].correctness_output_sha256) {
+        throw "Observed CFF correctness digest drifted at $index."
+      }
+      [string]$observed.correctness_sha256
+    }
     $result += [ordered]@{
       id = [string]$rows[$index].id
       test_name = $testNames[$index]
@@ -473,7 +516,7 @@ function Get-CffBenchmarkWorkloads {
       operation = [string]$rows[$index].operation
       gids = @($rows[$index].gids)
       correctness_input = [string]$rows[$index].correctness_input
-      correctness_sha256 = [string]$rows[$index].correctness_output_sha256
+      correctness_sha256 = $correctnessSha256
     }
   }
   $result
@@ -488,6 +531,7 @@ function Get-CffBenchmarkSourceFacts {
       throw "CFF benchmark source is missing: $relativePath"
     }
     if ($AllowTaskSources -and $relativePath -in @(
+        'benchmarks/font-cff/cff_runtime_semantics.mbt',
         'benchmarks/font-cff/cff_bench.mbt',
         'scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1'
       )) {
@@ -669,6 +713,43 @@ function Convert-CffBenchmarkOutput([string]$Text) {
   $summaries
 }
 
+function Convert-CffBenchmarkCorrectnessOutput([string]$Text) {
+  $corpus = Get-Content -Raw -LiteralPath (
+    Join-Path $repoRoot 'fixtures\font\cff-qualification-cases.json'
+  ) | ConvertFrom-Json
+  $oracleRows = @($corpus.workloads)
+  $observed = @()
+  foreach ($line in ($Text -split "`n")) {
+    if ($line -cnotmatch '^MNF_CFF_BENCH_CORRECTNESS\|') {
+      continue
+    }
+    $parts = $line -split '\|', 3
+    if ($parts.Count -ne 3 -or
+        -not $parts[2].StartsWith(
+          'cff-runtime-semantics/1|',
+          [StringComparison]::Ordinal
+        )) {
+      throw 'CFF benchmark correctness framing drifted.'
+    }
+    $digest = Get-CffBenchmarkSha256Text ([string]$parts[2])
+    $observed += [ordered]@{
+      id = [string]$parts[1]
+      schema = 'cff-runtime-semantics/1'
+      correctness_sha256 = $digest
+      observed = $true
+    }
+  }
+  Assert-CffBenchmarkExactSequence 'Observed CFF correctness output order' `
+    @($observed.id) $workloadNames
+  for ($index = 0; $index -lt $observed.Count; $index++) {
+    if ($observed[$index].correctness_sha256 -cne
+        [string]$oracleRows[$index].correctness_output_sha256) {
+      throw "Observed CFF correctness digest drifted at $index."
+    }
+  }
+  $observed
+}
+
 function Invoke-CffNativeCapture([string]$Id, [string]$Label) {
   $started = [DateTime]::UtcNow.ToString('o')
   $info = New-Object Diagnostics.ProcessStartInfo
@@ -712,6 +793,7 @@ function Invoke-CffNativeCapture([string]$Id, [string]$Label) {
     exit_code = [int]$process.ExitCode
     output_sha256 = Get-CffBenchmarkSha256Text $output
     summaries = @(Convert-CffBenchmarkOutput $output)
+    correctness = @(Convert-CffBenchmarkCorrectnessOutput $output)
     output = $output
   }
 }
@@ -965,6 +1047,7 @@ function New-CffBenchmarkDocument([object]$Evidence) {
           exit_code = $_.exit_code
           output_sha256 = $_.output_sha256
           summaries = $_.summaries
+          correctness = $_.correctness
         }
       })
     } else {
@@ -1268,6 +1351,7 @@ function Assert-CffBenchmarkEvidence(
       'exit_code',
       'output_sha256',
       'summaries',
+      'correctness',
       'output'
     ) "CFF capture $runIndex"
     $expectedId = if ($runIndex -eq 0) { 'warmup' } else { "$runIndex" }
@@ -1292,6 +1376,25 @@ function Assert-CffBenchmarkEvidence(
     }
     Assert-CffBenchmarkExactSequence "CFF capture workload order $runIndex" `
       @($run.summaries.name) $workloadNames
+    Assert-CffBenchmarkExactSequence "CFF capture correctness order $runIndex" `
+      @($run.correctness.id) $workloadNames
+    for ($correctnessIndex = 0;
+        $correctnessIndex -lt $workloadNames.Count;
+        $correctnessIndex++) {
+      $correctness = $run.correctness[$correctnessIndex]
+      Assert-CffBenchmarkClosedKeys $correctness @(
+        'id',
+        'schema',
+        'correctness_sha256',
+        'observed'
+      ) "CFF capture correctness $runIndex/$correctnessIndex"
+      if ($correctness.schema -cne 'cff-runtime-semantics/1' -or
+          $correctness.observed -ne $true -or
+          $correctness.correctness_sha256 -cne
+            $Data.workloads[$correctnessIndex].correctness_sha256) {
+        throw "CFF capture correctness drifted at $runIndex/$correctnessIndex."
+      }
+    }
     foreach ($summary in $run.summaries) {
       Assert-CffBenchmarkClosedKeys $summary @(
         'name',
@@ -1436,6 +1539,16 @@ function New-CffBenchmarkContractEvidence {
       exit_code = 0
       output_sha256 = Get-CffBenchmarkSha256Text $output
       summaries = $summaries
+      correctness = @(
+        $workloads | ForEach-Object {
+          [ordered]@{
+            id = $_.id
+            schema = 'cff-runtime-semantics/1'
+            correctness_sha256 = $_.correctness_sha256
+            observed = $true
+          }
+        }
+      )
       output = $output
     }
   }
@@ -1647,6 +1760,8 @@ function Invoke-CffBenchmarkContractOnly {
     @('warmup-count', { param($e) $e.execution.warmup_count = 0 }, 'execution identity'),
     @('capture-count', { param($e) $e.runs = @($e.runs | Select-Object -First 7) }, 'one excluded warmup'),
     @('capture-completeness', { param($e) $e.runs[1].summaries = @($e.runs[1].summaries | Select-Object -First 3) }, 'workload order'),
+    @('capture-correctness-digest', { param($e) $e.runs[0].correctness[0].correctness_sha256 = ('0' * 64) }, 'capture correctness drifted'),
+    @('capture-correctness-observed', { param($e) $e.runs[0].correctness[0].observed = $false }, 'capture correctness drifted'),
     @('raw-hash', { param($e) $e.runs[0].output_sha256 = ('0' * 64) }, 'raw output hash'),
     @('mean', { param($e) $e.aggregates[0].values.mean_ms = 999 }, 'statistic'),
     @('median', { param($e) $e.aggregates[0].values.median_ms = 999 }, 'statistic'),
@@ -1663,6 +1778,24 @@ function Invoke-CffBenchmarkContractOnly {
   )
   foreach ($negative in $negatives) {
     Confirm-CffBenchmarkRejected $negative[0] $evidence $negative[1] $negative[2]
+  }
+  $tamperedCorrectnessOutput = @(
+    for ($index = 0; $index -lt $workloadNames.Count; $index++) {
+      (
+        'MNF_CFF_BENCH_CORRECTNESS|' + $workloadNames[$index] +
+        '|cff-runtime-semantics/1|workload=' + $workloadNames[$index] +
+        '|tampered=true'
+      )
+    }
+  ) -join "`n"
+  try {
+    [void](Convert-CffBenchmarkCorrectnessOutput $tamperedCorrectnessOutput)
+    throw 'Tampered benchmark correctness output unexpectedly passed.'
+  } catch {
+    if ($_.Exception.Message -notmatch 'correctness digest drifted') {
+      throw
+    }
+    Write-Host 'CFF benchmark negative rejected: same-run correctness payload'
   }
   $scriptText = Get-Content -Raw -LiteralPath $PSCommandPath
   $auditBody = [regex]::Match(
@@ -1786,7 +1919,6 @@ function Invoke-CffBenchmarkRecord {
   Assert-CffBenchmarkSourceContract
   $workspace = Invoke-CffBenchmarkWorkspaceResolution
   $sources = @(Get-CffBenchmarkSourceFacts)
-  $workloads = @(Get-CffBenchmarkWorkloads)
   $toolchain = Get-CffBenchmarkToolchain
   $hostFacts = Get-CffBenchmarkHostFacts
   Write-Host 'Running one excluded warmup...'
@@ -1794,6 +1926,13 @@ function Invoke-CffBenchmarkRecord {
   for ($capture = 1; $capture -le 7; $capture++) {
     Write-Host "Recording retained capture $capture of 7..."
     $runs += Invoke-CffNativeCapture "$capture" "retained capture $capture"
+  }
+  $workloads = @(Get-CffBenchmarkWorkloads $runs[0].correctness)
+  for ($runIndex = 1; $runIndex -lt $runs.Count; $runIndex++) {
+    if (($runs[$runIndex].correctness | ConvertTo-Json -Depth 10 -Compress) -cne
+        ($runs[0].correctness | ConvertTo-Json -Depth 10 -Compress)) {
+      throw "CFF observed correctness changed across capture $runIndex."
+    }
   }
   $aggregates = @()
   for ($workloadIndex = 0; $workloadIndex -lt 4; $workloadIndex++) {

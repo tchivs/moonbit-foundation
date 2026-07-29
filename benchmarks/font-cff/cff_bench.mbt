@@ -144,6 +144,23 @@ fn cff_benchmark_assert_outlines(
 }
 
 ///|
+fn cff_benchmark_observe_correctness(
+  index : Int,
+  workload : CffEvidenceWorkload,
+) -> Unit raise {
+  let serialized = cff_evidence_runtime_semantics(index)
+  cff_benchmark_require(
+    serialized.has_prefix(
+      "cff-runtime-semantics/1|workload=" + workload.id + "|",
+    ),
+    "CFF benchmark runtime serializer identity",
+  )
+  println(
+    "MNF_CFF_BENCH_CORRECTNESS|" + workload.id + "|" + serialized,
+  )
+}
+
+///|
 test "bench cff/latin-full-admission" (b : @bench.T) {
   let source = cff_evidence_source_sans_payload()
   let owner = cff_benchmark_owner(source)
@@ -158,6 +175,7 @@ test "bench cff/latin-full-admission" (b : @bench.T) {
   cff_benchmark_require(workload.gids.length() == 0, "Latin admission GIDs")
   let font = cff_benchmark_open(owner)
   cff_benchmark_assert_font_identity(font, cff_evidence_public_facts()[4])
+  cff_benchmark_observe_correctness(0, workload)
   b.bench(fn() {
     b.keep(
       @font.Font::open(
@@ -184,6 +202,7 @@ test "bench cff/cjk-full-admission" (b : @bench.T) {
   cff_benchmark_require(workload.gids.length() == 0, "CJK admission GIDs")
   let font = cff_benchmark_open(owner)
   cff_benchmark_assert_font_identity(font, cff_evidence_public_facts()[5])
+  cff_benchmark_observe_correctness(1, workload)
   b.bench(fn() {
     b.keep(
       @font.Font::open(
@@ -210,6 +229,7 @@ test "bench cff/latin-fixed-outline-batch" (b : @bench.T) {
   let font = cff_benchmark_open(owner)
   let glyphs = cff_benchmark_glyphs(font, workload.gids)
   cff_benchmark_assert_outlines(font, glyphs)
+  cff_benchmark_observe_correctness(2, workload)
   b.bench(fn() {
     for glyph in glyphs {
       b.keep(font.outline(glyph, cff_benchmark_budget()))
@@ -232,6 +252,7 @@ test "bench cff/cjk-high-gid-multi-fd-outline-batch" (b : @bench.T) {
   let font = cff_benchmark_open(owner)
   let glyphs = cff_benchmark_glyphs(font, workload.gids)
   cff_benchmark_assert_outlines(font, glyphs)
+  cff_benchmark_observe_correctness(3, workload)
   b.bench(fn() {
     for glyph in glyphs {
       b.keep(font.outline(glyph, cff_benchmark_budget()))
