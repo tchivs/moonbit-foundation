@@ -484,6 +484,54 @@
 - The milestone changed 88 files with 34,686 additions and 1,664 removals; generated fixture/evidence policy and tests dominate the diff.
 - The final complete qualification lane ran in about 114 seconds, leaving substantial headroom under the retained 20-minute CI timeout.
 
+## Milestone: v0.34 — CFF Outline Foundation
+
+**Shipped:** 2026-07-30
+**Phases:** 4 | **Plans:** 18 | **Tasks:** 46
+
+### What Was Built
+
+- Bounded pure-MoonBit static CFF1 admission for standalone OpenType and selected TTC/OTC faces, including complete name-keyed and CID-keyed per-GID execution environments.
+- One deterministic iterative Type 2 interpreter with checked Q16.16 arithmetic, exact limits, retained conservative bounds, mutation guards, and atomic admission.
+- Native cubic `Path2` outlines through the existing opaque format-neutral `Font` and `FontCollection` APIs without changing static-`glyf` behavior.
+- Generated, licensed Latin/CJK, hostile, compatibility, four-target, and observation-only native benchmark qualification with closed provenance and policy identities.
+
+### What Worked
+
+- The structure → VM → public path → qualification phase sequence kept ownership explicit and let every downstream phase consume a verified contract.
+- Adversarial code review and goal-backward verification found real parser, budget, oracle, evidence-boundary, Type 2 diagnostic, baseline-identity, and recoverability gaps before shipment.
+- Exact generator-owned source locators, private mirrors, negative probes, and four independent target records made evidence drift observable rather than count-based.
+- Keeping licensed bytes in one non-published evidence carrier preserved the production package and public API boundary while still exercising real fonts.
+
+### What Was Inefficient
+
+- Repeated review/fix cycles were required because early hostile evidence sometimes described expected outcomes without executing and binding the exact underlying operation.
+- The final native baseline capture took nearly an hour for one excluded warmup plus seven retained runs; starting it before all verifier-driven source fixes had landed wasted one aborted warmup.
+- Large generated licensed evidence and exact source identities amplify small canonical changes into expensive regeneration and policy refreshes.
+- CFF-01/CFF-02 traceability retained an early `Gaps Found` label after Phase 104 re-verification passed and needed milestone-close reconciliation.
+
+### Patterns Established
+
+- Evidence about errors, budgets, mutation, and publication must come from the same real operation and authority objects; post-hoc objects and name-derived coverage are invalid.
+- Canonical fixture rows require mandatory source locators and exact private mirrors in the ordinary qualification entry point, with stale-locator and one-field-drift negatives.
+- Record native observation baselines only after the final source state is stable, commit baseline and policy together, then make the first post-commit action a clean read-only audit.
+- Keep CFF internals private and expose only format-neutral mappings, metrics, bounds, kerning, glyph identity, errors, and cubic paths.
+
+### Key Lessons
+
+1. A passing aggregate test count cannot prove hostile-case coverage; every canonical row must execute a real entry point and bind its complete structured observation.
+2. Independent verifiers should run secondary contract scripts, not only the official happy-path runner, because stale boundary tests and unreachable diagnostics can otherwise remain hidden.
+3. Benchmark provenance is part of correctness: any final source-identity change invalidates the recorded baseline even when the measured workload code is unchanged.
+4. Large licensed fixtures are sustainable when ownership, provenance, byte identity, and non-publication boundaries are machine-enforced.
+
+### Cost Observations
+
+- Model mix and session count are not reliably captured by the local GSD runtime.
+- The final workspace suite passed 1287/1287 tests per target; qualification passed 275/275 with 53 hostile rows and four runtime observations per target.
+- Milestone audit closed 8/8 requirements, 11/11 integration links, and 6/6 E2E flows with no open security, review, or unverified-behavior debt.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -501,6 +549,7 @@
 | v0.29 | 3 | 3 | Extended the bounded indexed profile contract to Adam7 with pass-aware admission and independent hostile-stream qualification. |
 | v0.32 | 4 | 16 | Added a pure-MoonBit TrueType foundation with immutable licensed-font and exact four-target qualification. |
 | v0.33 | 3 | 9 | Added bounded TTC/OTC inspection and root-relative selection with licensed, hostile, exact-toolchain four-target evidence. |
+| v0.34 | 4 | 18 | Added static CFF1 admission, deterministic Type 2 execution, native cubic paths, and licensed/hostile four-target qualification. |
 
 ### Cumulative Quality
 
@@ -517,6 +566,7 @@
 | v0.29 | 320/320 PNG tests per target | 5/5 | 3/3 phase verifications, no open artifact records |
 | v0.32 | 103/103 font tests per target plus hosted Required | 5/5 | 4/4 phase verifications, 8/8 links, 4/4 flows |
 | v0.33 | 152/152 font tests plus 14 focused gates per target | 5/5 | 3/3 phase verifications, 11/11 links, 6/6 flows |
+| v0.34 | 1287/1287 workspace tests and 275/275 qualification tests per target | 8/8 | 4/4 phase verifications, 11/11 links, 6/6 flows |
 
 ### Top Lessons
 

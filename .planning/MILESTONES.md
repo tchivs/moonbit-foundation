@@ -1,5 +1,32 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.34 CFF Outline Foundation (Shipped: 2026-07-30)
+
+**Phases completed:** 4 phases, 18 plans, 46 tasks
+
+**Key accomplishments:**
+
+- Bounded static-CFF1 OTTO admission now resolves a name-keyed GID through one shared INDEX/typed-DICT model to an atomic private CharString environment.
+- Bounded name-keyed and CID-keyed adapters now normalize every admitted GID to one checked CharString/private environment before Type 2 execution.
+- Exact private CFF1 structural charges now admit standalone or shared collection tables atomically, retain no hostile partial state, and cross only a closed private outline-source boundary.
+- Incremental Top DICT reduction now accepts only omitted or exact-zero PaintType/StrokeWidth semantics and rejects unsupported outlines before malformed suffixes, descriptor publication, or caller charge.
+- A target-independent signed Q16.16 kernel now carries checked Type 2 numbers, deterministic random state, exact matrix recipes, outward bounds primitives, and private VM authority.
+- A single iterative VM now validates the complete supported non-geometry Type 2 surface with exact mask framing, explicit subroutine frames, deterministic mutation, and ordered error authority.
+- 1. [Rule 1 - Bug] Corrected width-sensitive invalid-arity fixtures
+- CFF1 structure and every glyph now pass through one bounded transaction that retains compact bounds and hmtx authority, then publishes and charges exactly once.
+- High16 deterministic random, per-contour conservative hull starts, and final revision-precedence guards close all three Phase 105 verifier blockers.
+- Standalone static CFF1 fonts now flow through the existing opaque `Font` API to exact-capacity native cubic `Path2` geometry with compact retained authority and one atomic caller/ancestor budget commit.
+- Exact caller/ancestor authority, direct cubic conversion, deterministic repetition, and State-first mutation evidence now freeze the complete selected CFF outline transaction without adding another interpreter or publication seam.
+- TTC/OTC-selected CFF1 faces now reuse the standalone atomic CFF admission and cubic outline path while retaining collection-root offsets, opening-revision authority, face-local facts, and existing static-glyf behavior.
+- Exact-digest fontTools/AFDKO/OTS provisioning plus a byte-canonical generated/licensed/hostile CFF corpus with literal B8 and precedence facts
+- Exact Source Sans 3.052R and 18-FD Source Han Serif JP 2.003R CFF1 assets with summary-bound atomic intake, independent semantic readers, structural OTS, and closed provenance
+- Four-target local-only MoonBit evidence module with single-owner licensed CFF payloads, closed generated facts, and exact generator-owned private mirror contracts
+- Carrier-backed public CFF interoperability, exact private FD/hostile atomicity, and static glyf compatibility now pass on all four MoonBit targets.
+- Fresh v3 ownership now emits four equal closed font records while exact policy, CI, and documentation preserve the qualified static-CFF1 boundary for Wave 6.
+- Tracked-local CFF1 native release evidence with four fresh-budget workloads, seven retained captures, closed observation-only policy identity, and a clean read-only audit
+
+---
+
 ## v0.33 TrueType Collection Adapters (Shipped: 2026-07-28)
 
 **Delivered:** A pure-MoonBit bounded TTC/OTC v1/v2 adapter that inspects collections, selects supported static TrueType faces into the existing `Font`, and proves hostile, licensed, standalone-compatible behavior identically on four targets.
