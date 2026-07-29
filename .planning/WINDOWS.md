@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 60
+open_count: 64
 waived_count: 0
 fixed_count: 3
-total_count: 63
-last_updated: 2026-07-29T21:26:33.190Z
+total_count: 67
+last_updated: 2026-07-29T23:26:31.805Z
 ---
 
 # Broken Windows Ledger
@@ -78,6 +78,10 @@ last_updated: 2026-07-29T21:26:33.190Z
 | 61 | 108 | unrun-verify | modules/mb-font/font/cff_admission.mbt |  | Exact mb-text native --deny-warn gate is blocked by pre-existing mb-font CFF unused-code warnings; all four functional target checks and focused tests pass. | open |  | 2026-07-29T21:24:41.065Z |  |
 | 62 | 108 | deviation | modules/mb-text/text/contract_test.mbt |  | Replaced a malformed hand-transcribed test font with a deterministic valid fixture builder. | open |  | 2026-07-29T21:26:32.679Z |  |
 | 63 | 108 | deviation | .planning/STATE.md |  | Repaired stale Plan: Not planned state so the SDK could advance Phase 108 from Plan 1 to Plan 2. | open |  | 2026-07-29T21:26:33.190Z |  |
+| 64 | 108 | lint-warning | modules/mb-core/budget/budget.mbt |  | Required lane is blocked by pre-existing mb-core moon fmt --check drift across the module; Phase 108 policy, docs, tests, and FontQualification pass. | open |  | 2026-07-29T23:23:47.595Z |  |
+| 65 | 108 | deviation | policy/foundation.json |  | Plan 108-05 synchronized stale mb-core math policy inventory with already-committed Phase 106 Path2 and error-import additions so exact policy validation could run. | open |  | 2026-07-29T23:23:48.096Z |  |
+| 66 | 108 | deviation | scripts/quality/Invoke-FontQualification.ps1 | 366 | Plan 108-05 updated FontQualification from the legacy 85-line count to exact validation of all 85 legacy lines plus four approved Phase 108 scope lines. | open |  | 2026-07-29T23:23:48.636Z |  |
+| 67 | 108 | deviation | .planning/STATE.md |  | Plan 108-05 reconciled stale Plan 2 position, missing Plan 2-4 metrics, Phase ? labels, and Plan 1 activity prose after all five summaries were present. | open |  | 2026-07-29T23:26:31.805Z |  |
 
 ````json
 [
@@ -835,6 +839,54 @@ last_updated: 2026-07-29T21:26:33.190Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-29T21:26:33.190Z",
+    "resolved_at": null
+  },
+  {
+    "id": 64,
+    "kind": "lint-warning",
+    "phase": "108",
+    "file": "modules/mb-core/budget/budget.mbt",
+    "line": null,
+    "description": "Required lane is blocked by pre-existing mb-core moon fmt --check drift across the module; Phase 108 policy, docs, tests, and FontQualification pass.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T23:23:47.595Z",
+    "resolved_at": null
+  },
+  {
+    "id": 65,
+    "kind": "deviation",
+    "phase": "108",
+    "file": "policy/foundation.json",
+    "line": null,
+    "description": "Plan 108-05 synchronized stale mb-core math policy inventory with already-committed Phase 106 Path2 and error-import additions so exact policy validation could run.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T23:23:48.096Z",
+    "resolved_at": null
+  },
+  {
+    "id": 66,
+    "kind": "deviation",
+    "phase": "108",
+    "file": "scripts/quality/Invoke-FontQualification.ps1",
+    "line": 366,
+    "description": "Plan 108-05 updated FontQualification from the legacy 85-line count to exact validation of all 85 legacy lines plus four approved Phase 108 scope lines.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T23:23:48.636Z",
+    "resolved_at": null
+  },
+  {
+    "id": 67,
+    "kind": "deviation",
+    "phase": "108",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Plan 108-05 reconciled stale Plan 2 position, missing Plan 2-4 metrics, Phase ? labels, and Plan 1 activity prose after all five summaries were present.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T23:26:31.805Z",
     "resolved_at": null
   }
 ]
