@@ -42,3 +42,23 @@ test "cff evidence/single private payload and fact carrier" {
   inspect(cff_evidence_generated_workflows().length(), content="6")
   inspect(cff_evidence_precedence_facts().length(), content="2")
 }
+
+///|
+test "font-cff1-v3 carrier-public generated-name standalone and selected tracer" {
+  cff_evidence_assert_generated_name_tracer()
+}
+
+///|
+test "font-cff1-v3 carrier-public every standalone and selected workflow" {
+  cff_evidence_assert_every_public_workflow()
+}
+
+///|
+test "font-cff1-v3 carrier-public caller mutation is exact and atomic" {
+  cff_evidence_assert_public_mutation()
+}
+
+///|
+test "font-cff1-v3 carrier-public timing-free correctness workloads" {
+  cff_evidence_assert_correctness_workloads()
+}
