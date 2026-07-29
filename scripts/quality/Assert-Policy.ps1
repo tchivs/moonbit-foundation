@@ -1557,7 +1557,7 @@ function Assert-FontPortableSourceBoundary {
     'GUI canvas image or color dependency' = '(?i)(?:\b(?:gui|canvas|image|color)\w*\s*[(]|@(?:gui|canvas|image|color)\b)'
     'shaping execution' = '(?i)(?:\b(?:shape|shaper|shaping|bidi|layout)\w*\s*[(]|@(?:shape|shaping|layout)\b)'
     'hinting execution' = '(?i)(?:\b(?:hint|hinter|grid_fit|grid_round)\w*\s*[(]|@(?:hint|hinting)\b)'
-    'CFF or CFF2 execution' = '(?i)(?:\b(?:cff|cff2)\w*\s*[(]|\b(?:(?:decode|execute|interpret|evaluate|run|apply|render|outline)\w*_(?:type2|charstring|cff2?)|(?:type2|charstring|cff2?)\w*_(?:decode|execute|interpret|evaluate|run|apply|render|outline))\w*\s*[(]|@(?:cff|cff2)\b)'
+    'CFF2 execution' = '(?i)(?:\bcff2\w*\s*[(]|\b(?:(?:decode|execute|interpret|evaluate|run|apply|render|outline)\w*_cff2|cff2\w*_(?:decode|execute|interpret|evaluate|run|apply|render|outline))\w*\s*[(]|@cff2\b)'
     'WOFF or WOFF2 admission' = '(?i)(?:\b(?:woff|woff2)\w*(?:open|admit|decode|decompress)\w*\s*[(]|\b(?:open|admit|decode|decompress)\w*(?:woff|woff2)\w*\s*[(]|\b(?:(?:inflate|decompress|decode|admit|open|reconstruct)\w*_(?:woff2?|sfnt|container)|(?:woff2?|sfnt|container)\w*_(?:inflate|decompress|decode|admit|open|reconstruct))\w*\s*[(]|@(?:woff|woff2)\b)'
     'variable-font execution' = '(?i)(?:\b(?:instantiate|apply|execute|resolve)\w*(?:variable|variation|axis)\w*\s*[(]|\b(?:variable|variation|axis)\w*(?:instantiate|apply|execute|resolve)\w*\s*[(]|\b(?:(?:apply|execute|instantiate|resolve|evaluate)\w*_(?:gvar|fvar|variation|delta)|(?:gvar|fvar|variation|delta)\w*_(?:apply|execute|instantiate|resolve|evaluate))\w*\s*[(]|@(?:variable_font|variations?)\b)'
     'rasterization execution' = '(?i)(?:\b(?:raster|rasterize|rasterizer|rasterization)\w*\s*[(]|@(?:raster|rasterizer)\b)'
@@ -1571,9 +1571,9 @@ function Assert-FontPortableSourceBoundary {
     }
     foreach ($flow in @(
         [pscustomobject]@{
-          Name = 'CFF/CFF2 tag-to-execution flow'
-          Magic = '(?i)(?:0x43464620|0x43464632|["'']CFF ?2?["''])'
-          Executable = '(?i)\b(?:type2|charstring|operator|cff_program)\w*\s*[(]'
+          Name = 'CFF2 tag-to-execution flow'
+          Magic = '(?i)(?:0x43464632|["'']CFF ?2["''])'
+          Executable = '(?i)\b(?:type2|charstring|operator|cff2_program)\w*\s*[(]'
         },
         [pscustomobject]@{
           Name = 'WOFF/WOFF2 magic-to-inflation flow'
@@ -1625,8 +1625,7 @@ function Get-FontPortableCapabilityNegativeContract {
     [pscustomobject][ordered]@{ Name = 'GUI'; Source = 'fn forbidden_probe() { canvas_draw() }'; Pattern = 'forbidden GUI canvas image or color dependency' },
     [pscustomobject][ordered]@{ Name = 'shaping'; Source = 'fn forbidden_probe() { shape_text() }'; Pattern = 'forbidden shaping execution' },
     [pscustomobject][ordered]@{ Name = 'hinting'; Source = 'fn forbidden_probe() { hint_outline() }'; Pattern = 'forbidden hinting execution' },
-    [pscustomobject][ordered]@{ Name = 'CFF'; Source = 'fn forbidden_probe() { cff_decode() }'; Pattern = 'forbidden CFF or CFF2 execution' },
-    [pscustomobject][ordered]@{ Name = 'renamed Type2'; Source = 'fn decode_type2_charstring() { } fn forbidden_probe() { decode_type2_charstring() }'; Pattern = 'forbidden CFF or CFF2 execution' },
+    [pscustomobject][ordered]@{ Name = 'CFF2'; Source = 'fn forbidden_probe() { cff2_decode() }'; Pattern = 'forbidden CFF2 execution' },
     [pscustomobject][ordered]@{ Name = 'WOFF'; Source = 'fn forbidden_probe() { decode_woff2() }'; Pattern = 'forbidden WOFF or WOFF2 admission' },
     [pscustomobject][ordered]@{ Name = 'renamed SFNT inflation'; Source = 'fn inflate_sfnt_container() { } fn forbidden_probe() { inflate_sfnt_container() }'; Pattern = 'forbidden WOFF or WOFF2 admission' },
     [pscustomobject][ordered]@{ Name = 'variable font'; Source = 'fn forbidden_probe() { instantiate_variable_font() }'; Pattern = 'forbidden variable-font execution' },
@@ -2991,6 +2990,212 @@ function Assert-QualityWorkflowToolchainTransport {
   )
 }
 
+function Get-FontQualificationPolicyFileFact {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$RepositoryRoot,
+    [Parameter(Mandatory)][string]$Path
+  )
+
+  $resolved = (Resolve-Path -LiteralPath (Join-Path $RepositoryRoot $Path)).Path
+  $bytes = [IO.File]::ReadAllBytes($resolved)
+  return [pscustomobject][ordered]@{
+    path = [IO.Path]::GetRelativePath($RepositoryRoot, $resolved).Replace('\', '/')
+    length = [int64]$bytes.LongLength
+    sha256 = [Convert]::ToHexString(
+      [Security.Cryptography.SHA256]::HashData($bytes)
+    ).ToLowerInvariant()
+  }
+}
+
+function Assert-FontQualificationPolicyInventory {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][object[]]$Facts,
+    [Parameter(Mandatory)][string[]]$ExpectedPaths,
+    [Parameter(Mandatory)][string]$RepositoryRoot,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  Assert-Condition (
+    $Facts.Count -eq $ExpectedPaths.Count
+  ) "$Label count drifted."
+  for ($index = 0; $index -lt $ExpectedPaths.Count; $index++) {
+    $fact = $Facts[$index]
+    Assert-ExactSequence "$Label fact $index schema" `
+      @($fact.PSObject.Properties.Name) @('path', 'length', 'sha256')
+    Assert-Condition (
+      [string]$fact.path -ceq $ExpectedPaths[$index]
+    ) "$Label path or order drifted at $index."
+    $actual = Get-FontQualificationPolicyFileFact `
+      -RepositoryRoot $RepositoryRoot `
+      -Path $ExpectedPaths[$index]
+    Assert-Condition (
+      [int64]$fact.length -eq [int64]$actual.length -and
+      [string]$fact.sha256 -ceq [string]$actual.sha256
+    ) "$Label identity drifted at '$($ExpectedPaths[$index])'."
+  }
+}
+
+function Assert-FontQualificationV3PolicyContract {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][object]$Qualification,
+    [Parameter(Mandatory)][string]$RepositoryRoot
+  )
+
+  Assert-ExactSequence 'Font v3 qualification policy schema' `
+    @($Qualification.PSObject.Properties.Name) `
+    @(
+      'schema_version',
+      'workflow_id',
+      'evidence_root',
+      'ci_evidence_root',
+      'marker_schema',
+      'target_order',
+      'normalization_removed',
+      'public_interface_lines',
+      'production_dependency',
+      'production_imports',
+      'production_sources',
+      'font_test_sources',
+      'evidence_sources',
+      'fixture_sources',
+      'oracle_tool_sources',
+      'qualification_tool_sources',
+      'wave6_refresh'
+    )
+  Assert-Condition (
+    $Qualification.schema_version -ceq '3.0.0' -and
+    $Qualification.workflow_id -ceq 'font-complete-public-v3' -and
+    $Qualification.evidence_root -ceq
+      'artifacts/release-qualification/font-v3' -and
+    $Qualification.ci_evidence_root -ceq
+      'artifacts/release-qualification/ci-font-v3' -and
+    $Qualification.marker_schema -ceq
+      'mnf-font-qualification-evidence/v3' -and
+    [int]$Qualification.public_interface_lines -eq 85 -and
+    $Qualification.production_dependency -ceq 'tchivs/mb-core@0.1.0'
+  ) 'Font v3 qualification policy identities drifted.'
+  Assert-ExactSequence 'Font v3 target order' `
+    @($Qualification.target_order) @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSequence 'Font v3 normalization boundary' `
+    @($Qualification.normalization_removed) @('target', 'runner')
+  Assert-ExactSequence 'Font v3 production imports' `
+    @($Qualification.production_imports) `
+    @(
+      'tchivs/mb-core/budget',
+      'tchivs/mb-core/bytes',
+      'tchivs/mb-core/checked',
+      'tchivs/mb-core/error',
+      'tchivs/mb-core/math'
+    )
+
+  $inventories = [ordered]@{
+    production_sources = @(
+      'modules/mb-font/moon.mod.json',
+      'modules/mb-font/font/moon.pkg',
+      'modules/mb-font/font/cmap.mbt',
+      'modules/mb-font/font/collection.mbt',
+      'modules/mb-font/font/collection_limits.mbt',
+      'modules/mb-font/font/collection_parser.mbt',
+      'modules/mb-font/font/cursor.mbt',
+      'modules/mb-font/font/directory.mbt',
+      'modules/mb-font/font/font.mbt',
+      'modules/mb-font/font/kern.mbt',
+      'modules/mb-font/font/limits.mbt',
+      'modules/mb-font/font/metrics.mbt',
+      'modules/mb-font/font/outline.mbt',
+      'modules/mb-font/font/tables.mbt',
+      'modules/mb-font/font/cff_index.mbt',
+      'modules/mb-font/font/cff_dict.mbt',
+      'modules/mb-font/font/cff_keying.mbt',
+      'modules/mb-font/font/cff_type2_fixed.mbt',
+      'modules/mb-font/font/cff_type2.mbt',
+      'modules/mb-font/font/cff_type2_bounds.mbt',
+      'modules/mb-font/font/cff_type2_path.mbt',
+      'modules/mb-font/font/cff_admission.mbt'
+    )
+    font_test_sources = @(
+      'modules/mb-font/font/cff_admission_wbtest.mbt',
+      'modules/mb-font/font/cff_cid_fixture_wbtest.mbt',
+      'modules/mb-font/font/cff_dict_wbtest.mbt',
+      'modules/mb-font/font/cff_hostile_fixture_wbtest.mbt',
+      'modules/mb-font/font/cff_index_wbtest.mbt',
+      'modules/mb-font/font/cff_keying_wbtest.mbt',
+      'modules/mb-font/font/cff_name_keyed_fixture_wbtest.mbt',
+      'modules/mb-font/font/cff_type2_bounds_wbtest.mbt',
+      'modules/mb-font/font/cff_type2_fixed_wbtest.mbt',
+      'modules/mb-font/font/cff_type2_fixture_wbtest.mbt',
+      'modules/mb-font/font/cff_type2_path_wbtest.mbt',
+      'modules/mb-font/font/cff_type2_wbtest.mbt',
+      'modules/mb-font/font/collection_test.mbt',
+      'modules/mb-font/font/collection_wbtest.mbt',
+      'modules/mb-font/font/font_qualification_hostile_test.mbt',
+      'modules/mb-font/font/font_qualification_test.mbt',
+      'modules/mb-font/font/font_test.mbt',
+      'modules/mb-font/font/font_wbtest.mbt',
+      'modules/mb-font/font/generated_font_qualification_test.mbt',
+      'modules/mb-font/font/generated_fonts_wbtest.mbt'
+    )
+    evidence_sources = @(
+      'benchmarks/font-cff/moon.mod.json',
+      'benchmarks/font-cff/moon.pkg',
+      'benchmarks/font-cff/generated_cff_evidence.mbt',
+      'benchmarks/font-cff/cff_qualification_wbtest.mbt'
+    )
+    fixture_sources = @(
+      'fixtures/manifest.json',
+      'fixtures/font/cff-qualification-cases.json',
+      'fixtures/font/cff-oracle-tools.json',
+      'fixtures/font/cff/host-toolchain.lock.json',
+      'fixtures/font/source-sans-3.052r/SourceSans3-Regular.otf',
+      'fixtures/font/source-sans-3.052r/LICENSE.md',
+      'fixtures/font/source-sans-3.052r/qualification.json',
+      'fixtures/font/source-han-serif-2.003r/SourceHanSerifJP-Regular.otf',
+      'fixtures/font/source-han-serif-2.003r/LICENSE.txt',
+      'fixtures/font/source-han-serif-2.003r/qualification.json'
+    )
+    oracle_tool_sources = @(
+      'scripts/fixtures/Provision-CffQualificationTools.ps1',
+      'scripts/fixtures/Test-CffQualificationTools.ps1',
+      'scripts/fixtures/Test-CffQualificationContracts.ps1',
+      'scripts/fixtures/oracles/fonttools_cff_oracle.py',
+      'scripts/fixtures/oracles/Invoke-AfdkoCffOracle.ps1'
+    )
+    qualification_tool_sources = @(
+      'scripts/fixtures/Generate-FontQualification.ps1',
+      'scripts/quality/Assert-Policy.ps1',
+      'scripts/quality/Invoke-FontQualification.ps1',
+      'scripts/quality/Test-FontQualificationEvidenceBoundary.ps1'
+    )
+  }
+  foreach ($inventory in $inventories.GetEnumerator()) {
+    Assert-FontQualificationPolicyInventory `
+      -Facts @($Qualification.($inventory.Key)) `
+      -ExpectedPaths @($inventory.Value) `
+      -RepositoryRoot $RepositoryRoot `
+      -Label "Font v3 $($inventory.Key)"
+  }
+
+  Assert-ExactSequence 'Font v3 Wave 6 refresh schema' `
+    @($Qualification.wave6_refresh.PSObject.Properties.Name) `
+    @('status', 'required_paths')
+  Assert-Condition (
+    $Qualification.wave6_refresh.status -ceq
+      'required-before-final-v3-seal'
+  ) 'Font v3 Wave 6 refresh status drifted.'
+  Assert-ExactSequence 'Font v3 Wave 6 refresh paths' `
+    @($Qualification.wave6_refresh.required_paths) `
+    @(
+      'benchmarks/moon.work',
+      'benchmarks/font-cff/cff_bench.mbt',
+      'scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1',
+      'scripts/quality/Test-BenchmarkQualification.ps1',
+      'docs/benchmarks/mb-font-cff-native-release-baseline.md'
+    )
+}
+
 function Assert-FontQualificationPinnedPolicyToolchain {
   [CmdletBinding()]
   param([Parameter(Mandatory)][object]$Policy)
@@ -3028,43 +3233,61 @@ function Assert-FontQualificationArtifacts {
 
   Assert-FontQualificationPinnedPolicyToolchain -Policy $Policy
   $fontModule = @($Policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-font' })[0]
+  Assert-FontQualificationV3PolicyContract `
+    -Qualification $fontModule.qualification `
+    -RepositoryRoot $RepositoryRoot
   $font = @($fontModule.public_packages | Where-Object { $_.path -ceq 'font' })[0]
-  $productionSources = @('moon.pkg', 'cmap.mbt', 'collection.mbt', 'collection_limits.mbt', 'collection_parser.mbt', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'kern.mbt', 'limits.mbt', 'metrics.mbt', 'outline.mbt', 'tables.mbt')
+  $productionSources = @(
+    'moon.pkg',
+    'cmap.mbt',
+    'collection.mbt',
+    'collection_limits.mbt',
+    'collection_parser.mbt',
+    'cursor.mbt',
+    'directory.mbt',
+    'font.mbt',
+    'kern.mbt',
+    'limits.mbt',
+    'metrics.mbt',
+    'outline.mbt',
+    'tables.mbt',
+    'cff_index.mbt',
+    'cff_dict.mbt',
+    'cff_keying.mbt',
+    'cff_type2_fixed.mbt',
+    'cff_type2.mbt',
+    'cff_type2_bounds.mbt',
+    'cff_type2_path.mbt',
+    'cff_admission.mbt'
+  )
   $testSources = @(
+    'cff_admission_wbtest.mbt',
+    'cff_cid_fixture_wbtest.mbt',
+    'cff_dict_wbtest.mbt',
+    'cff_hostile_fixture_wbtest.mbt',
+    'cff_index_wbtest.mbt',
+    'cff_keying_wbtest.mbt',
+    'cff_name_keyed_fixture_wbtest.mbt',
+    'cff_type2_bounds_wbtest.mbt',
+    'cff_type2_fixed_wbtest.mbt',
+    'cff_type2_fixture_wbtest.mbt',
+    'cff_type2_path_wbtest.mbt',
+    'cff_type2_wbtest.mbt',
     'collection_test.mbt',
     'collection_wbtest.mbt',
+    'font_qualification_hostile_test.mbt',
+    'font_qualification_test.mbt',
     'font_test.mbt',
     'font_wbtest.mbt',
-    'generated_fonts_wbtest.mbt',
     'generated_font_qualification_test.mbt',
-    'font_qualification_test.mbt',
-    'font_qualification_hostile_test.mbt'
+    'generated_fonts_wbtest.mbt'
   )
   $publicationFiles = @(
     'CHANGELOG.md',
     'README.mbt.md',
     'font',
-    'font/cmap.mbt',
-    'font/collection.mbt',
-      'font/collection_limits.mbt',
-      'font/collection_parser.mbt',
-      'font/collection_test.mbt',
-      'font/collection_wbtest.mbt',
-      'font/cursor.mbt',
-    'font/directory.mbt',
-    'font/font.mbt',
-    'font/font_qualification_hostile_test.mbt',
-    'font/font_qualification_test.mbt',
-    'font/font_test.mbt',
-    'font/font_wbtest.mbt',
-    'font/generated_font_qualification_test.mbt',
-    'font/generated_fonts_wbtest.mbt',
-    'font/kern.mbt',
-    'font/limits.mbt',
-    'font/metrics.mbt',
-    'font/moon.pkg',
-    'font/outline.mbt',
-    'font/tables.mbt',
+    @($productionSources | ForEach-Object { "font/$_" }),
+    @($testSources | ForEach-Object { "font/$_" }),
     'moon.mod.json'
   )
   Assert-ExactSequence 'Font qualification production source order' @($font.production_sources) $productionSources
