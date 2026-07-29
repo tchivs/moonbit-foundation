@@ -1,7 +1,17 @@
 [CmdletBinding()]
 param(
   [switch]$Intake,
-  [switch]$Check
+  [switch]$Check,
+  [switch]$CheckGeneratedTracer,
+  [switch]$CheckContracts,
+  [switch]$CheckGeneratedRecipes,
+  [switch]$CheckOracleAdapters,
+  [switch]$CheckSchemaNegatives,
+  [switch]$CheckHostileInventory,
+  [switch]$CheckOutcomeTrace,
+  [switch]$CheckBoundaryApplicability,
+  [string]$ExecutionHandoffPath,
+  [string]$ProvisionedToolsRoot
 )
 
 Set-StrictMode -Version Latest
@@ -19,6 +29,11 @@ $CollectionFontPath = Join-Path $FixtureDirectory 'DejaVuSans-two-face-v1.ttc'
 $CollectionOraclePath = Join-Path $FixtureDirectory 'collection-oracle.json'
 $ManifestPath = Join-Path $RepositoryRoot 'fixtures/manifest.json'
 $GeneratedSourcePath = Join-Path $RepositoryRoot 'modules/mb-font/font/generated_font_qualification_test.mbt'
+$CffQualificationCasesPath = Join-Path $RepositoryRoot 'fixtures/font/cff-qualification-cases.json'
+$CffOracleToolsPath = Join-Path $RepositoryRoot 'fixtures/font/cff-oracle-tools.json'
+$CffHostLockPath = Join-Path $RepositoryRoot 'fixtures/font/cff/host-toolchain.lock.json'
+$CffFontToolsAdapterPath = Join-Path $RepositoryRoot 'scripts/fixtures/oracles/fonttools_cff_oracle.py'
+$CffAfdkoAdapterPath = Join-Path $RepositoryRoot 'scripts/fixtures/oracles/Invoke-AfdkoCffOracle.ps1'
 
 $ArchiveUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip'
 $ArchiveLength = 417746L
@@ -39,6 +54,10 @@ $StandaloneCasesSha256 = 'a9a86ed5c080571fffe3317eead29865c5fdad222475251423621f
 $PreCollectionManifestRecordsSha256 = 'ee6446eea92e311e5722183531ca86d1225a028df56aad7891af7da8ba30d856'
 $GeneratedChunkSize = 4096
 
+$CffGeneratedTracerBase64 = 'T1RUTwAJAIAAAwAQQ0ZGIEfWkL4AAALQAAAAkE9TLzJFIUQbAAABAAAAAGBjbWFwAAwAlQAAAnwAAAA0aGVhZGE8Qx8AAACcAAAANmhoZWEFSAIMAAAA1AAAACRobXR4BrgAlgAAA2AAAAAMbWF4cAADUAAAAAD4AAAABm5hbWWS/b0oAAABYAAAARpwb3N0AAMAAAAAArAAAAAgAAEAAAABAADMU4v3Xw889QADA+gAAAAAAAAAAAAAAAAAAAAAADIAAAH0Aj8AAAADAAIAAAAAAAAAAQAAAyD/OAAAAmwAMgBkAfQAAQAAAAAAAAAAAAAAAAAAAAMAAFAAAAMAAAADAj0BkAAFAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAA/Pz8/AAAAQQBCAyD/OAAAAyAAyAAAAAAAAAAAAAAAAAAAACAAAAAAAAoAfgABAAAAAAABAAoAAAABAAAAAAACAAcACgABAAAAAAADABEAEQABAAAAAAAEABIAIgABAAAAAAAGABEAEQADAAEECQABABQANAADAAEECQACAA4ASAADAAEECQADACIAVgADAAEECQAEACQAeAADAAEECQAGACIAVk1ORiBUcmFjZXJSZWd1bGFyTU5GVHJhY2VyLVJlZ3VsYXJNTkYgVHJhY2VyIFJlZ3VsYXIATQBOAEYAIABUAHIAYQBjAGUAcgBSAGUAZwB1AGwAYQByAE0ATgBGAFQAcgBhAGMAZQByAC0AUgBlAGcAdQBsAGEAcgBNAE4ARgAgAFQAcgBhAGMAZQByACAAUgBlAGcAdQBsAGEAcgAAAAAAAgAAAAMAAAAUAAMAAQAAABQABAAgAAAABAAEAAEAAABC//8AAABB////wAABAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAEAQABAQESTU5GVHJhY2VyLVJlZ3VsYXIAAQEBGfgbAvgcA/gYBL2L+Ij40wXmD4v3JBLqEQACAQETHU1ORiBUcmFjZXIgUmVndWxhck1ORiBUcmFjZXIAAAEAIgEAAwEBAxUriw6L7xbv+IgFve/vi70n7/yIGA6LvRb4iAf3jov7jvuO98CL+477wBsOAfQAAAJYAGQCbAAy'
+$CffGeneratedTracerLength = 876L
+$CffGeneratedTracerSha256 = 'aa44c7ced50fa71660d76e8a456a301a404d2b1d5e34ea0099a849b876083d5d'
+
 function Get-FontQualificationSha256 {
   [CmdletBinding()]
   param([Parameter(Mandatory)][byte[]]$Bytes)
@@ -46,6 +65,142 @@ function Get-FontQualificationSha256 {
   return [Convert]::ToHexString(
     [System.Security.Cryptography.SHA256]::HashData($Bytes)
   ).ToLowerInvariant()
+}
+
+function Invoke-CffGeneratedTracerCheck {
+  if (-not $ExecutionHandoffPath) {
+    throw '-ExecutionHandoffPath is required for -CheckGeneratedTracer.'
+  }
+  if (-not $ProvisionedToolsRoot) {
+    throw '-ProvisionedToolsRoot is required for -CheckGeneratedTracer.'
+  }
+  $handoffPath = if ([IO.Path]::IsPathFullyQualified($ExecutionHandoffPath)) {
+    [IO.Path]::GetFullPath($ExecutionHandoffPath)
+  } else {
+    [IO.Path]::GetFullPath((Join-Path $RepositoryRoot $ExecutionHandoffPath))
+  }
+  if (-not (Test-Path -LiteralPath $handoffPath -PathType Leaf)) {
+    throw 'CFF generated tracer handoff is missing.'
+  }
+  $handoff = Get-Content -Raw -LiteralPath $handoffPath | ConvertFrom-Json
+  if ($handoff.schema -cne 'mnf-phase107-host-toolchain-handoff/1.0.0' -or
+      $handoff.preflight_validated -ne $true -or
+      $handoff.provisioning_validated -ne $true) {
+    throw 'CFF generated tracer handoff is not fully validated.'
+  }
+  $provisionedRoot = (Resolve-Path -LiteralPath $ProvisionedToolsRoot).Path
+  if ($provisionedRoot -cne [string]$handoff.provisioned_tools_root) {
+    throw 'CFF generated tracer provisioned root differs from the handoff.'
+  }
+  $provisionedPath = Join-Path $provisionedRoot 'provisioned-tools.json'
+  $provisioned = Get-Content -Raw -LiteralPath $provisionedPath | ConvertFrom-Json
+  if ($provisioned.schema -cne 'cff-provisioned-tools/1.0.0' -or
+      $provisioned.provisioning_validated -ne $true -or
+      $provisioned.invoked_identities_sha256 -cne $handoff.invoked_identities_sha256) {
+    throw 'CFF generated tracer provisioned-tool identity drifted.'
+  }
+  if ((Get-FileHash -Algorithm SHA256 -LiteralPath $CffFontToolsAdapterPath).Hash.ToLowerInvariant() -cne
+        [string]$handoff.adapter_sha256.fonttools -or
+      (Get-FileHash -Algorithm SHA256 -LiteralPath $CffAfdkoAdapterPath).Hash.ToLowerInvariant() -cne
+        [string]$handoff.adapter_sha256.afdko) {
+    throw 'CFF generated tracer adapter digest drifted.'
+  }
+
+  $tracerPath = Join-Path $provisionedRoot 'generated-name-tracer.otf'
+  $tracerBytes = [Convert]::FromBase64String($CffGeneratedTracerBase64)
+  if ($tracerBytes.LongLength -ne $CffGeneratedTracerLength -or
+      (Get-FontQualificationSha256 $tracerBytes) -cne $CffGeneratedTracerSha256) {
+    throw 'Hand-derived CFF generated tracer identity drifted.'
+  }
+  [IO.File]::WriteAllBytes($tracerPath, $tracerBytes)
+
+  $pythonPath = @($provisioned.invoked_identities |
+    Where-Object { $_.id -ceq 'runtime.cpython' })[0].path
+  $fontToolsJson = & $pythonPath $CffFontToolsAdapterPath `
+    --site-root $provisioned.fonttools_site_root `
+    --font $tracerPath `
+    --scalar U+0041
+  if ($LASTEXITCODE -ne 0) { throw 'Pinned fontTools reader failed.' }
+  $fontTools = $fontToolsJson | ConvertFrom-Json
+  $afdkoJson = & $CffAfdkoAdapterPath `
+    -PythonPath $pythonPath `
+    -AfdkoSiteRoot $provisioned.afdko_site_root `
+    -TxRunnerPath $provisioned.tx_runner_path `
+    -FontPath $tracerPath `
+    -Scalar U+0041
+  $afdko = $afdkoJson | ConvertFrom-Json
+
+  function Get-CffSemanticProjection {
+    param([Parameter(Mandatory)]$Value)
+    return [ordered]@{
+      schema = $Value.schema
+      source_sha256 = $Value.source_sha256
+      face_index = $Value.face_index
+      scalar = $Value.scalar
+      glyph_name = $Value.glyph_name
+      gid = $Value.gid
+      advance = $Value.advance
+      lsb = $Value.lsb
+      bounds = @($Value.bounds)
+      commands = @($Value.commands)
+      cff_profile = $Value.cff_profile
+      keying = $Value.keying
+    }
+  }
+
+  $fontToolsProjection = Get-CffSemanticProjection $fontTools
+  $afdkoProjection = Get-CffSemanticProjection $afdko
+  $fontToolsCanonical = $fontToolsProjection | ConvertTo-Json -Depth 10 -Compress
+  $afdkoCanonical = $afdkoProjection | ConvertTo-Json -Depth 10 -Compress
+  if ($fontToolsCanonical -cne $afdkoCanonical) {
+    throw "Independent CFF semantic readers disagree.`nfontTools=$fontToolsCanonical`nAFDKO=$afdkoCanonical"
+  }
+  $expected = [ordered]@{
+    schema = 'cff-semantic-reader/1.0.0'
+    source_sha256 = $CffGeneratedTracerSha256
+    face_index = 0
+    scalar = 'U+0041'
+    glyph_name = 'A'
+    gid = 1
+    advance = 600
+    lsb = 100
+    bounds = @(100, 0, 500, 575)
+    commands = @(
+      [ordered]@{ op='MoveTo'; points=@(100, 0) },
+      [ordered]@{ op='LineTo'; points=@(200, 500) },
+      [ordered]@{ op='CubicTo'; points=@(250, 600, 350, 600, 400, 500) },
+      [ordered]@{ op='LineTo'; points=@(500, 0) },
+      [ordered]@{ op='Close'; points=@() }
+    )
+    cff_profile = 'CFF1'
+    keying = 'name'
+  }
+  $expectedCanonical = $expected | ConvertTo-Json -Depth 10 -Compress
+  if ($fontToolsCanonical -cne $expectedCanonical) {
+    throw "Generated CFF tracer differs from hand-derived facts.`n$fontToolsCanonical"
+  }
+
+  $disagreement = $afdkoProjection | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+  $disagreement.advance = 601
+  if ((Get-CffSemanticProjection $disagreement | ConvertTo-Json -Depth 10 -Compress) -ceq
+      $fontToolsCanonical) {
+    throw 'Reader-disagreement negative did not fail.'
+  }
+
+  $hostManifest = Get-Content -Raw -LiteralPath $handoff.manifest_path | ConvertFrom-Json
+  $otsOutput = Join-Path $provisionedRoot 'generated-name-tracer-sanitized.otf'
+  $oldPath = $env:PATH
+  try {
+    $env:PATH = @($hostManifest.sanitized_environment.PATH) -join ';'
+    $otsLog = & $provisioned.ots_sanitize_path $tracerPath $otsOutput 2>&1
+    if ($LASTEXITCODE -ne 0 -or
+        -not (Test-Path -LiteralPath $otsOutput -PathType Leaf)) {
+      throw "OTS structural acceptance failed: $($otsLog -join "`n")"
+    }
+  } finally {
+    $env:PATH = $oldPath
+  }
+  Write-Host 'Generated CFF tracer passed two independent readers and OTS structural acceptance.'
 }
 
 function Format-FontQualificationCoordinate {
@@ -2492,6 +2647,11 @@ function Test-FontQualificationInputs {
     throw 'Independent oracle schema, keys, facts, or serialization drifted.'
   }
   Update-OrCheckManifest -CheckOnly
+}
+
+if ($CheckGeneratedTracer) {
+  Invoke-CffGeneratedTracerCheck
+  return
 }
 
 if ($Intake -and $Check) {

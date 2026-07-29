@@ -1,0 +1,103 @@
+{
+  "schema": "host-toolchain-lock/1.0.0",
+  "platform": "windows-x86_64",
+  "approved_manifest_schema": "mnf-cff-host-toolchain-input/1.0.0",
+  "approved_manifest_sha256": "6ff664ca0e03ae75388947a6dd4a80626d11cf61198ef2934d5808ef908ceaa9",
+  "sdk_inventory_sha256": "d4dcf1d9d1fae39bcd4f6e1daea4cea5e49d4a4da26b8d6fa1c0c6bef7f20e50",
+  "ordered_role_ids": [
+    "runtime.cpython",
+    "build.meson",
+    "build.ninja",
+    "compiler.c",
+    "compiler.cpp",
+    "linker",
+    "build.archiver",
+    "build.strip",
+    "build.windres",
+    "runtime.libcxx",
+    "runtime.libunwind",
+    "sdk.llvm-mingw-x86_64",
+    "config.meson-native",
+    "config.timersub-compat",
+    "source.ots",
+    "source.zlib",
+    "patch.zlib",
+    "source.woff2",
+    "patch.woff2",
+    "source.brotli",
+    "patch.brotli",
+    "source.lz4",
+    "patch.lz4",
+    "source.gtest",
+    "patch.gtest",
+    "package.cpython-embed",
+    "package.meson-wheel",
+    "package.ninja-wheel"
+  ],
+  "required_role_keys": [
+    "id",
+    "kind",
+    "path",
+    "version",
+    "length",
+    "sha256",
+    "permitted_parent_root",
+    "purpose",
+    "provenance",
+    "version_invocation",
+    "hardlink_aliases"
+  ],
+  "required_inventory_keys": [
+    "root",
+    "file_count",
+    "total_bytes",
+    "inventory_sha256",
+    "files"
+  ],
+  "required_inventory_file_keys": [
+    "path",
+    "length",
+    "sha256"
+  ],
+  "ordered_command_ids": [
+    "ots.configure",
+    "ots.build",
+    "ots.test"
+  ],
+  "process_policy": {
+    "path_discovery": false,
+    "registry_discovery": false,
+    "global_packages": false,
+    "environment_manifest_override": false,
+    "wrap_downloads": false,
+    "undeclared_children": false,
+    "allow_reparse_points": false,
+    "allow_hardlink_aliases": false
+  },
+  "semantic_readers": [
+    {
+      "id": "fonttools",
+      "version": "4.63.0",
+      "url": "https://files.pythonhosted.org/packages/87/36/cccb9bc2a6ab63d1b2980374f0dca72ce95ae267c9b4cfe77455bb70d0d4/fonttools-4.63.0-cp312-cp312-win_amd64.whl",
+      "length": 2343211,
+      "sha256": "59ac449f8cca9b4ffa08d2e7bbadad87ce710d69d1eda5c3c1ce579baa987272",
+      "role": "semantic"
+    },
+    {
+      "id": "afdko",
+      "version": "5.0.1",
+      "url": "https://files.pythonhosted.org/packages/de/08/0d5046bd4d4dfc10d0d44feb3fa44886fcf8fa55161f4a4721ea3b90c340/afdko-5.0.1-cp312-cp312-win_amd64.whl",
+      "length": 2721468,
+      "sha256": "c5aca7e9c8ed8ad3f411ba9e60cdcc5e820ca2326efc8332168fec995600c15a",
+      "role": "semantic"
+    }
+  ],
+  "structural_reader": {
+    "id": "ots",
+    "commit": "3b26b2e8b571a33739ee0c3553cb01c17ed62e23",
+    "url": "https://codeload.github.com/khaledhosny/ots/zip/3b26b2e8b571a33739ee0c3553cb01c17ed62e23",
+    "length": 46943415,
+    "sha256": "11e2c24e2c2d13627f389ca811041cb31022fe7747e5eb44ccff92757a6b63f1",
+    "role": "structural-only"
+  }
+}
