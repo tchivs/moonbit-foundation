@@ -2506,8 +2506,8 @@
         "native_benchmark_baseline": {
           "status": "recorded-observation-only",
           "path": "docs/benchmarks/mb-font-cff-native-release-baseline.md",
-          "length": 127195,
-          "sha256": "7f087d42aded809d5d003cf7ae88da1cc12401226cf82f35de2b88757316dea9",
+          "length": 170412,
+          "sha256": "769076233744efa13d1c74d1d76681baf585c0ee126047918953662a52a5de5c",
           "schema_version": "mnf-mb-font-cff-native-baseline/1.0.0",
           "claim": "observation_only",
           "command": "moon -C benchmarks bench font-cff/cff_bench.mbt --release --target native --frozen",
