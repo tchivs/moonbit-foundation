@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 36
+open_count: 39
 waived_count: 0
 fixed_count: 3
-total_count: 39
-last_updated: 2026-07-29T02:47:56.180Z
+total_count: 42
+last_updated: 2026-07-29T03:08:14.152Z
 ---
 
 # Broken Windows Ledger
@@ -54,6 +54,9 @@ last_updated: 2026-07-29T02:47:56.180Z
 | 37 | 107 | deviation | scripts/fixtures/Provision-CffQualificationTools.ps1 |  | Avoided redundant full SDK inventory scans inside one-field negative mutations. | open |  | 2026-07-29T02:47:33.943Z |  |
 | 38 | 107 | deviation | scripts/fixtures/Test-CffQualificationContracts.ps1 |  | Corrected dynamic PowerShell splatting so every named validation mode executes. | open |  | 2026-07-29T02:47:34.500Z |  |
 | 39 | 107 | deviation | .planning/STATE.md |  | Normalized SDK-emitted Phase ? decision labels to Phase 107 after state advancement. | open |  | 2026-07-29T02:47:56.180Z |  |
+| 40 | 107 | deviation | scripts/fixtures/Generate-FontQualification.ps1 |  | Source Sans 3.052R retained license comes from the exact official tag URL because the OTF release ZIP omits LICENSE.md | open |  | 2026-07-29T03:08:12.959Z |  |
+| 41 | 107 | deviation | .gitattributes |  | Path-specific -text rule preserves the exact upstream CRLF Source Sans license bytes | open |  | 2026-07-29T03:08:13.551Z |  |
+| 42 | 107 | deviation | scripts/quality/Assert-Policy.ps1 |  | Fixture policy synchronized to six new licensed qualification records and the live Phase 106 collection digest | open |  | 2026-07-29T03:08:14.152Z |  |
 
 ````json
 [
@@ -523,6 +526,42 @@ last_updated: 2026-07-29T02:47:56.180Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-29T02:47:56.180Z",
+    "resolved_at": null
+  },
+  {
+    "id": 40,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/fixtures/Generate-FontQualification.ps1",
+    "line": null,
+    "description": "Source Sans 3.052R retained license comes from the exact official tag URL because the OTF release ZIP omits LICENSE.md",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T03:08:12.959Z",
+    "resolved_at": null
+  },
+  {
+    "id": 41,
+    "kind": "deviation",
+    "phase": "107",
+    "file": ".gitattributes",
+    "line": null,
+    "description": "Path-specific -text rule preserves the exact upstream CRLF Source Sans license bytes",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T03:08:13.551Z",
+    "resolved_at": null
+  },
+  {
+    "id": 42,
+    "kind": "deviation",
+    "phase": "107",
+    "file": "scripts/quality/Assert-Policy.ps1",
+    "line": null,
+    "description": "Fixture policy synchronized to six new licensed qualification records and the live Phase 106 collection digest",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-29T03:08:14.152Z",
     "resolved_at": null
   }
 ]
