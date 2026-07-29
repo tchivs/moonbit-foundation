@@ -1,0 +1,6 @@
+import {
+  "moonbitlang/core/bench" @bench,
+  "tchivs/mb-font/font" @font,
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"

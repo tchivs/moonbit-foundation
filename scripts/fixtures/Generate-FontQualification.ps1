@@ -15,6 +15,10 @@ param(
   [switch]$CheckLicensedIntake,
   [switch]$CheckOracleAgreement,
   [switch]$CheckProvenance,
+  [switch]$CheckEvidencePackage,
+  [switch]$CheckPublicPrivateBoundary,
+  [ValidateSet('js', 'wasm', 'wasm-gc', 'native')]
+  [string]$Target = 'native',
   [string]$ExecutionHandoffPath,
   [string]$ProvisionedToolsRoot
 )
@@ -46,6 +50,18 @@ $CffExecutionHandoffSha256 =
 $CffExecutionHandoffSchema = 'mnf-phase107-host-toolchain-handoff/1.0.0'
 $CffLicensedRetrievalDate = '2026-07-29'
 $CffLicensedFixtureRoot = Join-Path $RepositoryRoot 'fixtures/font'
+$CffEvidenceRoot = Join-Path $RepositoryRoot 'benchmarks/font-cff'
+$CffEvidenceManifestPath = Join-Path $CffEvidenceRoot 'moon.mod.json'
+$CffEvidencePackagePath = Join-Path $CffEvidenceRoot 'moon.pkg'
+$CffEvidenceWbtestPath = Join-Path $CffEvidenceRoot 'cff_qualification_wbtest.mbt'
+$CffCoreManifestPath = Join-Path $RepositoryRoot 'modules/mb-core/moon.mod.json'
+$CffFontManifestPath = Join-Path $RepositoryRoot 'modules/mb-font/moon.mod.json'
+$CffCoreManifestSha256 =
+  '70f253dec675d8309783bdcc7864faa65d1a5805179e68256ef67bba3d89862e'
+$CffFontManifestSha256 =
+  'c93c8d1390088b5eb877b00fef9de060e5370953d4b85f098a8e0f60cd4c868b'
+$CffFontPublicInterfaceSha256 =
+  '59dd433ea85f4169d87d59bc5b4416564f32317656bca8ad987efce74c1b9153'
 
 $ArchiveUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip'
 $ArchiveLength = 417746L
@@ -4631,6 +4647,352 @@ function Assert-CffProvenanceArtifacts {
   Update-OrCheckCffLicensedProvenance -CheckOnly
 }
 
+function Confirm-CffEvidenceRejected {
+  param(
+    [Parameter(Mandatory)][string]$Label,
+    [Parameter(Mandatory)][scriptblock]$Action,
+    [Parameter(Mandatory)][string]$Pattern
+  )
+  $failure = $null
+  try {
+    & $Action
+  } catch {
+    $failure = $_.Exception.Message
+  }
+  if ($null -eq $failure -or $failure -cnotmatch $Pattern) {
+    throw "Evidence negative '$Label' did not fail closed as expected: $failure"
+  }
+}
+
+function Get-CffEvidenceCanonicalRoots {
+  return @(
+    [IO.Path]::GetFullPath((Join-Path $RepositoryRoot 'modules/mb-core')),
+    [IO.Path]::GetFullPath((Join-Path $RepositoryRoot 'modules/mb-font')),
+    [IO.Path]::GetFullPath($CffEvidenceRoot)
+  )
+}
+
+function Assert-CffEvidenceWorkspaceMembers {
+  param([Parameter(Mandatory)][string[]]$Members)
+  $expected = @(Get-CffEvidenceCanonicalRoots)
+  if ($Members.Count -ne $expected.Count) {
+    throw 'Evidence workspace member count drifted; registry fallback is forbidden.'
+  }
+  for ($index = 0; $index -lt $expected.Count; $index++) {
+    $actualText = $Members[$index].Replace('\', '/')
+    $expectedText = $expected[$index].Replace('\', '/')
+    if ($actualText -cne $expectedText) {
+      throw "Evidence workspace member $index is not the exact canonical tracked root."
+    }
+    if (-not (Test-Path -LiteralPath $Members[$index] -PathType Container)) {
+      throw "Evidence workspace member $index is missing."
+    }
+    Assert-CffNoReparsePath $Members[$index] "evidence workspace member $index"
+  }
+}
+
+function Assert-CffEvidenceManifestContract {
+  param(
+    [string]$EvidenceManifestPath = $CffEvidenceManifestPath,
+    [string]$CoreManifestPath = $CffCoreManifestPath,
+    [string]$FontManifestPath = $CffFontManifestPath
+  )
+  foreach ($path in @($EvidenceManifestPath, $CoreManifestPath, $FontManifestPath)) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+      throw "Evidence module manifest is missing: $path"
+    }
+    Assert-CffNoReparsePath $path 'evidence module manifest'
+  }
+  $evidence = Get-Content -Raw -LiteralPath $EvidenceManifestPath | ConvertFrom-Json
+  Assert-FontQualificationOrderedKeys $evidence @(
+    'name','version','license','preferred-target','supported-targets','deps'
+  ) 'CFF evidence module'
+  Assert-FontQualificationOrderedKeys $evidence.deps @(
+    'tchivs/mb-font'
+  ) 'CFF evidence dependency'
+  if ($evidence.name -cne 'moonbit-foundation/font-cff-evidence' -or
+      $evidence.version -cne '0.0.0' -or
+      $evidence.license -cne 'Apache-2.0' -or
+      $evidence.'preferred-target' -cne 'native' -or
+      $evidence.'supported-targets' -cne '+js+wasm+wasm-gc+native' -or
+      $evidence.deps.'tchivs/mb-font' -cne '0.1.0') {
+    throw 'CFF evidence module identity, targets, or dependency drifted.'
+  }
+  if ((Get-CffFileSha256 $CoreManifestPath) -cne $CffCoreManifestSha256) {
+    throw 'Tracked mb-core manifest digest drifted.'
+  }
+  if ((Get-CffFileSha256 $FontManifestPath) -cne $CffFontManifestSha256) {
+    throw 'Tracked mb-font manifest digest drifted.'
+  }
+  $core = Get-Content -Raw -LiteralPath $CoreManifestPath | ConvertFrom-Json
+  $font = Get-Content -Raw -LiteralPath $FontManifestPath | ConvertFrom-Json
+  if ($core.name -cne 'tchivs/mb-core' -or $core.version -cne '0.1.0' -or
+      $font.name -cne 'tchivs/mb-font' -or $font.version -cne '0.1.0') {
+    throw 'Tracked local module name or version drifted.'
+  }
+  Assert-FontQualificationOrderedKeys $font.deps @(
+    'tchivs/mb-core'
+  ) 'mb-font production dependency'
+  if ($font.deps.'tchivs/mb-core' -cne '0.1.0') {
+    throw 'mb-font production dependency version drifted.'
+  }
+}
+
+function Assert-CffEvidenceSourceBoundary {
+  param(
+    [string]$PackagePath = $CffEvidencePackagePath,
+    [string]$WbtestPath = $CffEvidenceWbtestPath
+  )
+  if (-not (Test-Path -LiteralPath $PackagePath -PathType Leaf) -or
+      -not (Test-Path -LiteralPath $WbtestPath -PathType Leaf)) {
+    throw 'CFF evidence package or public tracer is missing.'
+  }
+  $packageText = (Get-Content -Raw -LiteralPath $PackagePath).Replace("`r`n", "`n")
+  $expectedPackage = @'
+import {
+  "moonbitlang/core/bench" @bench,
+  "tchivs/mb-font/font" @font,
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
+'@.Replace("`r`n", "`n") + "`n"
+  if ($packageText -cne $expectedPackage) {
+    throw 'CFF evidence package imports, aliases, targets, or export boundary drifted.'
+  }
+  $sourceText = (Get-Content -Raw -LiteralPath $WbtestPath).Replace("`r`n", "`n")
+  if ($sourceText -cmatch '(?m)^\s*pub(?:\([^)]*\))?\s+') {
+    throw 'CFF evidence package must not export fixture or evidence symbols.'
+  }
+  if ($sourceText -cmatch
+      '(?i)\b(?:read_file|write_file|open_file|filesystem|subprocess|process|network|http|foreign|extern|ffi)\b') {
+    throw 'CFF evidence package contains a forbidden runtime I/O, process, network, or FFI seam.'
+  }
+  $aliases = @(
+    [regex]::Matches($sourceText, '@(?<name>[A-Za-z][A-Za-z0-9_]*)') |
+      ForEach-Object { $_.Groups['name'].Value } |
+      Select-Object -Unique
+  )
+  foreach ($alias in $aliases) {
+    if ($alias -cne 'font') {
+      throw "CFF evidence tracer references a non-font package alias: @$alias"
+    }
+  }
+  $interfacePath = Join-Path $RepositoryRoot 'modules/mb-font/font/pkg.generated.mbti'
+  if ((Get-CffFileSha256 $interfacePath) -cne $CffFontPublicInterfaceSha256) {
+    throw 'mb-font public interface digest drifted.'
+  }
+  $interfaceText = Get-Content -Raw -LiteralPath $interfacePath
+  $semanticLines = @(
+    Get-Content -LiteralPath $interfacePath |
+      ForEach-Object { $_.TrimEnd() } |
+      Where-Object { $_ -ne '' -and -not $_.TrimStart().StartsWith('//') }
+  )
+  if ($semanticLines.Count -ne 85) {
+    throw 'mb-font public interface semantic line count drifted.'
+  }
+  $fontRoots = @(
+    [regex]::Matches($sourceText, '@font[.](?<name>[A-Za-z][A-Za-z0-9_]*)') |
+      ForEach-Object { $_.Groups['name'].Value } |
+      Select-Object -Unique
+  )
+  foreach ($name in $fontRoots) {
+    if ($interfaceText -cnotmatch
+        "(?m)^pub (?:struct|enum|type|trait) $([regex]::Escape($name))\b" -and
+        $interfaceText -cnotmatch
+        "(?m)^pub fn $([regex]::Escape($name))(?:::|\()") {
+      throw "CFF evidence tracer references a private mb-font symbol: $name"
+    }
+  }
+}
+
+function Remove-CffEvidenceTempRoot {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+  $temp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
+  $full = [IO.Path]::GetFullPath($Path)
+  $leaf = Split-Path -Leaf $full
+  if (-not $full.StartsWith($temp + '\', [StringComparison]::OrdinalIgnoreCase) -or
+      -not $leaf.StartsWith('mnf-font-cff-evidence-', [StringComparison]::Ordinal)) {
+    throw "Refusing to remove unowned evidence path: $full"
+  }
+  Remove-Item -LiteralPath $full -Recurse -Force
+}
+
+function Invoke-CffEvidenceMoon {
+  param([Parameter(Mandatory)][string[]]$Arguments)
+  $moon = (Get-Command moon -ErrorAction Stop).Source
+  $info = [Diagnostics.ProcessStartInfo]::new()
+  $info.FileName = $moon
+  $info.UseShellExecute = $false
+  $info.RedirectStandardOutput = $true
+  $info.RedirectStandardError = $true
+  $info.CreateNoWindow = $true
+  foreach ($argument in $Arguments) {
+    [void]$info.ArgumentList.Add($argument)
+  }
+  $process = [Diagnostics.Process]::new()
+  $process.StartInfo = $info
+  [void]$process.Start()
+  $stdout = $process.StandardOutput.ReadToEndAsync()
+  $stderr = $process.StandardError.ReadToEndAsync()
+  if (-not $process.WaitForExit(60000)) {
+    $process.Kill($true)
+    throw 'Frozen CFF evidence package verification timed out.'
+  }
+  $stdoutText = $stdout.GetAwaiter().GetResult()
+  $stderrText = $stderr.GetAwaiter().GetResult()
+  return [pscustomobject]@{
+    exit_code = $process.ExitCode
+    stdout = $stdoutText
+    stderr = $stderrText
+  }
+}
+
+function Invoke-CffEvidencePackageNegatives {
+  $expectedMembers = @(Get-CffEvidenceCanonicalRoots)
+  Confirm-CffEvidenceRejected 'omitted mb-font member' {
+    Assert-CffEvidenceWorkspaceMembers @($expectedMembers[0], $expectedMembers[2])
+  } 'member count drifted'
+  Confirm-CffEvidenceRejected 'substituted mb-font member' {
+    Assert-CffEvidenceWorkspaceMembers @(
+      $expectedMembers[0],
+      (Join-Path $RepositoryRoot 'modules/mb-image'),
+      $expectedMembers[2]
+    )
+  } 'not the exact canonical tracked root'
+  Confirm-CffEvidenceRejected 'path alias' {
+    Assert-CffEvidenceWorkspaceMembers @(
+      $expectedMembers[0],
+      (Join-Path $RepositoryRoot 'modules/../modules/mb-font'),
+      $expectedMembers[2]
+    )
+  } 'not the exact canonical tracked root'
+
+  $negativeRoot = Join-Path ([IO.Path]::GetTempPath()) (
+    'mnf-font-cff-evidence-negative-' + [guid]::NewGuid().ToString('N')
+  )
+  try {
+    [void](New-Item -ItemType Directory -Path $negativeRoot)
+    $manifestPath = Join-Path $negativeRoot 'moon.mod.json'
+    $packagePath = Join-Path $negativeRoot 'moon.pkg'
+    $testPath = Join-Path $negativeRoot 'cff_qualification_wbtest.mbt'
+    Copy-Item -LiteralPath $CffEvidenceManifestPath -Destination $manifestPath
+    Copy-Item -LiteralPath $CffEvidencePackagePath -Destination $packagePath
+    Copy-Item -LiteralPath $CffEvidenceWbtestPath -Destination $testPath
+
+    $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+    $manifest.name = 'moonbit-foundation/font-cff-evidence-renamed'
+    [IO.File]::WriteAllText(
+      $manifestPath,
+      (($manifest | ConvertTo-Json -Depth 10).Replace("`r`n", "`n") + "`n"),
+      $Utf8NoBom
+    )
+    Confirm-CffEvidenceRejected 'wrong evidence name' {
+      Assert-CffEvidenceManifestContract -EvidenceManifestPath $manifestPath
+    } 'identity, targets, or dependency drifted'
+
+    Copy-Item -LiteralPath $CffEvidenceManifestPath -Destination $manifestPath -Force
+    $fontManifestPath = Join-Path $negativeRoot 'mb-font.moon.mod.json'
+    Copy-Item -LiteralPath $CffFontManifestPath -Destination $fontManifestPath
+    $fontManifest = Get-Content -Raw -LiteralPath $fontManifestPath | ConvertFrom-Json
+    $fontManifest.version = '0.1.1'
+    [IO.File]::WriteAllText(
+      $fontManifestPath,
+      (($fontManifest | ConvertTo-Json -Depth 10).Replace("`r`n", "`n") + "`n"),
+      $Utf8NoBom
+    )
+    Confirm-CffEvidenceRejected 'wrong mb-font version and digest' {
+      Assert-CffEvidenceManifestContract -FontManifestPath $fontManifestPath
+    } 'manifest digest drifted'
+
+    [IO.File]::WriteAllText(
+      $testPath,
+      ((Get-Content -Raw -LiteralPath $CffEvidenceWbtestPath) +
+        "`npub fn leaked_fixture() -> Unit {}`n"),
+      $Utf8NoBom
+    )
+    Confirm-CffEvidenceRejected 'public evidence export' {
+      Assert-CffEvidenceSourceBoundary -WbtestPath $testPath
+    } 'must not export'
+
+    [IO.File]::WriteAllText(
+      $testPath,
+      "@font.cff_parse_private()`n",
+      $Utf8NoBom
+    )
+    Confirm-CffEvidenceRejected 'private mb-font symbol' {
+      Assert-CffEvidenceSourceBoundary -WbtestPath $testPath
+    } 'private mb-font symbol'
+
+    $linkPath = Join-Path $negativeRoot 'mb-font-link'
+    try {
+      [void](New-Item -ItemType Junction -Path $linkPath -Target $expectedMembers[1])
+      Confirm-CffEvidenceRejected 'reparse member' {
+        Assert-CffNoReparsePath $linkPath 'evidence workspace member'
+      } 'reparse-point'
+    } catch {
+      if ($_.Exception.Message -notmatch 'Evidence negative') {
+        Write-Host 'CFF evidence reparse negative unavailable on this host; path-alias negative remains enforced.'
+      } else {
+        throw
+      }
+    }
+  } finally {
+    Remove-CffEvidenceTempRoot $negativeRoot
+  }
+}
+
+function Invoke-CffEvidencePackageCheck {
+  Assert-CffEvidenceManifestContract
+  Assert-CffEvidenceSourceBoundary
+  $members = @(Get-CffEvidenceCanonicalRoots)
+  Assert-CffEvidenceWorkspaceMembers $members
+  $tempRoot = Join-Path ([IO.Path]::GetTempPath()) (
+    'mnf-font-cff-evidence-workspace-' + [guid]::NewGuid().ToString('N')
+  )
+  try {
+    [void](New-Item -ItemType Directory -Path $tempRoot)
+    $cacheRoot = Join-Path $tempRoot '.repos'
+    [void](New-Item -ItemType Directory -Path $cacheRoot)
+    $targetRoot = Join-Path $tempRoot 'target'
+    $memberLines = @($members | ForEach-Object {
+      '  "' + $_.Replace('\', '/') + '",'
+    })
+    $workspaceText = "members = [`n$($memberLines -join "`n")`n]`n"
+    [IO.File]::WriteAllText(
+      (Join-Path $tempRoot 'moon.work'),
+      $workspaceText,
+      $Utf8NoBom
+    )
+    $result = Invoke-CffEvidenceMoon @(
+      '-C', $tempRoot,
+      'check', $CffEvidenceRoot,
+      '--target', $Target,
+      '--frozen',
+      '--target-dir', $targetRoot
+    )
+    if ($result.exit_code -ne 0) {
+      throw (
+        "Tracked CFF evidence package failed frozen local resolution.`n" +
+        $result.stdout + $result.stderr
+      )
+    }
+    if (@(Get-ChildItem -LiteralPath $cacheRoot -Force).Count -ne 0) {
+      throw 'CFF evidence package populated the empty external module cache.'
+    }
+    if ((Get-CffFileSha256 $CffFontManifestPath) -cne $CffFontManifestSha256) {
+      throw 'Resolved mb-font source manifest digest drifted after compilation.'
+    }
+  } finally {
+    Remove-CffEvidenceTempRoot $tempRoot
+  }
+  Invoke-CffEvidencePackageNegatives
+  Write-Host (
+    "CFF evidence package resolved tracked mb-font under frozen $Target " +
+    'with an empty external module cache.'
+  )
+}
+
 if ($CheckGeneratedTracer) {
   Invoke-CffGeneratedTracerCheck
   return
@@ -4654,6 +5016,17 @@ if ($CheckOracleAgreement) {
 }
 if ($CheckProvenance) {
   Assert-CffProvenanceArtifacts
+  return
+}
+if ($CheckEvidencePackage) {
+  Invoke-CffEvidencePackageCheck
+  return
+}
+if ($CheckPublicPrivateBoundary) {
+  Assert-CffEvidenceManifestContract
+  Assert-CffEvidenceSourceBoundary
+  Invoke-CffEvidencePackageNegatives
+  Write-Host 'CFF evidence public/private boundary is exact and closed.'
   return
 }
 
