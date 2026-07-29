@@ -45,6 +45,7 @@ $RecordKeys = @(
   'dependency_facts',
   'source_identities',
   'focused_assertions',
+  'runtime_observations',
   'runner',
   'pass'
 )
@@ -982,6 +983,7 @@ function New-FontQualificationEvidenceRecord {
   param(
     [Parameter(Mandatory)][string]$Target,
     [Parameter(Mandatory)]$Toolchain,
+    [Parameter(Mandatory)][object[]]$RuntimeObservations,
     [Parameter(Mandatory)]$Runner
   )
 
@@ -1004,6 +1006,7 @@ function New-FontQualificationEvidenceRecord {
     dependency_facts = $sections.dependency_facts
     source_identities = $sections.source_identities
     focused_assertions = Get-FontQualificationFocusedFacts
+    runtime_observations = @($RuntimeObservations)
     runner = $Runner
     pass = $true
   }
@@ -1084,6 +1087,46 @@ function Assert-FontQualificationRunnerFact {
   }
 }
 
+function Get-FontQualificationExpectedRuntimeObservations {
+  $corpus = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'fixtures/font/cff-qualification-cases.json'
+  ) | ConvertFrom-Json -Depth 100
+  return @(
+    foreach ($workload in @($corpus.workloads)) {
+      [pscustomobject][ordered]@{
+        workload_id = [string]$workload.id
+        schema = 'cff-runtime-semantics/1'
+        correctness_output_sha256 =
+          [string]$workload.correctness_output_sha256
+        observed = $true
+      }
+    }
+  )
+}
+
+function Assert-FontQualificationRuntimeObservations {
+  param(
+    [Parameter(Mandatory)][object[]]$Observations,
+    [Parameter(Mandatory)][string]$Target
+  )
+  $expected = @(Get-FontQualificationExpectedRuntimeObservations)
+  if ($Observations.Count -ne $expected.Count) {
+    throw "$Target runtime observation count drifted."
+  }
+  for ($index = 0; $index -lt $expected.Count; $index++) {
+    Assert-FontQualificationClosedKeys $Observations[$index] @(
+      'workload_id','schema','correctness_output_sha256','observed'
+    ) "$Target runtime observation $index"
+    if ($Observations[$index].workload_id -cne $expected[$index].workload_id -or
+        $Observations[$index].schema -cne $expected[$index].schema -or
+        $Observations[$index].correctness_output_sha256 -cne
+          $expected[$index].correctness_output_sha256 -or
+        $Observations[$index].observed -ne $true) {
+      throw "$Target runtime observation drifted at $index."
+    }
+  }
+}
+
 function Assert-FontQualificationEvidenceRecord {
   param([Parameter(Mandatory)]$Record)
 
@@ -1121,6 +1164,8 @@ function Assert-FontQualificationEvidenceRecord {
     $Record.focused_assertions `
     (Get-FontQualificationFocusedFacts) `
     "$($Record.target) focused assertions"
+  Assert-FontQualificationRuntimeObservations `
+    @($Record.runtime_observations) ([string]$Record.target)
   Assert-FontQualificationRunnerFact $Record.runner ([string]$Record.target)
 }
 
@@ -1295,6 +1340,7 @@ function Invoke-FontQualificationContractNegatives {
   $record = New-FontQualificationEvidenceRecord `
     'native' `
     (Get-FontQualificationExpectedToolchain) `
+    (Get-FontQualificationExpectedRuntimeObservations) `
     (New-FontQualificationContractRunner 'native')
   Assert-FontQualificationEvidenceRecord $record
   $probes = @(
@@ -1317,6 +1363,7 @@ function Invoke-FontQualificationContractNegatives {
     @{ Name = 'evidence import'; Path = 'dependency_facts.evidence_module.test_only_mb_core_imports.0'; Value = 'other' },
     @{ Name = 'source'; Path = 'source_identities.production.0.sha256'; Value = '00' },
     @{ Name = 'assertion'; Path = 'focused_assertions.0.name'; Value = 'drift' },
+    @{ Name = 'runtime output'; Path = 'runtime_observations.0.correctness_output_sha256'; Value = '00' },
     @{ Name = 'pass'; Path = 'pass'; Value = $false }
   )
   foreach ($probe in $probes) {
@@ -1350,7 +1397,8 @@ function Invoke-FontQualificationContractNegatives {
   } 'keys or order drifted'
   Confirm-FontQualificationEvidenceRejected 'top-level key order' {
     $copy = [pscustomobject][ordered]@{}
-    foreach ($key in @($RecordKeys[1], $RecordKeys[0]) + $RecordKeys[2..17]) {
+    foreach ($key in @($RecordKeys[1], $RecordKeys[0]) +
+        $RecordKeys[2..($RecordKeys.Count - 1)]) {
       $copy | Add-Member -NotePropertyName $key -NotePropertyValue $record.$key
     }
     Assert-FontQualificationEvidenceRecord $copy
@@ -1394,6 +1442,59 @@ function Invoke-FontQualificationMoon {
         Where-Object { $_ -ne '' }
     )
   }
+}
+
+function Invoke-FontQualificationRuntimeObservations {
+  param(
+    [Parameter(Mandatory)][string]$WorkspaceRoot,
+    [Parameter(Mandatory)][string]$EvidenceMember,
+    [Parameter(Mandatory)][string]$Target,
+    [Parameter(Mandatory)][string]$TargetRoot
+  )
+  $result = Invoke-FontQualificationMoon @(
+    '-C', $WorkspaceRoot,
+    'test', (Join-Path $EvidenceMember 'cff_qualification_wbtest.mbt'),
+    '-f', 'font-cff1-v3 runtime semantic tracer',
+    '--target', $Target,
+    '--frozen',
+    '--target-dir', $TargetRoot,
+    '--no-parallelize'
+  )
+  if ($result.exit_code -ne 0) {
+    throw "Runtime semantic tracer failed for $Target."
+  }
+  $observedById = [ordered]@{}
+  foreach ($line in @($result.lines |
+      Where-Object { $_ -clike 'MNF_CFF_RUNTIME|*' })) {
+    $parts = $line -split '\|', 3
+    if ($parts.Count -ne 3 -or
+        -not $parts[2].StartsWith(
+          'cff-runtime-semantics/1|',
+          [StringComparison]::Ordinal
+        ) -or
+        $observedById.Contains([string]$parts[1])) {
+      throw "$Target runtime semantic tracer framing drifted."
+    }
+    $observedById[[string]$parts[1]] = [pscustomobject][ordered]@{
+      workload_id = [string]$parts[1]
+      schema = 'cff-runtime-semantics/1'
+      correctness_output_sha256 = Get-FontQualificationSha256 (
+        $Utf8NoBom.GetBytes([string]$parts[2])
+      )
+      observed = $true
+    }
+  }
+  $expected = @(Get-FontQualificationExpectedRuntimeObservations)
+  $ordered = @(
+    foreach ($row in $expected) {
+      if (-not $observedById.Contains([string]$row.workload_id)) {
+        throw "$Target omitted runtime workload '$($row.workload_id)'."
+      }
+      $observedById[[string]$row.workload_id]
+    }
+  )
+  Assert-FontQualificationRuntimeObservations $ordered $Target
+  return $ordered
 }
 
 function Remove-FontQualificationTempRoot {
@@ -1554,11 +1655,15 @@ function Invoke-FontQualificationTarget {
     if (@(Get-ChildItem -LiteralPath (Join-Path $tempRoot '.repos') -Force).Count -ne 0) {
       throw "Frozen local resolution populated the empty cache for $Target."
     }
+    $runtimeObservations = @(
+      Invoke-FontQualificationRuntimeObservations `
+        $tempRoot $members[2] $Target $targetRoot
+    )
     $mode = if ($TracerOnly) { 'tracer' } else { 'full' }
     $runner = New-FontQualificationRunnerFact `
       $Target $mode $focusedResults $fullPackageCommand $passed $fullSummaries[0]
     $record = New-FontQualificationEvidenceRecord `
-      $Target (Get-FontQualificationToolchain) $runner
+      $Target (Get-FontQualificationToolchain) $runtimeObservations $runner
     Assert-FontQualificationEvidenceRecord $record
     $recordValidated = $true
     return $record
