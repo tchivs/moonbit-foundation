@@ -222,10 +222,13 @@
             "}",
             "pub fn align_up(UInt64, UInt64) -> Result[UInt64, @error.CoreError]",
             "pub fn checked_add(UInt64, UInt64) -> Result[UInt64, @error.CoreError]",
+            "pub fn checked_add_int64(Int64, Int64) -> Result[Int64, @error.CoreError]",
             "pub fn checked_allocation_size(UInt64, UInt64) -> Result[Int, @error.CoreError]",
             "pub fn checked_mul(UInt64, UInt64) -> Result[UInt64, @error.CoreError]",
             "pub fn checked_narrow_int(UInt64) -> Result[Int, @error.CoreError]",
+            "pub fn checked_neg_int64(Int64) -> Result[Int64, @error.CoreError]",
             "pub fn checked_sub(UInt64, UInt64) -> Result[UInt64, @error.CoreError]",
+            "pub fn checked_uint64_to_int64(UInt64) -> Result[Int64, @error.CoreError]",
             "pub struct CheckedOffset {",
             "}",
             "pub fn CheckedOffset::advance(Self, UInt64) -> Result[Self, @error.CoreError]",
@@ -287,6 +290,7 @@
             "pub struct ResourceCharge {",
             "}",
             "pub fn ResourceCharge::bytes(UInt64) -> Self",
+            "pub fn ResourceCharge::checked_add(Self, Self) -> Result[Self, @error.CoreError]",
             "pub fn ResourceCharge::new(bytes~ : UInt64, allocations~ : UInt64, allocation_size~ : UInt64, width~ : UInt64, height~ : UInt64, pixels~ : UInt64, work~ : UInt64) -> Self",
             "pub fn ResourceCharge::none() -> Self",
             "pub struct ResourceLimits {",
@@ -510,10 +514,14 @@
           "path": "math",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbitlang/core/math"
+            "moonbitlang/core/math",
+            "tchivs/mb-core/error"
           ],
           "semantic_interface": [
             "package \"tchivs/mb-core/math\"",
+            "import {",
+            "  \"tchivs/mb-core/error\",",
+            "}",
             "pub fn acos(Double) -> Double",
             "pub fn asin(Double) -> Double",
             "pub fn atan2(Double, Double) -> Double",
@@ -601,6 +609,7 @@
             "pub fn Path2::length(Self) -> Int",
             "pub fn Path2::new() -> Self",
             "pub fn Path2::push(Self, PathCommand) -> Unit",
+            "pub fn Path2::with_capacity(Int) -> Result[Self, @error.CoreError]",
             "pub(all) enum PathCommand {",
             "  MoveTo(Point2)",
             "  LineTo(Point2)",
@@ -2238,6 +2247,9 @@
         "font/metrics.mbt",
         "font/moon.pkg",
         "font/outline.mbt",
+        "font/shape_transaction.mbt",
+        "font/shape_transaction_test.mbt",
+        "font/shape_transaction_wbtest.mbt",
         "font/tables.mbt",
         "moon.mod.json"
       ],
@@ -2274,7 +2286,8 @@
             "cff_type2.mbt",
             "cff_type2_bounds.mbt",
             "cff_type2_path.mbt",
-            "cff_admission.mbt"
+            "cff_admission.mbt",
+            "shape_transaction.mbt"
           ],
           "test_sources": [
             "cff_admission_wbtest.mbt",
@@ -2296,7 +2309,9 @@
             "font_test.mbt",
             "font_wbtest.mbt",
             "generated_font_qualification_test.mbt",
-            "generated_fonts_wbtest.mbt"
+            "generated_fonts_wbtest.mbt",
+            "shape_transaction_test.mbt",
+            "shape_transaction_wbtest.mbt"
           ],
           "semantic_interface": [
             "package \"tchivs/mb-font/font\"",
@@ -2318,6 +2333,7 @@
             "pub fn Font::outline(Self, GlyphId, @budget.Budget) -> Result[@math.Path2, @error.CoreError]",
             "pub fn Font::typographic_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]",
             "pub fn Font::units_per_em(Self) -> Result[UInt64, @error.CoreError]",
+            "pub fn[T] Font::with_shape_transaction(Self, @budget.Budget, (FontShapeScope) -> Result[(T, @budget.ResourceCharge), @error.CoreError]) -> Result[T, @error.CoreError]",
             "pub struct FontBounds {",
             "}",
             "pub fn FontBounds::x_max(Self) -> Int",
@@ -2375,6 +2391,9 @@
             "pub fn FontLineMetrics::ascent(Self) -> Int",
             "pub fn FontLineMetrics::descent(Self) -> Int",
             "pub fn FontLineMetrics::line_gap(Self) -> Int",
+            "pub struct FontShapeScope {",
+            "}",
+            "pub fn FontShapeScope::units_per_em(Self) -> Result[UInt64, @error.CoreError]",
             "pub struct GlyphHorizontalMetrics {",
             "}",
             "pub fn GlyphHorizontalMetrics::advance_width(Self) -> UInt64",
@@ -2391,7 +2410,7 @@
             "wasm-gc",
             "native"
           ],
-          "portable_source_semantic_sha256": "bf0f6ae2f249247911dcb2885973f2c6ccf752926e9e2c0d40a66749757d3920",
+          "portable_source_semantic_sha256": "0ae1dba4f15fb59299a92e7daeada9578317669d201d89f71ee6e556bbba2fda",
           "capability_negative_contract_sha256": "a5e91f9e1728ada382186c166fd17d53299a0fb1b151a38177a62547f7e23344"
         }
       ],
@@ -2429,7 +2448,7 @@
           {"path":"modules/mb-font/font/collection_parser.mbt","length":55806,"sha256":"0ec479c78405405143d9c7c347c6591d83294fab1a9a536a1a6358bdb06dce41"},
           {"path":"modules/mb-font/font/cursor.mbt","length":2402,"sha256":"fc8c19ca53800fb019c6512a6f9f205a2b94e80bcc96ca67d4ab822efcfa11ef"},
           {"path":"modules/mb-font/font/directory.mbt","length":26094,"sha256":"f8c5653f8ed4d3c752e8e1bb36421d203ac8a439b204671d069025887bd28aef"},
-          {"path":"modules/mb-font/font/font.mbt","length":23049,"sha256":"a20d83b4e7b88b66130a16035326238ab0adf4c7a4847d4a21486a7447706c64"},
+          {"path":"modules/mb-font/font/font.mbt","length":24061,"sha256":"764384fce9d0372691c341ed4d97c411ed9bad1fdfb537937122b322c75109bf"},
           {"path":"modules/mb-font/font/kern.mbt","length":16036,"sha256":"21af06a186b5b1e383c1d178744e3274f5b4ecef9bf3d1654c4ee454aa6ffa1c"},
           {"path":"modules/mb-font/font/limits.mbt","length":10617,"sha256":"e172092d7257973dc62f37e761a1b880b6a8d77ecc8bf691b1c84fd3004e8aa6"},
           {"path":"modules/mb-font/font/metrics.mbt","length":13243,"sha256":"9edea9f780c31dcf8449742959a4cc8a9e4f8274fa4f000a0844d586638982b8"},
@@ -2461,8 +2480,8 @@
           {"path":"modules/mb-font/font/collection_wbtest.mbt","length":51584,"sha256":"b03f5a58ede55223c0e56e47481a5f27391d00c1fcec129e2bb557225550cab5"},
           {"path":"modules/mb-font/font/font_qualification_hostile_test.mbt","length":52354,"sha256":"1f419c568d95515218292711c356405d7b65fd0efc8c75aa8d1f7671e84777e9"},
           {"path":"modules/mb-font/font/font_qualification_test.mbt","length":23420,"sha256":"c98f1466bee78aa00631e4e707b5813d47be4f10d50c91b932eb9e8933f71bef"},
-          {"path":"modules/mb-font/font/font_test.mbt","length":188315,"sha256":"c3fe59e7ac3870ad261465d72e1f09a84d9bcee53b0f4e67db78471820a9e56e"},
-          {"path":"modules/mb-font/font/font_wbtest.mbt","length":58451,"sha256":"0891d818f0767a79d3f2c8b999ac9fe1415442c1370318386356efb8fc44ef15"},
+          {"path":"modules/mb-font/font/font_test.mbt","length":190955,"sha256":"d6f9bd548df15d6a2355275d158993a3eb1a6d88a4b1c4d65d7264ba507999ad"},
+          {"path":"modules/mb-font/font/font_wbtest.mbt","length":59159,"sha256":"4f0fff443cd40c8bc16a8bf15b61aa44b47ae9de66e1889233cf690b354f87a8"},
           {"path":"modules/mb-font/font/generated_font_qualification_test.mbt","length":3165717,"sha256":"20843e4a671ee1209a7d172d6c743b002c2dc9a39c25df401365c42d279213a9"},
           {"path":"modules/mb-font/font/generated_fonts_wbtest.mbt","length":21159,"sha256":"dae64ade3d428d8cf7879de9f23dae8cabe568283d79006c6bdcbe1d73ac25db"}
         ],
@@ -2497,7 +2516,7 @@
         ],
         "qualification_tool_sources": [
           {"path":"scripts/fixtures/Generate-FontQualification.ps1","length":270788,"sha256":"a9303f03188bea2eb54efbc26cd783d9bf44d1099e2a8f32278870e5e70d4869"},
-          {"path":"scripts/quality/Assert-Policy.ps1","length":230924,"sha256":"efc92eaf6334e14f9bf04b25bb3722714ea7824540abda65edfc320945a556c3"},
+          {"path":"scripts/quality/Assert-Policy.ps1","length":248216,"sha256":"ad24c7f71fe96a0c0bb9b6f5eb761d8e3b06370da5d7e7ea37fcfa323c204594"},
           {"path":"scripts/quality/Invoke-FontQualification.ps1","length":72960,"sha256":"39edaf444d91cf1b4ca716377eb21308ee1d94bbd3c2975a3ffdc30f67bb00a0"},
           {"path":"scripts/quality/Test-FontQualificationEvidenceBoundary.ps1","length":12116,"sha256":"816bcd7bd7e523cedfce14f7afce26bbd9858dcb907780aaeb4b972c3cdf9ad4"},
           {"path":"scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1","length":71451,"sha256":"6398d93d1061d5137f8455790c95a57c12580159b6439645690a2aed52027b00"},
@@ -2530,6 +2549,127 @@
           "audit_owner": "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1"
         }
       }
+    },
+    {
+      "name": "tchivs/mb-text",
+      "path": "modules/mb-text",
+      "version": "0.1.0",
+      "description": "Portable deterministic format-neutral text shaping contracts for MoonBit Native Foundation.",
+      "repository": "https://github.com/tchivs/moonbit-foundation",
+      "stability": "candidate",
+      "preferred_target": "native",
+      "supported_targets": [
+        "js",
+        "wasm",
+        "wasm-gc",
+        "native"
+      ],
+      "direct_dependencies": [
+        "tchivs/mb-core",
+        "tchivs/mb-font"
+      ],
+      "publication_files": [
+        "CHANGELOG.md",
+        "README.mbt.md",
+        "text",
+        "text/contract_test.mbt",
+        "text/contract_wbtest.mbt",
+        "text/limits.mbt",
+        "text/moon.pkg",
+        "text/options.mbt",
+        "text/run.mbt",
+        "text/shape.mbt",
+        "text/tags.mbt",
+        "moon.mod.json"
+      ],
+      "public_packages": [
+        {
+          "name": "tchivs/mb-text/text",
+          "path": "text",
+          "stability": "candidate",
+          "allowed_imports": [
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/error",
+            "tchivs/mb-font/font"
+          ],
+          "production_sources": [
+            "moon.pkg",
+            "tags.mbt",
+            "options.mbt",
+            "limits.mbt",
+            "run.mbt",
+            "shape.mbt"
+          ],
+          "test_sources": [
+            "contract_test.mbt",
+            "contract_wbtest.mbt"
+          ],
+          "semantic_interface": [
+            "package \"tchivs/mb-text/text\"",
+            "import {",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/error\",",
+            "  \"tchivs/mb-font/font\",",
+            "}",
+            "pub fn shape(@font.Font, Array[Int], ShapingOptions, ShapeLimits, @budget.Budget) -> Result[ShapedRun, @error.CoreError]",
+            "pub(all) enum Direction {",
+            "  LeftToRight",
+            "  RightToLeft",
+            "} derive(Eq)",
+            "pub struct FeaturePolicy {",
+            "}",
+            "pub fn FeaturePolicy::kern(Self) -> Bool",
+            "pub fn FeaturePolicy::liga(Self) -> Bool",
+            "pub fn FeaturePolicy::new(liga~ : Bool, kern~ : Bool) -> Self",
+            "pub(all) enum LanguageChoice {",
+            "  Default",
+            "  Exact(LanguageTag)",
+            "} derive(Eq)",
+            "pub struct LanguageTag {",
+            "} derive(Eq)",
+            "pub fn LanguageTag::bytes(Self) -> Bytes",
+            "pub fn LanguageTag::new(Bytes) -> Result[Self, @error.CoreError]",
+            "pub struct PositionedGlyph {",
+            "}",
+            "pub fn PositionedGlyph::advance(Self) -> Int64",
+            "pub fn PositionedGlyph::cluster(Self) -> UInt64",
+            "pub fn PositionedGlyph::glyph(Self) -> @font.GlyphId",
+            "pub fn PositionedGlyph::x_offset(Self) -> Int64",
+            "pub fn PositionedGlyph::y_offset(Self) -> Int64",
+            "pub struct ScriptTag {",
+            "} derive(Eq)",
+            "pub fn ScriptTag::bytes(Self) -> Bytes",
+            "pub fn ScriptTag::new(Bytes) -> Result[Self, @error.CoreError]",
+            "pub struct ShapeLimits {",
+            "}",
+            "pub fn ShapeLimits::max_input_scalars(Self) -> UInt64",
+            "pub fn ShapeLimits::max_output_glyphs(Self) -> UInt64",
+            "pub fn ShapeLimits::new(max_input_scalars~ : UInt64, max_output_glyphs~ : UInt64) -> Result[Self, @error.CoreError]",
+            "pub struct ShapedRun {",
+            "}",
+            "pub fn ShapedRun::direction(Self) -> Direction",
+            "pub fn ShapedRun::glyph_at(Self, UInt64) -> Result[PositionedGlyph, @error.CoreError]",
+            "pub fn ShapedRun::len(Self) -> UInt64",
+            "pub fn ShapedRun::total_advance(Self) -> Int64",
+            "pub fn ShapedRun::units_per_em(Self) -> UInt64",
+            "pub struct ShapingOptions {",
+            "}",
+            "pub fn ShapingOptions::direction(Self) -> Direction",
+            "pub fn ShapingOptions::features(Self) -> FeaturePolicy",
+            "pub fn ShapingOptions::language(Self) -> LanguageChoice",
+            "pub fn ShapingOptions::new(ScriptTag, LanguageChoice, Direction, FeaturePolicy) -> Self",
+            "pub fn ShapingOptions::script(Self) -> ScriptTag"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        }
+      ]
     }
   ],
   "allowed_dependency_edges": [
@@ -2560,6 +2700,14 @@
     {
       "from": "tchivs/mb-font",
       "to": "tchivs/mb-core"
+    },
+    {
+      "from": "tchivs/mb-text",
+      "to": "tchivs/mb-core"
+    },
+    {
+      "from": "tchivs/mb-text",
+      "to": "tchivs/mb-font"
     }
   ],
   "stability": {

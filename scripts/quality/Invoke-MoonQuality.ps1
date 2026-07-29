@@ -1001,7 +1001,7 @@ function Invoke-RequiredQuality {
   $policyPath = 'policy/foundation.json'
   $auditPath = 'policy/phase-01-source-audit.json'
   $requiredTargets = @('js', 'wasm', 'wasm-gc', 'native')
-  $modules = @('mb-core', 'mb-color', 'mb-image')
+  $modules = @('mb-core', 'mb-color', 'mb-image', 'mb-text')
   $policy = Read-QualityJson -Path $policyPath
   $absoluteEvidence = if ([IO.Path]::IsPathRooted($EvidenceDirectory)) { [IO.Path]::GetFullPath($EvidenceDirectory) } else { [IO.Path]::GetFullPath((Join-Path (Resolve-Path '.').Path $EvidenceDirectory)) }
 
@@ -1084,6 +1084,9 @@ function Invoke-RequiredQuality {
     }
     Invoke-QualityStage "IMAG literate README check target $target" {
       Invoke-MoonCommand -Context "mb-image README check target $target" -Arguments @('-C', 'modules/mb-image', 'check', 'README.mbt.md', '--target', $target, '--frozen')
+    }
+    Invoke-QualityStage "TXT literate README check target $target" {
+      Invoke-MoonCommand -Context "mb-text README check target $target" -Arguments @('-C', 'modules/mb-text', 'check', 'README.mbt.md', '--target', $target, '--frozen')
     }
     Invoke-QualityStage "WORK-05 check target $target" {
       Invoke-MoonCommand -Context "workspace check target $target" -Arguments @('check', '--target', $target, '--deny-warn', '--frozen')

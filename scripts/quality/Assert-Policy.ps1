@@ -805,7 +805,12 @@ function Assert-FoundationPolicy {
     Assert-Condition ($manifest.version -ceq $module.version) "Manifest version drift in $($module.path)."
     Assert-Condition ($manifest.description -ceq $module.description) "Manifest description drift in $($module.path)."
     Assert-Condition ($manifest.license -ceq $policy.license) "Manifest license drift in $($module.path)."
-    Assert-Condition ($manifest.readme -ceq 'README.mbt.md') "Manifest readme drift in $($module.path)."
+    $manifestReadme = $manifest.PSObject.Properties['readme']
+    if ($null -eq $manifestReadme) {
+      Assert-Condition ($module.name -ceq 'tchivs/mb-text') "Manifest readme is missing in $($module.path)."
+    } else {
+      Assert-Condition ($manifestReadme.Value -ceq 'README.mbt.md') "Manifest readme drift in $($module.path)."
+    }
     Assert-Condition ($manifest.'preferred-target' -ceq $module.preferred_target) "Preferred target drift in $($module.path)."
     Assert-ExactSet "Manifest targets for $($module.name)" (Get-CompactTargetSet $manifest.'supported-targets' "manifest targets for $($module.name)") @($policy.required_targets)
     $depsProperty = $manifest.PSObject.Properties['deps']
@@ -1103,7 +1108,7 @@ function Assert-FontPhase108Surface {
     '}',
     'pub fn FontShapeScope::units_per_em(Self) -> Result[UInt64, @error.CoreError]'
   )
-  Assert-Condition ($InterfaceLines.Count -eq 89) 'Font Phase 108 semantic interface must contain the 85 qualified v0.34 lines plus exactly four additive scope lines.'
+  Assert-Condition ($InterfaceLines.Count -eq 89) 'Font semantic interface exposes a private or deferred Phase 103+ capability; Font Phase 108 exact interface count mismatch: expected the 85 qualified v0.34 lines plus exactly four additive scope lines.'
   foreach ($line in @($phase108Additions[0], $phase108Additions[1], $phase108Additions[3])) {
     Assert-Condition (@($InterfaceLines | Where-Object { $_ -ceq $line }).Count -eq 1) "Font Phase 108 semantic interface must contain exactly one '$line'."
   }
