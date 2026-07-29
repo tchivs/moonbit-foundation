@@ -10,6 +10,11 @@ param(
   [switch]$CheckHostileInventory,
   [switch]$CheckOutcomeTrace,
   [switch]$CheckBoundaryApplicability,
+  [switch]$CheckIntakeContract,
+  [switch]$CheckIntakeNegatives,
+  [switch]$CheckLicensedIntake,
+  [switch]$CheckOracleAgreement,
+  [switch]$CheckProvenance,
   [string]$ExecutionHandoffPath,
   [string]$ProvisionedToolsRoot
 )
@@ -3413,6 +3418,11 @@ function Test-FontQualificationInputs {
 if ($CheckGeneratedTracer) {
   Invoke-CffGeneratedTracerCheck
   return
+}
+
+if ($CheckIntakeContract -or $CheckIntakeNegatives -or $CheckLicensedIntake -or
+    $CheckOracleAgreement -or $CheckProvenance) {
+  throw 'Phase 107 licensed intake contract is not implemented.'
 }
 
 if ($CheckContracts -or $CheckGeneratedRecipes -or $CheckOracleAdapters -or
