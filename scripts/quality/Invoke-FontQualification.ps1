@@ -148,7 +148,8 @@ $EvidenceSourcePaths = @(
   'benchmarks/font-cff/moon.mod.json',
   'benchmarks/font-cff/moon.pkg',
   'benchmarks/font-cff/generated_cff_evidence.mbt',
-  'benchmarks/font-cff/cff_qualification_wbtest.mbt'
+  'benchmarks/font-cff/cff_qualification_wbtest.mbt',
+  'benchmarks/font-cff/cff_runtime_semantics.mbt'
 )
 $FixtureSourcePaths = @(
   'fixtures/manifest.json',

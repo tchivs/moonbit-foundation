@@ -3139,6 +3139,7 @@ function Assert-FontQualificationV3PolicyContract {
       'benchmarks/font-cff/generated_cff_evidence.mbt',
       'benchmarks/font-cff/cff_qualification_wbtest.mbt',
       'benchmarks/moon.work',
+      'benchmarks/font-cff/cff_runtime_semantics.mbt',
       'benchmarks/font-cff/cff_bench.mbt'
     )
     fixture_sources = @(
