@@ -15,6 +15,12 @@ foreach ($path in @($generatorPath, $oracleToolsPath, $casesPath)) {
   }
 }
 
+$cases = Get-Content -Raw -LiteralPath $casesPath | ConvertFrom-Json
+if (@($cases.hostile_groups).Count -ne 6 -or
+    @($cases.precedence_cases).Count -eq 0) {
+  throw 'Task 3 hostile groups and precedence cases are incomplete.'
+}
+
 $before = @(
   (Get-FileHash -Algorithm SHA256 -LiteralPath $oracleToolsPath).Hash,
   (Get-FileHash -Algorithm SHA256 -LiteralPath $casesPath).Hash
@@ -23,7 +29,10 @@ foreach ($switchName in @(
     'CheckContracts',
     'CheckGeneratedRecipes',
     'CheckOracleAdapters',
-    'CheckSchemaNegatives'
+    'CheckSchemaNegatives',
+    'CheckHostileInventory',
+    'CheckOutcomeTrace',
+    'CheckBoundaryApplicability'
   )) {
   $arguments = @{}
   $arguments[$switchName] = $true
