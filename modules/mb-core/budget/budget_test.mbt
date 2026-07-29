@@ -241,3 +241,141 @@ test "depth accepts the exact shared limit and rejects one more unchanged" {
   first.leave()
   inspect(budget.current_depth(), content="0")
 }
+
+///|
+test "checked charge composition adds consumables and keeps maximum ceilings" {
+  let first = @budget.ResourceCharge::new(
+    bytes=2UL,
+    allocations=3UL,
+    allocation_size=5UL,
+    width=4UL,
+    height=6UL,
+    pixels=7UL,
+    work=8UL,
+  )
+  let second = @budget.ResourceCharge::new(
+    bytes=11UL,
+    allocations=13UL,
+    allocation_size=9UL,
+    width=2UL,
+    height=10UL,
+    pixels=17UL,
+    work=19UL,
+  )
+  let combined = first.checked_add(second).unwrap()
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=13UL,
+      allocations=16UL,
+      allocation_size=9UL,
+      width=4UL,
+      height=10UL,
+      pixels=24UL,
+      depth=0UL,
+      work=27UL,
+    ),
+  )
+  budget.charge(combined).unwrap()
+  let remaining = budget.remaining()
+  inspect(remaining.bytes(), content="0")
+  inspect(remaining.allocations(), content="0")
+  inspect(remaining.pixels(), content="0")
+  inspect(remaining.work(), content="0")
+}
+
+///|
+fn assert_charge_add_overflow(
+  first : @budget.ResourceCharge,
+  second : @budget.ResourceCharge,
+  context : String,
+) -> Unit raise {
+  let error = first.checked_add(second).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(
+    error.code() == @error.ErrorCode::ArithmeticOverflow,
+    content="true",
+  )
+  inspect(error.operation() == Some("resource-charge-add"), content="true")
+  inspect(error.context() == Some(context), content="true")
+}
+
+///|
+test "checked charge composition reports the exact overflowing dimension" {
+  let maximum = 18446744073709551615UL
+  assert_charge_add_overflow(
+    @budget.ResourceCharge::new(
+      bytes=maximum,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=0UL,
+    ),
+    @budget.ResourceCharge::bytes(1UL),
+    "bytes",
+  )
+  assert_charge_add_overflow(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=maximum,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=0UL,
+    ),
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=1UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=0UL,
+    ),
+    "allocations",
+  )
+  assert_charge_add_overflow(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=maximum,
+      work=0UL,
+    ),
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=1UL,
+      work=0UL,
+    ),
+    "pixels",
+  )
+  assert_charge_add_overflow(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=maximum,
+    ),
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=1UL,
+    ),
+    "work",
+  )
+}

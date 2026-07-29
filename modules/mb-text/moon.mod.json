@@ -1,0 +1,13 @@
+{
+  "name": "tchivs/mb-text",
+  "version": "0.1.0",
+  "description": "Portable deterministic format-neutral text shaping contracts for MoonBit Native Foundation.",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/tchivs/moonbit-foundation",
+  "preferred-target": "native",
+  "supported-targets": "+js+wasm+wasm-gc+native",
+  "deps": {
+    "tchivs/mb-core": "0.1.0",
+    "tchivs/mb-font": "0.1.0"
+  }
+}

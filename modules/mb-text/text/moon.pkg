@@ -1,0 +1,9 @@
+import {
+  "tchivs/mb-core/budget",
+  "tchivs/mb-core/bytes",
+  "tchivs/mb-core/checked",
+  "tchivs/mb-core/error",
+  "tchivs/mb-font/font",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
