@@ -535,6 +535,219 @@ test "font-complete-public qualifies licensed DejaVu collection faces" {
 }
 
 ///|
+fn font_qualification_assert_static_glyf_semantic_compatibility() -> Unit raise {
+  let standalone_source = font_collection_test_equivalence_truetype()
+  let standalone_owner = font_test_owner(standalone_source)
+  let standalone = Font::open(
+    standalone_owner.view(),
+    font_collection_test_selected_font_limits(
+      standalone_source.length().to_uint64(),
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let collection_source = font_collection_test_selected_ttc_from(
+    standalone_source,
+  )
+  let collection_owner = font_collection_test_owner(collection_source)
+  let collection = FontCollection::open(
+    collection_owner.view(),
+    font_collection_test_selected_collection_limits(
+      collection_source.length().to_uint64(),
+      1UL,
+      11UL,
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let selected = collection
+    .open_face(
+      0UL,
+      font_collection_test_selected_font_limits(
+        collection_source.length().to_uint64(),
+      ),
+      font_collection_test_selected_budget(),
+    )
+    .unwrap()
+
+  inspect(collection.face_count().unwrap() == 1UL, content="true")
+  inspect(
+    collection.face_profile(0UL).unwrap() == FontFaceProfile::StaticGlyf,
+    content="true",
+  )
+  for font in [standalone, selected] {
+    inspect(font.units_per_em().unwrap() == 1000UL, content="true")
+    font_qualification_assert_bounds(font.global_bounds().unwrap(), 0, 0, 0, 0)
+    let a = font.glyph_for_scalar(0x0041).unwrap()
+    let smile = font.glyph_for_scalar(0x1F600).unwrap()
+    inspect(a.value() == 1UL, content="true")
+    inspect(smile.value() == 2UL, content="true")
+    font_qualification_assert_metrics(font, a, 600UL, 10, 0, 0, 100, 100)
+    let smile_metrics = font.horizontal_metrics(smile).unwrap()
+    inspect(smile_metrics.advance_width() == 700UL, content="true")
+    inspect(smile_metrics.left_side_bearing() == -20, content="true")
+    inspect(smile_metrics.bounds() is None, content="true")
+    inspect(font.kerning(a, smile).unwrap() == -37, content="true")
+    let path = font
+      .outline(a, font_test_composite_budget())
+      .unwrap()
+    inspect(path.length() == 4, content="true")
+    font_qualification_assert_command(path, 0, "M", 0.0, 0.0, 0.0, 0.0)
+    font_qualification_assert_command(path, 1, "L", 100.0, 0.0, 0.0, 0.0)
+    font_qualification_assert_command(path, 2, "Q", 100.0, 100.0, 0.0, 0.0)
+    font_qualification_assert_command(path, 3, "Z", 0.0, 0.0, 0.0, 0.0)
+  }
+
+  let invalid_gid = standalone.glyph_id(3UL).unwrap_err()
+  inspect(
+    invalid_gid.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(
+    invalid_gid.code() == @error.ErrorCode::InvalidRange,
+    content="true",
+  )
+  inspect(invalid_gid.operation() == Some("font-glyph-id"), content="true")
+  inspect(invalid_gid.context() == Some("font-glyph-id-range"), content="true")
+  inspect(invalid_gid.requested() == Some(3UL), content="true")
+  inspect(invalid_gid.limit() == Some(3UL), content="true")
+
+  let mutation_source = font_collection_test_selected_ttc()
+  let mutation_owner = font_collection_test_owner(mutation_source)
+  let mutation_collection = FontCollection::open(
+    mutation_owner.view(),
+    font_collection_test_selected_limits(
+      mutation_source.length().to_uint64(),
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let before_mutation_budget = font_collection_test_selected_budget()
+  let before_mutation = before_mutation_budget.remaining()
+  let index_error = mutation_collection
+    .open_face(1UL, font_test_limits(), before_mutation_budget)
+    .unwrap_err()
+  inspect(
+    index_error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(
+    index_error.context() == Some("font-collection-face-index"),
+    content="true",
+  )
+  font_collection_test_assert_budget_unchanged(
+    before_mutation,
+    before_mutation_budget,
+  )
+  font_collection_test_mutate(mutation_owner, 20UL, b'\x01')
+  let after_mutation_budget = font_collection_test_selected_budget()
+  let after_mutation = after_mutation_budget.remaining()
+  let state_error = mutation_collection
+    .open_face(1UL, font_test_limits(), after_mutation_budget)
+    .unwrap_err()
+  inspect(state_error.category() == @error.ErrorCategory::State, content="true")
+  inspect(
+    state_error.context() == Some("font-collection-source-revision-drift"),
+    content="true",
+  )
+  font_collection_test_assert_budget_unchanged(
+    after_mutation,
+    after_mutation_budget,
+  )
+
+  let exact_owner = font_test_owner(font_test_minimal_truetype())
+  let exact_budget = font_test_budget_with_dimensions(
+    460UL,
+    allocations=3UL,
+    allocation_size=640UL,
+    1296UL,
+  )
+  let exact_before = exact_budget.remaining()
+  ignore(
+    Font::open(
+      exact_owner.view(),
+      font_test_limits(),
+      exact_budget,
+    ).unwrap(),
+  )
+  let exact_after = exact_budget.remaining()
+  inspect(exact_before.bytes() - exact_after.bytes() == 460UL, content="true")
+  inspect(
+    exact_before.allocations() - exact_after.allocations() == 3UL,
+    content="true",
+  )
+  inspect(exact_after.allocation_size() == 640UL, content="true")
+  inspect(exact_before.work() - exact_after.work() == 1296UL, content="true")
+
+  let selected_source = font_collection_test_selected_ttc()
+  let selected_owner = font_collection_test_owner(selected_source)
+  let selected_collection = FontCollection::open(
+    selected_owner.view(),
+    font_collection_test_selected_limits(selected_source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let face_limits = font_collection_test_selected_font_limits(
+    selected_source.length().to_uint64(),
+    max_work=658UL,
+  )
+  let face_budget = font_collection_test_selected_budget_with(
+    454UL,
+    3UL,
+    640UL,
+    658UL,
+  )
+  let face_before = face_budget.remaining()
+  ignore(
+    selected_collection
+    .open_face(0UL, face_limits, face_budget)
+    .unwrap(),
+  )
+  let face_after = face_budget.remaining()
+  inspect(face_before.bytes() - face_after.bytes(), content="454")
+  inspect(
+    face_before.allocations() - face_after.allocations() == 3UL,
+    content="true",
+  )
+  inspect(face_after.allocation_size(), content="640")
+  inspect(face_before.work() - face_after.work(), content="658")
+
+  let ancestor = font_collection_test_selected_budget_with(
+    454UL,
+    3UL,
+    640UL,
+    658UL,
+  )
+  let child = ancestor.child(ancestor.remaining()).unwrap()
+  ancestor.charge(
+    @budget.ResourceCharge::new(
+      bytes=1UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=0UL,
+    ),
+  ).unwrap()
+  let ancestor_before = ancestor.remaining()
+  let child_before = child.remaining()
+  let ancestor_error = selected_collection
+    .open_face(0UL, face_limits, child)
+    .unwrap_err()
+  inspect(
+    ancestor_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(
+    ancestor_error.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(ancestor_error.operation() == Some("budget_charge"), content="true")
+  inspect(ancestor_error.context() == Some("bytes"), content="true")
+  inspect(ancestor_error.requested() == Some(454UL), content="true")
+  inspect(ancestor_error.limit() == Some(453UL), content="true")
+  font_collection_test_assert_budget_unchanged(ancestor_before, ancestor)
+  font_collection_test_assert_budget_unchanged(child_before, child)
+}
+
+///|
 test "font-cff1-v3 freezes static glyf semantic compatibility" {
   font_qualification_assert_static_glyf_semantic_compatibility()
 }

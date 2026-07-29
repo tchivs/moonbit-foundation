@@ -405,6 +405,50 @@ test "CFF CID tracer names a one-short local Subrs boundary" {
   )
 }
 
+// font-cff1-v3 private fd oracle:begin
+
+///|
+fn cff_qualification_assert_private_fd_oracle() -> Unit raise {
+  let admitted = admit_cff1_structure(
+    font_wb_view(cff_wb_otf(cff_cid_wb_table(), num_glyphs=3UL)),
+    font_wb_limits(),
+    cff_wb_budget(),
+    2UL,
+  ).unwrap()
+  let descriptor = admitted.glyphs[2]
+  inspect(descriptor.gid == 2UL, content="true")
+  inspect(descriptor.key_value == 101UL, content="true")
+  inspect(descriptor.environment.fd == Some(1UL), content="true")
+  inspect(
+    descriptor.environment.private_dict.local_subrs.unwrap().value == 2UL,
+    content="true",
+  )
+  inspect(descriptor.environment.local_subrs.count == 0UL, content="true")
+  inspect(
+    descriptor.environment.local_subrs.encoded_length == 2UL,
+    content="true",
+  )
+  inspect(descriptor.environment.top_font_matrix.length() == 6, content="true")
+  inspect(
+    descriptor.environment.top_font_matrix[0].negative == false,
+    content="true",
+  )
+  inspect(
+    descriptor.environment.top_font_matrix[0].magnitude == 1UL,
+    content="true",
+  )
+  inspect(
+    descriptor.environment.top_font_matrix[0].denominator == 1000UL,
+    content="true",
+  )
+  let fd_matrix = descriptor.environment.fd_font_matrix.unwrap()
+  inspect(fd_matrix.length() == 6, content="true")
+  inspect(fd_matrix[0].negative == false, content="true")
+  inspect(fd_matrix[0].magnitude == 2UL, content="true")
+  inspect(fd_matrix[0].denominator == 1UL, content="true")
+}
+// font-cff1-v3 private fd oracle:end
+
 ///|
 test "font-cff1-v3 private fd oracle" {
   cff_qualification_assert_private_fd_oracle()

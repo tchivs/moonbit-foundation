@@ -4330,7 +4330,7 @@ function Assert-CffPrivateRegion {
   param(
     [Parameter(Mandatory)][string]$Path,
     [Parameter(Mandatory)][string]$Marker,
-    [Parameter(Mandatory)][string[]]$ExpectedRows
+    [Parameter(Mandatory)][AllowEmptyString()][string[]]$ExpectedRows
   )
   $text = [IO.File]::ReadAllText($Path, $Utf8NoBom).Replace("`r`n", "`n")
   $begin = "// $Marker`:begin"
@@ -4351,22 +4351,55 @@ function Assert-CffPrivateRegion {
 
 function Assert-CffPrivateOracleFacts {
   $inputs = Get-CffEvidenceInputs
+  $cid = @($inputs.cases.expected_facts | Where-Object {
+      $_.id -ceq 'cid-two-fd-primary'
+    })
+  if ($cid.Count -ne 1) {
+    throw 'Canonical generated CID private oracle row is missing or duplicated.'
+  }
+  $fact = $cid[0]
   $facts = @(
-    foreach ($record in @($inputs.licensed)) {
-      $projection = $record.semantic_oracles.normalized_projection
-      '// fact ' + (
-        [ordered]@{
-          source_sha256 = [string]$record.font.sha256
-          scalar = [string]$projection.scalar
-          gid = [int]$projection.gid
-          advance = [int]$projection.advance
-          lsb = [int]$projection.lsb
-          bounds = @($projection.bounds)
-          commands = @($projection.commands)
-          authority = 'two-reader-exact-normalized-agreement'
-        } | ConvertTo-Json -Compress -Depth 100
-      )
-    }
+    ''
+    '///|'
+    'fn cff_qualification_assert_private_fd_oracle() -> Unit raise {'
+    '  let admitted = admit_cff1_structure('
+    '    font_wb_view(cff_wb_otf(cff_cid_wb_table(), num_glyphs=3UL)),'
+    '    font_wb_limits(),'
+    '    cff_wb_budget(),'
+    "    $($fact.mapping.gid)UL,"
+    '  ).unwrap()'
+    "  let descriptor = admitted.glyphs[$($fact.mapping.gid)]"
+    "  inspect(descriptor.gid == $($fact.mapping.gid)UL, content=`"true`")"
+    "  inspect(descriptor.key_value == $($fact.environment.key_value)UL, content=`"true`")"
+    "  inspect(descriptor.environment.fd == Some($($fact.environment.fd)UL), content=`"true`")"
+    '  inspect('
+    '    descriptor.environment.private_dict.local_subrs.unwrap().value == 2UL,'
+    '    content="true",'
+    '  )'
+    "  inspect(descriptor.environment.local_subrs.count == $($fact.environment.local_subrs)UL, content=`"true`")"
+    '  inspect('
+    '    descriptor.environment.local_subrs.encoded_length == 2UL,'
+    '    content="true",'
+    '  )'
+    '  inspect(descriptor.environment.top_font_matrix.length() == 6, content="true")'
+    '  inspect('
+    '    descriptor.environment.top_font_matrix[0].negative == false,'
+    '    content="true",'
+    '  )'
+    '  inspect('
+    '    descriptor.environment.top_font_matrix[0].magnitude == 1UL,'
+    '    content="true",'
+    '  )'
+    '  inspect('
+    "    descriptor.environment.top_font_matrix[0].denominator == $($fact.environment.top_matrix_denominator)UL,"
+    '    content="true",'
+    '  )'
+    '  let fd_matrix = descriptor.environment.fd_font_matrix.unwrap()'
+    '  inspect(fd_matrix.length() == 6, content="true")'
+    '  inspect(fd_matrix[0].negative == false, content="true")'
+    "  inspect(fd_matrix[0].magnitude == $($fact.environment.fd_matrix_magnitude)UL, content=`"true`")"
+    '  inspect(fd_matrix[0].denominator == 1UL, content="true")'
+    '}'
   )
   Assert-CffPrivateRegion `
     -Path (Join-Path $RepositoryRoot 'modules/mb-font/font/cff_cid_fixture_wbtest.mbt') `
