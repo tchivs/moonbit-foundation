@@ -4,7 +4,7 @@
 
 ## Closed identity
 
-- Source Git commit: `ddcab3ae05eefeaea7a903f0329371db478f6a19`
+- Source Git commit: `efede01c280e654b79c3d12ca1cddabe750a85ec`
 - Source tree state: `(clean benchmark inputs; orchestrator auto-chain marker excluded)`
 - Exact command: `moon -C benchmarks bench font-cff/cff_bench.mbt --release --target native --frozen`
 - Fixed sequence: one excluded warmup followed by seven retained complete captures.
@@ -35,7 +35,7 @@
 | `benchmarks/font-cff/moon.pkg` | 256 | `a22026ab3a2d0a6cea938f029f56a511495234bb57fb62ba3fe2ad32d87b9218` |
 | `benchmarks/font-cff/cff_bench.mbt` | 6881 | `11f57939dac0d327c65d7128fc2c0158803d3a36cad4ec40d8ebe9f8b0086ef8` |
 | `benchmarks/moon.work` | 139 | `2562fdf6d4dba04d48b32b207764edb6076c1772d0e53ef1e1712e82ebf93895` |
-| `scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1` | 65407 | `551a3d5d6fc452d4032e5e271c885a4c0e391fdac7f091db668fc6a935d1bdd6` |
+| `scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1` | 66248 | `02ee9a2e651ad39c7a5d5fd2b3126be0d709526c4c02a7a03ec550afadb6a57b` |
 | `scripts/quality/Test-BenchmarkQualification.ps1` | 8102 | `204901288f0b1691fe1ea0efd3e3ad3165c6349e094a20c3ffb26bbae14ffbec` |
 
 ## Toolchain and host
@@ -48,7 +48,7 @@
 - os: `Microsoft Windows 11 企业版 | version=10.0.22631 | build=22631 | architecture=64 位` (probe `Get-CimInstance Win32_OperatingSystem`).
 - cpu: `Intel(R) Xeon(R) Platinum 8378C CPU @ 2.80GHz | physical_cores=4 | logical_processors=8` (probe `Get-CimInstance Win32_Processor | Select-Object -First 1`).
 - physical_memory_bytes: `34358808576` (probe `Get-CimInstance Win32_ComputerSystem`).
-- active_power_scheme: `鐢垫簮鏂规 GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (骞宠　)` (probe `powercfg /GETACTIVESCHEME`).
+- active_power_scheme: `381b4222-f694-41f0-9685-ff5bb260df2e` (probe `powercfg /GETACTIVESCHEME`).
 
 ## Captures
 
@@ -337,7 +337,7 @@ Run `./scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 -Audit`. Audit r
                   "interpretation":  "native release measurements for exact reproduction facts only"
               },
     "identity":  {
-                     "git_commit":  "ddcab3ae05eefeaea7a903f0329371db478f6a19",
+                     "git_commit":  "efede01c280e654b79c3d12ca1cddabe750a85ec",
                      "tree_status":  "(clean benchmark inputs; orchestrator auto-chain marker excluded)"
                  },
     "execution":  {
@@ -422,8 +422,8 @@ Run `./scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 -Audit`. Audit r
                     },
                     {
                         "path":  "scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1",
-                        "length":  65407,
-                        "sha256":  "551a3d5d6fc452d4032e5e271c885a4c0e391fdac7f091db668fc6a935d1bdd6"
+                        "length":  66248,
+                        "sha256":  "02ee9a2e651ad39c7a5d5fd2b3126be0d709526c4c02a7a03ec550afadb6a57b"
                     },
                     {
                         "path":  "scripts/quality/Test-BenchmarkQualification.ps1",
@@ -529,7 +529,7 @@ Run `./scripts/benchmarks/Invoke-CffNativeBenchmarkBaseline.ps1 -Audit`. Audit r
                                                "attempted":  "Get-CimInstance Win32_ComputerSystem"
                                            },
                  "active_power_scheme":  {
-                                             "value":  "\u9422\u57AB\u7C2E\u93C2\u89C4\uE50D GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (\u9A9E\u5BA0\u3000)",
+                                             "value":  "381b4222-f694-41f0-9685-ff5bb260df2e",
                                              "attempted":  "powercfg /GETACTIVESCHEME"
                                          },
                  "native_compiler":  {
