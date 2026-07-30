@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.35
 milestone_name: Text Shaping Foundation
-current_phase: 108
-current_phase_name: Public Contract and Transaction Skeleton
-status: verifying
+current_phase: 109
+current_phase_name: Bounded Layout Admission
+status: planning
 stopped_at: Completed 108-05-PLAN.md
-last_updated: "2026-07-29T23:26:17.230Z"
+last_updated: "2026-07-30T01:04:25.314Z"
 last_activity: 2026-07-30
-last_activity_desc: Completed Plan 108-05 public contract and policy seal
+last_activity_desc: Phase 108 complete, transitioned to Phase 109
 progress:
   total_phases: 1
   completed_phases: 1
@@ -28,10 +28,10 @@ See `.planning/PROJECT.md` (updated 2026-07-30 for v0.35).
 
 ## Current Position
 
-Phase: 108 of 113 (1 of 6 in v0.35)
-Plan: 5 of 5
-Status: Phase complete — ready for verification
-Last activity: 2026-07-30 — Completed Plan 108-05 public contract and policy seal
+Phase: 109 of 113 (Bounded Layout Admission)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-30 — Phase 108 complete, transitioned to Phase 109
 
 Progress: [██████████] 100%
 

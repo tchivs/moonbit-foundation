@@ -44,7 +44,7 @@ v0.35 delivers one bounded, pure-MoonBit path from explicit single-font Unicode 
 
 ## Phases
 
-- [ ] **Phase 108: Public Contract and Transaction Skeleton** - Freeze the format-neutral run contract and one-commit opaque `mb-font`/`mb-text` transaction boundary.
+- [x] **Phase 108: Public Contract and Transaction Skeleton** - Freeze the format-neutral run contract and one-commit opaque `mb-font`/`mb-text` transaction boundary. (completed 2026-07-30)
 - [ ] **Phase 109: Bounded Layout Admission** - Resolve selected OpenType layout into bounded normalized facts without exposing raw font data.
 - [ ] **Phase 110: Deterministic GSUB and Source Clusters** - Produce final glyph identities and scalar provenance in logical shaping order before metrics.
 - [ ] **Phase 111: GPOS and Kerning Authority** - Produce exact positioned advances and offsets under one modern-or-legacy kerning decision.
@@ -224,7 +224,7 @@ v0.35 delivers one bounded, pure-MoonBit path from explicit single-font Unicode 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 108. Public Contract and Transaction Skeleton | 5/5 | In Progress|  |
+| 108. Public Contract and Transaction Skeleton | 5/5 | Complete    | 2026-07-30 |
 | 109. Bounded Layout Admission | 0/TBD | Not started | - |
 | 110. Deterministic GSUB and Source Clusters | 0/TBD | Not started | - |
 | 111. GPOS and Kerning Authority | 0/TBD | Not started | - |
