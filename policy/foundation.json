@@ -2410,7 +2410,7 @@
             "wasm-gc",
             "native"
           ],
-          "portable_source_semantic_sha256": "0ae1dba4f15fb59299a92e7daeada9578317669d201d89f71ee6e556bbba2fda",
+          "portable_source_semantic_sha256": "b9bd9a1de1bc64d87a62cf8a06ba8317749a3228358e40ae86810f1e040c6c3f",
           "capability_negative_contract_sha256": "a5e91f9e1728ada382186c166fd17d53299a0fb1b151a38177a62547f7e23344"
         }
       ],
@@ -2448,7 +2448,7 @@
           {"path":"modules/mb-font/font/collection_parser.mbt","length":55806,"sha256":"0ec479c78405405143d9c7c347c6591d83294fab1a9a536a1a6358bdb06dce41"},
           {"path":"modules/mb-font/font/cursor.mbt","length":2402,"sha256":"fc8c19ca53800fb019c6512a6f9f205a2b94e80bcc96ca67d4ab822efcfa11ef"},
           {"path":"modules/mb-font/font/directory.mbt","length":26094,"sha256":"f8c5653f8ed4d3c752e8e1bb36421d203ac8a439b204671d069025887bd28aef"},
-          {"path":"modules/mb-font/font/font.mbt","length":24061,"sha256":"764384fce9d0372691c341ed4d97c411ed9bad1fdfb537937122b322c75109bf"},
+          {"path":"modules/mb-font/font/font.mbt","length":24061,"sha256":"c75d8955b9b61101805b20c35f5fac3c9aca45edc5c742a7c9d6e1a3ef8f2764"},
           {"path":"modules/mb-font/font/kern.mbt","length":16036,"sha256":"21af06a186b5b1e383c1d178744e3274f5b4ecef9bf3d1654c4ee454aa6ffa1c"},
           {"path":"modules/mb-font/font/limits.mbt","length":10617,"sha256":"e172092d7257973dc62f37e761a1b880b6a8d77ecc8bf691b1c84fd3004e8aa6"},
           {"path":"modules/mb-font/font/metrics.mbt","length":13243,"sha256":"9edea9f780c31dcf8449742959a4cc8a9e4f8274fa4f000a0844d586638982b8"},

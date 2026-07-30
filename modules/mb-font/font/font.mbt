@@ -662,18 +662,18 @@ pub fn Font::glyph_id(
 ///|
 /// Return exact per-glyph horizontal metrics from admitted table-local views.
 ///
-/// The identifier is revalidated against this receiving font before any table
-/// read. Retained-source revision is checked both before lookup and immediately
-/// before publishing the result.
+/// The identifier is revalidated against this receiving font before the
+/// retained-source revision and any table read. Revision is checked again
+/// immediately before publishing the result.
 pub fn Font::horizontal_metrics(
   self : Font,
   glyph : GlyphId,
 ) -> Result[GlyphHorizontalMetrics, @error.CoreError] {
-  match self.require_revision("font-query") {
+  match self.require_glyph_owner(glyph, "font-horizontal-metrics") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  match self.require_glyph_owner(glyph, "font-horizontal-metrics") {
+  match self.require_revision("font-query") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }

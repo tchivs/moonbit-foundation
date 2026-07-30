@@ -54,6 +54,16 @@ priv struct GeneratedLogicalGlyph {
 }
 
 ///|
+priv struct ValidatedGeneratedLogicalGlyph {
+  glyph : @font.GlyphId
+  cluster : UInt64
+  base_advance : Int64
+  adjustment : Int64
+  x_offset : Int64
+  y_offset : Int64
+}
+
+///|
 #warnings("-1")
 fn generated_logical_glyph(
   glyph : @font.GlyphId,
@@ -176,19 +186,51 @@ fn generated_cluster(
 }
 
 ///|
-fn project_generated_run(
+fn validate_generated_glyph_provenance(
   font : @font.Font,
   logical : Array[GeneratedLogicalGlyph],
-  input_count : UInt64,
-  units_per_em : UInt64,
-  direction : Direction,
-) -> Result[ShapedRun, @error.CoreError] {
-  let logical_records : Array[PositionedGlyph] = []
+) -> Result[Unit, @error.CoreError] {
   for fact in logical {
     match font.horizontal_metrics(fact.glyph) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
+  }
+  Ok(())
+}
+
+///|
+fn validate_generated_structure(
+  logical : Array[GeneratedLogicalGlyph],
+  input_count : UInt64,
+) -> Result[Array[ValidatedGeneratedLogicalGlyph], @error.CoreError] {
+  let validated : Array[ValidatedGeneratedLogicalGlyph] = []
+  for fact in logical {
+    let cluster = match
+      generated_cluster(fact.consumed_scalar_indices, input_count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    validated.push({
+      glyph: fact.glyph,
+      cluster,
+      base_advance: fact.base_advance,
+      adjustment: fact.adjustment,
+      x_offset: fact.x_offset,
+      y_offset: fact.y_offset,
+    })
+  }
+  Ok(validated)
+}
+
+///|
+fn project_generated_run(
+  logical : Array[ValidatedGeneratedLogicalGlyph],
+  units_per_em : UInt64,
+  direction : Direction,
+) -> Result[ShapedRun, @error.CoreError] {
+  let logical_records : Array[PositionedGlyph] = []
+  for fact in logical {
     let adjusted = match
       @checked.checked_add_int64(fact.base_advance, fact.adjustment) {
       Err(error) => return Err(text_shape_project_error(error, "advance"))
@@ -202,15 +244,10 @@ fn project_generated_run(
           Ok(value) => value
         }
     }
-    let cluster = match
-      generated_cluster(fact.consumed_scalar_indices, input_count) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
     logical_records.push(
       positioned_glyph(
         fact.glyph,
-        cluster,
+        fact.cluster,
         advance,
         fact.x_offset,
         fact.y_offset,
@@ -264,6 +301,10 @@ fn generated_shape_contract(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  match validate_generated_glyph_provenance(font, logical) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   font.with_shape_transaction(budget, fn(scope) {
     let units_per_em = match scope.units_per_em() {
       Err(error) => return Err(error)
@@ -271,6 +312,11 @@ fn generated_shape_contract(
     }
     if structure_fault {
       return Err(text_shape_structure_error())
+    }
+    let input_count = snapshot.length().to_uint64()
+    let validated = match validate_generated_structure(logical, input_count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
     (probes.post_structure)()
     match scope.units_per_em() {
@@ -285,11 +331,8 @@ fn generated_shape_contract(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
-    let input_count = snapshot.length().to_uint64()
     let run = match project_generated_run(
-      font,
-      logical,
-      input_count,
+      validated,
       units_per_em,
       options.direction(),
     ) {

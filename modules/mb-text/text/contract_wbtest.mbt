@@ -586,6 +586,159 @@ test "generated projection validates every cluster source against the scalar sna
 }
 
 ///|
+test "generated combined faults preserve input state data capability resource precedence" {
+  let (_active_owner, active_font) = text_wb_font()
+  let (_foreign_owner, foreign_font) = text_wb_font()
+  let foreign_budget = text_wb_resource_budget(0UL)
+  let foreign = generated_shape_contract(
+    active_font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    foreign_budget,
+    [
+      generated_logical_glyph(
+        foreign_font.glyph_id(0UL).unwrap(),
+        [],
+        9223372036854775807L,
+        1L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=true,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(foreign.category() == @error.ErrorCategory::InvalidInput, content="true")
+  inspect(foreign.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(foreign.context() == Some("font-glyph-owner"), content="true")
+  inspect(foreign_budget.remaining().work(), content="0")
+
+  let (state_owner, state_font) = text_wb_font()
+  let state_glyph = state_font.glyph_id(0UL).unwrap()
+  state_owner.with_mut(0UL, 1UL, fn(lease) {
+    lease.set(0UL, b'\x01')
+  }).unwrap()
+  let state_budget = text_wb_resource_budget(0UL)
+  let state = generated_shape_contract(
+    state_font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    state_budget,
+    [
+      generated_logical_glyph(
+        state_glyph,
+        [],
+        9223372036854775807L,
+        1L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=true,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(state.category() == @error.ErrorCategory::State, content="true")
+  inspect(state.context() == Some("font-source-revision-drift"), content="true")
+  inspect(state_budget.remaining().work(), content="0")
+
+  let (_data_owner, data_font) = text_wb_font()
+  let data_budget = text_wb_resource_budget(0UL)
+  let data = generated_shape_contract(
+    data_font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    data_budget,
+    [
+      generated_logical_glyph(
+        data_font.glyph_id(0UL).unwrap(),
+        [1UL],
+        9223372036854775807L,
+        1L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=true,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(data.category() == @error.ErrorCategory::Data, content="true")
+  inspect(data.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(data.context() == Some("cluster-source"), content="true")
+  inspect(data_budget.remaining().work(), content="0")
+
+  let (_cap_owner, cap_font) = text_wb_font()
+  let cap_budget = text_wb_resource_budget(0UL)
+  let capability = generated_shape_contract(
+    cap_font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    cap_budget,
+    [
+      generated_logical_glyph(
+        cap_font.glyph_id(0UL).unwrap(),
+        [0UL],
+        9223372036854775807L,
+        1L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=true,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(capability.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(
+    capability.code() == @error.ErrorCode::CapabilityUnavailable,
+    content="true",
+  )
+  inspect(capability.context() == Some("layout-unavailable"), content="true")
+  inspect(cap_budget.remaining().work(), content="0")
+
+  let (_arithmetic_owner, arithmetic_font) = text_wb_font()
+  let arithmetic_budget = text_wb_resource_budget(0UL)
+  let arithmetic = generated_shape_contract(
+    arithmetic_font,
+    [0x41],
+    text_wb_options(Direction::LeftToRight),
+    text_wb_limits(1UL, 1UL),
+    arithmetic_budget,
+    [
+      generated_logical_glyph(
+        arithmetic_font.glyph_id(0UL).unwrap(),
+        [0UL],
+        9223372036854775807L,
+        1L,
+        0L,
+        0L,
+      ),
+    ],
+    structure_fault=false,
+    capability_fault=false,
+    generated_shape_noop_probes(),
+    text_wb_charge(1UL),
+  ).unwrap_err()
+  inspect(
+    arithmetic.code() == @error.ErrorCode::ArithmeticOverflow,
+    content="true",
+  )
+  inspect(arithmetic.operation() == Some("text-shape-project"), content="true")
+  inspect(arithmetic.context() == Some("advance"), content="true")
+  inspect(arithmetic_budget.remaining().work(), content="0")
+}
+
+///|
 test "equal adjacent records stay distinct and ligatures keep minimum scalar cluster" {
   let (_owner, font) = text_wb_font()
   let equal = generated_shape_contract(
