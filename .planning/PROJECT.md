@@ -10,13 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.34 CFF Outline Foundation Complete
+## Current State: v0.35 Text Shaping Foundation — Phase 108 Complete
 
-**Delivered:** Phases 104-107 now provide bounded static CFF1 admission for standalone OpenType and selected TTC/OTC faces, a deterministic Type 2 interpreter with retained metrics, reusable cubic `Path2` outlines through the existing opaque `Font` API, and generated/licensed/hostile qualification. Name-keyed and CID-keyed fonts, shared subroutines, source mutation, exact resource authority, atomic publication, and existing static-`glyf` compatibility are covered without adding a foreign runtime dependency or exposing private CFF data.
+**Delivered:** Phase 108 establishes the independently publishable `tchivs/mb-text` contract, explicit scalar/script/language/direction/feature/limit inputs, opaque immutable positioned-run values, checked signed projection helpers, same-`Font` glyph authority, and the exact generic `Font::with_shape_transaction` continuation. Valid empty input publishes after one combined caller-and-ancestor budget commit; nonempty production shaping remains deliberately capability-closed until Phase 109 admits selected layout authority.
 
-**Validated:** All 4 phases and 18 plans are complete. Phase 107 passed 27/27 goal must-haves, CFF-06, and D-01 through D-23 with zero behavior-unverified debt. The final workspace regression passes 1287/1287 tests on each of `js`, `wasm`, `wasm-gc`, and `native`; qualification passes 275/275 with 53/53 hostile rows and 4/4 runtime observations per target. Final code review is 0 Critical/0 Warning, all 33 ASVS L1 threats are closed, and the observation-only native baseline is bound to final tracked inputs and passes a clean read-only audit.
+**Validated:** All 5 Phase 108 plans pass 20/20 goal must-haves, D-01 through D-16, 13/13 prohibitions, a clean three-iteration code review, ASVS L1 security with `threats_open: 0`, and the formal no-UI audit. The final workspace regression passes 1326/1326 tests under `moon test --target all --frozen`; `mb-text` passes 20/20 and `mb-font` 284/284 on `js`, `wasm`, `wasm-gc`, and `native`. FontQualification produces four equal target records with semantic SHA-256 `80b9f93b381a38d6f2c4a15abb1fab63da10cdc1f89513190d55a2f6cc4751a9`.
 
-**Next:** Audit and archive v0.34, then begin v0.35 with a bounded, deterministic horizontal text-shaping slice over the validated font foundation.
+**Next:** Phase 109 admits a bounded selected OpenType layout profile behind the closed transaction without yet executing GSUB, GPOS, GDEF, or legacy `kern`.
 
 ## Current Milestone: v0.35 Text Shaping Foundation
 
@@ -80,6 +80,8 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Validated
 
+- [x] Library authors have a stable format-neutral shaping input/run contract with explicit scalar, script, language, direction, closed feature, limit, and budget choices. — Validated in Phase 108.
+- [x] Prepared text/font values cross one opaque request-scoped authority seam and either fail with all budgets unchanged or publish after one checked aggregate charge; generated run facts prove same-font identity, scalar-origin clusters, signed projection, and stable stage precedence. — Validated in Phase 108.
 - [x] Library authors can open bounded static OpenType CFF1 fonts and receive the existing opaque `Font` with reusable cubic `Path2` outlines. — Validated in v0.34 Phases 104-106.
 - [x] Malformed or resource-exhausting CFF/Type 2 programs fail deterministically before publishing partial font state or geometry or charging an uncommitted transaction. — Validated in v0.34 Phases 104-107.
 - [x] Maintainers can reproduce generated, licensed, hostile, existing-`glyf`, collection, and four-target CFF qualification evidence. — Validated in v0.34 Phase 107.
@@ -295,4 +297,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after completing Phase 104 CFF1 Profile and Bounded Data Model*
+*Last updated: 2026-07-30 after completing Phase 108 Public Contract and Transaction Skeleton*
