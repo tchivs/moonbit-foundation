@@ -94,7 +94,36 @@ v0.35 delivers one bounded, pure-MoonBit path from explicit single-font Unicode 
   4. Maintainers can reproduce exact-fit and one-short outcomes for every admitted count, byte window, 16/32-bit offset base, matrix/product, retained allocation, parser-work, and source-stage guard with stable table-specific diagnostics.
   5. No successful or failed request exposes raw table bytes, offsets, coverage/class arrays, feature/lookup indices, mutable source state, or a reusable stale profile.
 
-**Plans**: TBD during phase planning
+**Plans**: 0/9 plans executed
+**Wave 1**
+
+- [ ] 109-02-PLAN.md
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 109-01-PLAN.md
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 109-03-PLAN.md
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 109-04-PLAN.md
+- [ ] 109-05-PLAN.md
+- [ ] 109-06-PLAN.md
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 109-07-PLAN.md
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 109-08-PLAN.md
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 109-09-PLAN.md
 
 **Likely plan structure**:
 
@@ -225,7 +254,7 @@ v0.35 delivers one bounded, pure-MoonBit path from explicit single-font Unicode 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 108. Public Contract and Transaction Skeleton | 5/5 | Complete    | 2026-07-30 |
-| 109. Bounded Layout Admission | 0/TBD | Not started | - |
+| 109. Bounded Layout Admission | 0/9 | Planned    |  |
 | 110. Deterministic GSUB and Source Clusters | 0/TBD | Not started | - |
 | 111. GPOS and Kerning Authority | 0/TBD | Not started | - |
 | 112. Integrated Transaction, Resource, and Mutation Hardening | 0/TBD | Not started | - |
